@@ -56,6 +56,8 @@ public class GpxApproximationFragment extends ContextMenuScrollFragment
 	private View cancelButton;
 	private View applyButton;
 
+	private SliderCard sliderCard;
+
 	@Override
 	public int getMainLayoutId() {
 		return R.layout.fragment_gpx_approximation_bottom_sheet_dialog;
@@ -87,7 +89,7 @@ public class GpxApproximationFragment extends ContextMenuScrollFragment
 
 	@Override
 	public int getSupportedMenuStatesPortrait() {
-		return MenuState.HALF_SCREEN | MenuState.FULL_SCREEN;
+		return MenuState.HEADER_ONLY | MenuState.HALF_SCREEN | MenuState.FULL_SCREEN;
 	}
 
 	@Override
@@ -165,7 +167,6 @@ public class GpxApproximationFragment extends ContextMenuScrollFragment
 			params.gravity = Gravity.BOTTOM | Gravity.START;
 			mainView.findViewById(R.id.control_buttons).setLayoutParams(params);
 		}
-		enterGpxApproximationMode();
 		runLayoutListener();
 
 		calculateGpxApproximation();
@@ -175,9 +176,15 @@ public class GpxApproximationFragment extends ContextMenuScrollFragment
 
 	@Override
 	protected void calculateLayout(View view, boolean initLayout) {
+		int sliderHeight = sliderCard != null ? sliderCard.getViewHeight() : 0;
 		menuTitleHeight = view.findViewById(R.id.control_buttons).getHeight()
-				- view.findViewById(R.id.buttons_shadow).getHeight();
+				- view.findViewById(R.id.buttons_shadow).getHeight() + sliderHeight;
 		super.calculateLayout(view, initLayout);
+	}
+
+	@Override
+	protected boolean isHideable() {
+		return false;
 	}
 
 	@Override
@@ -193,7 +200,6 @@ public class GpxApproximationFragment extends ContextMenuScrollFragment
 		if (gpxApproximator != null) {
 			gpxApproximator.cancelApproximation();
 		}
-		exitGpxApproximationMode();
 		if (!applyApproximation) {
 			Fragment fragment = getTargetFragment();
 			if (fragment instanceof GpxApproximationFragmentListener) {
@@ -265,7 +271,7 @@ public class GpxApproximationFragment extends ContextMenuScrollFragment
 			cardsContainer.removeAllViews();
 
 			if (getTopView() != null) {
-				SliderCard sliderCard = new SliderCard(mapActivity, distanceThreshold);
+				sliderCard = new SliderCard(mapActivity, distanceThreshold);
 				sliderCard.setListener(this);
 				getTopView().addView(sliderCard.build(mapActivity));
 			}
@@ -273,28 +279,6 @@ public class GpxApproximationFragment extends ContextMenuScrollFragment
 			ProfileCard profileCard = new ProfileCard(mapActivity, snapToRoadAppMode);
 			profileCard.setListener(this);
 			cardsContainer.addView(profileCard.build(mapActivity));
-		}
-	}
-
-	private void enterGpxApproximationMode() {
-		MapActivity mapActivity = getMapActivity();
-		if (mapActivity != null) {
-			boolean portrait = AndroidUiHelper.isOrientationPortrait(mapActivity);
-			AndroidUiHelper.setVisibility(mapActivity, portrait ? View.INVISIBLE : View.GONE,
-					R.id.map_left_widgets_panel,
-					R.id.map_right_widgets_panel,
-					R.id.map_center_info);
-		}
-	}
-
-	private void exitGpxApproximationMode() {
-		MapActivity mapActivity = getMapActivity();
-		if (mapActivity != null) {
-			AndroidUiHelper.setVisibility(mapActivity, View.VISIBLE,
-					R.id.map_left_widgets_panel,
-					R.id.map_right_widgets_panel,
-					R.id.map_center_info,
-					R.id.map_search_button);
 		}
 	}
 

@@ -128,6 +128,7 @@ public class FavoritesTreeFragment extends OsmandExpandableListFragment implemen
 
 				@Override
 				public void onFavoriteDataUpdated(@NonNull FavouritePoint favouritePoint) {
+					favouritesAdapter.notifyDataSetChanged();
 				}
 			});
 		}
@@ -1025,9 +1026,7 @@ public class FavoritesTreeFragment extends OsmandExpandableListFragment implemen
 			name.setText(model.getDisplayName(app), TextView.BufferType.SPANNABLE);
 			name.setTypeface(Typeface.DEFAULT, visible ? Typeface.NORMAL : Typeface.ITALIC);
 			name.setTextColor(getResources().getColor(visible ? enabledColor : disabledColor));
-			if (model.isAddressSpecified()) {
-				addressText.setText(model.getAddress());
-			}
+			addressText.setText(model.isAddressSpecified() ? model.getAddress() : null);
 			int color = visible
 					? app.getFavorites().getColorWithCategory(model, getResources().getColor(R.color.color_favorite))
 					: ContextCompat.getColor(app, disabledIconColor);

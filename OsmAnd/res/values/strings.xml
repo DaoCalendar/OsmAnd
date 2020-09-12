@@ -11,13 +11,35 @@
 	Thx - Hardy
 
 -->
-    <string name="system_default_theme">System Default</string>
+    <string name="release_3_8">
+    • Updated "Plan Route" mode allows using different navigation types for each segment and attaches any track to the roads\n\n
+    • New "Appearance" options for tracks: select color, thickness turn on the direction arrows and start/finish marks\n\n
+    • Improved bicycle nodes visibility\n\n
+    • Context menu for tracks with basic info\n\n
+    • Improved "Search" algorithms\n\n
+    • Improved "Follow track" options in Navigation\n\n
+    • Fixed issues with import/export of profile settings\n\n
+    </string>
+    <string name="shared_string_redo">Redo</string>
+    <string name="one_point_error">Please add at least two points.</string>
+    <string name="shared_string_is_saved">is saved</string>
+    <string name="open_saved_track">Open saved track</string>
+    <string name="all_previous_segments_will_be_recalc">All previous segments will be recalculated using the selected profile.</string>
+    <string name="all_next_segments_will_be_recalc">All subsequent segments will be recalculated using the selected profile.</string>
+    <string name="only_selected_segment_recalc">Only the selected segment will be recalculated using the selected profile.</string>
+    <string name="all_previous_segments">All previous segments</string>
+    <string name="previous_segment">Previous segment</string>
+    <string name="all_next_segments">All subsequent segments</string>
+    <string name="system_default_theme">System default</string>
     <string name="gpx_monitoring_start">Resume trip recording</string>
     <string name="gpx_monitoring_stop">Pause trip recording</string>
     <string name="save_global_track_interval_descr">Specify the logging interval for the general track recording (enabled via the Trip recording widget on the map).</string>
     <string name="disable_recording_once_app_killed_descrp">Will pause track logging when the app is killed (via recent apps). (OsmAnd background indication disappears from the Android notification bar.)</string>
     <string name="monitoring_control_start">REC</string>
     <string name="number_of_gpx_files_selected_pattern">%s track files selected</string>
+    <string name="shared_string_file_name">File name</string>
+    <string name="simplified_track_description">Only the route line will be saved, the waypoints will be deleted.</string>
+    <string name="simplified_track">Simplified track</string>
     <string name="plan_route_change_route_type_after">Change route type after</string>
     <string name="plan_route_change_route_type_before">Change route type before</string>
     <string name="plan_route_trim_after">Trim after</string>
@@ -31,7 +53,7 @@
     <string name="pass_whole_track_descr">Point of the track to navigate</string>
     <string name="navigate_to_track_descr">Navigate from my location to the track</string>
     <string name="select_another_track">Select another track</string>
-    <string name="import_track_descr">Choose track file to follow or import it from device.</string>
+    <string name="import_track_descr">Choose track file to follow or import it from your device.</string>
     <string name="follow_track_descr">Choose track file to follow</string>
     <string name="follow_track">Follow track</string>
     <string name="marker_save_as_track">Save as track file</string>
@@ -47,24 +69,23 @@
     <string name="shared_string_gpx_files">Tracks</string>
     <string name="add_segment_to_the_track">Add to a track file</string>
     <string name="shared_string_save_as_gpx">Save as new track file</string>
-    <string name="web_server">Web server</string>
     <string name="in_case_of_reverse_direction">In case of reverse direction</string>
-    <string name="plan_route_exit_dialog_descr">Are you sure you want to close Plan route without saving? You will lose all changes.</string>
+    <string name="plan_route_exit_dialog_descr">Are you sure you want discard all changes in the planned route by closing it?</string>
     <string name="street_level_imagery">Street-level imagery</string>
-    <string name="rourte_between_points_add_track_desc">Select a track file for which a new segment will be added.</string>
+    <string name="route_between_points_add_track_desc">Select a track file to add the new segment to.</string>
     <string name="navigation_profile">Navigation profile</string>
     <string name="threshold_distance">Threshold distance</string>
-    <string name="rourte_between_points_warning_desc">To use this option OsmAnd need to snap your track to the map roads. \n\n On the next step you will need to select navigation profile to detect allowed roads and threshold distance to approximate you track with roads.</string>
+    <string name="route_between_points_warning_desc">Next, snap your track to the nearest allowed road with one of your navigation profiles to use this option.</string>
     <string name="next_segment">Next segment</string>
     <string name="whole_track">Whole track</string>
-    <string name="rourte_between_points_desc">Select how to connect points, with a straight line, or calculate a route between them with selected profile.</string>
-    <string name="rourte_between_points_next_segment_button_desc">Only next segment will be recalculated using selected profile.</string>
-    <string name="rourte_between_points_whole_track_button_desc">Whole track will be recalculated using selected profile.</string>
+    <string name="route_between_points_desc">Select how to connect points, with a straight line, or calculate a route between them with selected profile.</string>
+    <string name="route_between_points_next_segment_button_desc">Only the next segment will be recalculated using selected profile.</string>
+    <string name="route_between_points_whole_track_button_desc">The whole track will be recalculated using the selected profile.</string>
     <string name="reverse_route">Reverse route</string>
-    <string name="save_as_new_track">Save as new Track</string>
+    <string name="save_as_new_track">Save as new track</string>
     <string name="overwrite_track">Overwrite track</string>
     <string name="shared_string_done">Done</string>
-    <string name="plan_route_select_track_file_for_open">Select a track file for open.</string>
+    <string name="plan_route_select_track_file_for_open">Select a track file to open.</string>
     <string name="plan_route_create_new_route">Create new route</string>
     <string name="plan_route_open_existing_track">Open existing track</string>
     <string name="plan_route_import_track">Import track</string>
@@ -75,29 +96,29 @@
     <string name="gpx_split_interval_none_descr">Select the desired splitting option: by time or by distance.</string>
     <string name="gpx_split_interval_descr">Select the interval at which marks with distance or time on the track will be displayed.</string>
     <string name="select_track_width">Select width</string>
-    <string name="track_show_start_finish_icons">Show start finish icons</string>
-    <string name="add_to_a_track">Add to a Track</string>
+    <string name="track_show_start_finish_icons">Show start and finish icons</string>
+    <string name="add_to_a_track">Add to a track</string>
     <string name="plan_a_route">Plan a route</string>
     <string name="route_between_points">Route between points</string>
-    <string name="set_working_days_to_continue">You need to set working days to continue</string>
-    <string name="osm_edit_closed_note">Closed OSM Note</string>
+    <string name="set_working_days_to_continue">Set working days to continue</string>
+    <string name="osm_edit_closed_note">Closed OSM note</string>
     <string name="app_mode_go_cart">Go-cart</string>
     <string name="app_mode_wheelchair_forward">Wheelchair forward</string>
     <string name="app_mode_wheelchair">Wheelchair</string>
     <string name="app_mode_motor_scooter">Motor scooter</string>
     <string name="app_mode_enduro_motorcycle">Enduro motorcycle</string>
     <string name="add_hidden_group_info">The added point will not be visible on the map, since the selected group is hidden, you can find it in \"%s\".</string>
-    <string name="plugin_wikipedia_description">Get information about points of interest from Wikipedia. It is your pocket offline guide - just enable Wikipedia plugin and enjoy articles about objects around you.</string>
+    <string name="plugin_wikipedia_description">Get info about points of interest from Wikipedia. It is your pocket offline guide - just turn on the Wikipedia plugin and enjoy articles about objects around you.</string>
     <string name="search_download_wikipedia_maps">Download Wikipedia maps</string>
     <string name="quick_action_remove_next_destination_descr">The current destination point on the route will be deleted. If it will be the Destination, navigation will stop.</string>
     <string name="please_provide_point_name_error">Please provide a name for the point</string>
     <string name="use_volume_buttons_as_zoom">Volume buttons as zoom</string>
-    <string name="use_volume_buttons_as_zoom_descr">Enable to control the map zoom level with device volume buttons.</string>
-    <string name="quick_action_remove_next_destination">Delete next destination point</string>
+    <string name="use_volume_buttons_as_zoom_descr">Control the map-zoom level using the volume buttons on the device.</string>
+    <string name="quick_action_remove_next_destination">Delete nearest destination point</string>
     <string name="app_mode_inline_skates">Inline skates</string>
     <string name="speed_cameras_removed_descr">This device doesn\'t have speed cameras.</string>
     <string name="shared_string_uninstall_and_restart">Uninstall and Restart</string>
-    <string name="speed_cameras_restart_descr">Restart is needed to completely delete speed camera data.</string>
+    <string name="speed_cameras_restart_descr">Restart the app to delete all speed camera data.</string>
     <string name="item_deleted">%1$s deleted</string>
     <string name="shared_string_bearing">Bearing</string>
     <string name="routing_attr_length_name">Length limit</string>
@@ -878,10 +899,10 @@
     <string name="shared_string_swap">Swap</string>
     <string name="show_more">Show more</string>
     <string name="tracks_on_map">Displayed tracks</string>
-    <string name="quick_action_show_hide_gpx_tracks">Show/hide GPX tracks</string>
-    <string name="quick_action_show_hide_gpx_tracks_descr">A button to show or hide selected GPX tracks on the map.</string>
-    <string name="quick_action_gpx_tracks_hide">Hide GPX Tracks</string>
-    <string name="quick_action_gpx_tracks_show">Show GPX Tracks</string>
+    <string name="quick_action_show_hide_gpx_tracks">Show/hide tracks</string>
+    <string name="quick_action_show_hide_gpx_tracks_descr">A button to show or hide selected tracks on the map.</string>
+    <string name="quick_action_gpx_tracks_hide">Hide Tracks</string>
+    <string name="quick_action_gpx_tracks_show">Show Tracks</string>
     <string name="add_destination_query">Please set the destination first</string>
     <string name="previous_route">Previous route</string>
     <string name="add_home">Add home</string>
@@ -1451,8 +1472,8 @@
     <string name="route_roundabout_short">Take %1$d exit and go</string>
     <string name="upload_poi">Upload POI</string>
     <string name="route_calculation">Route calculation</string>
-    <string name="gpx_no_tracks_title">You do not have any GPX files yet</string>
-    <string name="gpx_no_tracks_title_folder">You may also add GPX files to the folder</string>
+    <string name="gpx_no_tracks_title">You do not have any track files yet</string>
+    <string name="gpx_no_tracks_title_folder">You may also add track files to the folder</string>
     <string name="gpx_add_track">Add more…</string>
     <string name="shared_string_appearance">Appearance</string>
     <string name="trip_rec_notification_settings">Turn on quick recording</string>
@@ -1522,7 +1543,7 @@
     <string name="no_inet_connection_desc_map">Required to download maps.</string>
     <string name="search_location">Searching for location…</string>
     <string name="storage_free_space">Free space</string>
-    <string name="storage_place_description">OsmAnd\'s data storage (for maps, GPX files, etc.): %1$s.</string>
+    <string name="storage_place_description">OsmAnd\'s data storage (for maps, track files, etc.): %1$s.</string>
     <string name="give_permission">Grant permission</string>
     <string name="allow_access_location">Allow location access</string>
     <string name="first_usage_greeting">Get directions and discover new places without an Internet connection</string>

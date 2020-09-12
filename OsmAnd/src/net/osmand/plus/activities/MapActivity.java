@@ -22,6 +22,7 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.view.Window;
 import android.view.WindowManager;
@@ -118,10 +119,10 @@ import net.osmand.plus.mapcontextmenu.other.TrackDetailsMenu;
 import net.osmand.plus.mapmarkers.MapMarkersDialogFragment;
 import net.osmand.plus.mapmarkers.PlanRouteFragment;
 import net.osmand.plus.measurementtool.GpxApproximationFragment;
+import net.osmand.plus.measurementtool.GpxData;
 import net.osmand.plus.measurementtool.MeasurementEditingContext;
 import net.osmand.plus.measurementtool.MeasurementToolFragment;
-import net.osmand.plus.measurementtool.GpxData;
-import net.osmand.plus.measurementtool.SnapTrackWarningBottomSheet;
+import net.osmand.plus.measurementtool.SnapTrackWarningFragment;
 import net.osmand.plus.quickaction.QuickActionListFragment;
 import net.osmand.plus.render.RendererRegistry;
 import net.osmand.plus.resources.ResourceManager;
@@ -691,9 +692,9 @@ public class MapActivity extends OsmandActionBarActivity implements DownloadEven
 			return;
 		}
 
-		SnapTrackWarningBottomSheet snapTrackWarningBottomSheet = getSnapTrackWarningBottomSheet();
-		if (snapTrackWarningBottomSheet != null) {
-			snapTrackWarningBottomSheet.dismiss();
+		SnapTrackWarningFragment snapTrackWarningFragment = getSnapTrackWarningBottomSheet();
+		if (snapTrackWarningFragment != null) {
+			snapTrackWarningFragment.dismissImmediate();
 			return;
 		}
 
@@ -1529,6 +1530,7 @@ public class MapActivity extends OsmandActionBarActivity implements DownloadEven
 		});
 		getMapView().refreshMap(true);
 		applyScreenOrientation();
+		app.getAidlApi().updateMapMargins(this);
 	}
 
 	public void updateNavigationBarColor() {
@@ -1726,6 +1728,16 @@ public class MapActivity extends OsmandActionBarActivity implements DownloadEven
 
 	public View getLayout() {
 		return getWindow().getDecorView().findViewById(android.R.id.content);
+	}
+
+	public void setMargins(int leftMargin, int topMargin, int rightMargin, int bottomMargin) {
+		View layout = getLayout();
+		if (layout != null) {
+			ViewGroup.LayoutParams params = layout.getLayoutParams();
+			if (params instanceof ViewGroup.MarginLayoutParams) {
+				((ViewGroup.MarginLayoutParams) params).setMargins(leftMargin, topMargin, rightMargin, bottomMargin);
+			}
+		}
 	}
 
 	public DashboardOnMap getDashboard() {
@@ -2317,8 +2329,8 @@ public class MapActivity extends OsmandActionBarActivity implements DownloadEven
 		return getFragment(GpxApproximationFragment.TAG);
 	}
 
-	private SnapTrackWarningBottomSheet getSnapTrackWarningBottomSheet() {
-		return getFragment(SnapTrackWarningBottomSheet.TAG);
+	public SnapTrackWarningFragment getSnapTrackWarningBottomSheet() {
+		return getFragment(SnapTrackWarningFragment.TAG);
 	}
 
 	public PointEditorFragmentNew getPointEditorFragmentNew() {
