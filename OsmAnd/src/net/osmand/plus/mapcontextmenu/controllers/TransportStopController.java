@@ -27,6 +27,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import static net.osmand.util.MapUtils.ROUNDING_ERROR;
+
 public class TransportStopController extends MenuController {
 
 	public static final int SHOW_STOPS_RADIUS_METERS = 150;
@@ -189,7 +191,24 @@ public class TransportStopController extends MenuController {
 		}
 	}
 
-	private static void sortTransportStops(@NonNull LatLon latLon, List<TransportStop> transportStops) {
+	private static void sortTransportStopsExits(@NonNull LatLon latLon, @NonNull List<TransportStop> transportStops) {
+		for (TransportStop transportStop : transportStops) {
+			for (TransportStopExit exit : transportStop.getExits()) {
+				int distance = (int) MapUtils.getDistance(latLon, exit.getLocation());
+				if (transportStop.distance > distance) {
+					transportStop.distance = distance;
+				}
+			}
+		}
+		Collections.sort(transportStops, new Comparator<TransportStop>() {
+			@Override
+			public int compare(TransportStop s1, TransportStop s2) {
+				return Algorithms.compare(s1.distance, s2.distance);
+			}
+		});
+	}
+
+	private static void sortTransportStops(@NonNull LatLon latLon, @NonNull List<TransportStop> transportStops) {
 		for (TransportStop transportStop : transportStops) {
 			transportStop.distance = (int) MapUtils.getDistance(latLon, transportStop.getLocation());
 		}
@@ -231,9 +250,11 @@ public class TransportStopController extends MenuController {
 			stopAggregated = new TransportStopAggregated();
 			stopAggregated.setAmenity(amenity);
 			TransportStop nearestStop = null;
+			String amenityName = amenity.getName().toLowerCase();
 			for (TransportStop stop : transportStops) {
 				stop.setTransportStopAggregated(stopAggregated);
-				if ((stop.getName().startsWith(amenity.getName())
+				String stopName = stop.getName().toLowerCase();
+				if (((stopName.contains(amenityName) || amenityName.contains(stopName))
 						&& (nearestStop == null
 						|| nearestStop.getLocation().equals(stop.getLocation())))
 						|| stop.getLocation().equals(loc)) {
@@ -278,23 +299,25 @@ public class TransportStopController extends MenuController {
 	private static TransportStopAggregated processTransportStopsForAmenity(List<TransportStop> transportStops, Amenity amenity) {
 		TransportStopAggregated stopAggregated = new TransportStopAggregated();
 		stopAggregated.setAmenity(amenity);
-
+		LatLon amenityLocation = amenity.getLocation();
 		for (TransportStop stop : transportStops) {
 			stop.setTransportStopAggregated(stopAggregated);
 			List<TransportStopExit> stopExits = stop.getExits();
 			boolean stopOnSameExitAdded = false;
 			for (TransportStopExit exit : stopExits) {
-				if (exit.getLocation().equals(amenity.getLocation())) {
+				if (MapUtils.getDistance(exit.getLocation(), amenityLocation) < ROUNDING_ERROR) {
 					stopOnSameExitAdded = true;
 					stopAggregated.addLocalTransportStop(stop);
 					break;
 				}
 			}
-			if (!stopOnSameExitAdded && MapUtils.getDistance(stop.getLocation(), amenity.getLocation()) <= SHOW_STOPS_RADIUS_METERS) {
+			if (!stopOnSameExitAdded && MapUtils.getDistance(stop.getLocation(), amenityLocation)
+					<= SHOW_SUBWAY_STOPS_FROM_ENTRANCES_RADIUS_METERS) {
 				stopAggregated.addNearbyTransportStop(stop);
 			}
 		}
-
+		sortTransportStopsExits(amenityLocation, stopAggregated.getLocalTransportStops());
+		sortTransportStopsExits(amenityLocation, stopAggregated.getNearbyTransportStops());
 		return stopAggregated;
 	}
 

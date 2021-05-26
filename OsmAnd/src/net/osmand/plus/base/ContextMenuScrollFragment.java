@@ -82,7 +82,7 @@ public abstract class ContextMenuScrollFragment extends ContextMenuFragment impl
 	}
 
 	@Override
-	public void onContextMenuStateChanged(@NonNull ContextMenuFragment fragment, int menuState) {
+	public void onContextMenuStateChanged(@NonNull ContextMenuFragment fragment, int menuState, int previousMenuState) {
 		updateMapControlsVisibility(menuState);
 	}
 
@@ -133,7 +133,7 @@ public abstract class ContextMenuScrollFragment extends ContextMenuFragment impl
 		if (mapControlsView != null) {
 			int zoomY = y - getMapControlsHeight();
 			if (animated) {
-				fragment.animateView(mapControlsView, zoomY);
+				fragment.animateView(mapControlsView, zoomY, null);
 			} else {
 				mapControlsView.setY(zoomY);
 			}

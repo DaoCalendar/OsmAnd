@@ -121,7 +121,7 @@ public class StartGPSStatus extends OsmAndAction {
 		cb.setLayoutParams(lp);
 		cb.setPadding(dp8, 0, 0, 0);
 		int textColorPrimary = ContextCompat.getColor(activity, isNightMode() ? R.color.text_color_primary_dark : R.color.text_color_primary_light);
-		int selectedModeColor = ContextCompat.getColor(activity, getSettings().getApplicationMode().getIconColorInfo().getColor(isNightMode()));
+		int selectedModeColor = getSettings().getApplicationMode().getProfileColor(isNightMode());
 		cb.setTextColor(textColorPrimary);
 		UiUtilities.setupCompoundButton(isNightMode(), selectedModeColor, cb);
 		
@@ -165,7 +165,7 @@ public class StartGPSStatus extends OsmAndAction {
 			// if (g.activity.length() == 0) {
 				PackageManager pm = mapActivity.getPackageManager();
 				try {
-					String appName = !g.paidAppName.equals("") &&
+					String appName = !g.paidAppName.isEmpty() &&
 							g.installed(mapActivity, g.paidAppName) ? g.paidAppName : g.appName;
 					intent = pm.getLaunchIntentForPackage(appName);
 				} catch (RuntimeException e) {
@@ -180,7 +180,7 @@ public class StartGPSStatus extends OsmAndAction {
 			intent.addCategory(Intent.CATEGORY_LAUNCHER);
 			mapActivity.startActivity(intent);
 		} else {
-			if (Version.isMarketEnabled(getMyApplication())) {
+			if (Version.isMarketEnabled()) {
 				AlertDialog.Builder builder = new AlertDialog.Builder(mapActivity);
 				builder.setMessage(mapActivity. getString(R.string.gps_status_app_not_found));
 				builder.setPositiveButton(mapActivity.getString(R.string.shared_string_yes), new DialogInterface.OnClickListener() {

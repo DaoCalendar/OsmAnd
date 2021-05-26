@@ -13,6 +13,7 @@ import net.osmand.data.PointDescription;
 import net.osmand.data.QuadRect;
 import net.osmand.data.QuadTree;
 import net.osmand.data.RotatedTileBox;
+import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
 import net.osmand.plus.activities.MapActivity;
 import net.osmand.plus.audionotes.AudioVideoNotesPlugin.Recording;
@@ -69,8 +70,9 @@ public class AudioNotesLayer extends OsmandMapLayer implements
 	@Override
 	public void onPrepareBufferImage(Canvas canvas, RotatedTileBox tileBox, DrawSettings settings) {
 		if (tileBox.getZoom() >= startZoom) {
-			float textScale = activity.getMyApplication().getSettings().TEXT_SCALE.get();
-			float iconSize = getIconSize(activity) * 3 / 2.5f * textScale;
+			OsmandApplication app = activity.getMyApplication();
+			float textScale = app.getSettings().TEXT_SCALE.get();
+			float iconSize = getIconSize(app);
 			QuadTree<QuadRect> boundIntersections = initBoundIntersections(tileBox);
 
 			DataTileManager<Recording> recs = plugin.getRecordings();
@@ -153,7 +155,7 @@ public class AudioNotesLayer extends OsmandMapLayer implements
 	}
 
 	@Override
-	public boolean disableLongPressOnMap() {
+	public boolean disableLongPressOnMap(PointF point, RotatedTileBox tileBox) {
 		return false;
 	}
 
@@ -164,6 +166,11 @@ public class AudioNotesLayer extends OsmandMapLayer implements
 
 	@Override
 	public boolean runExclusiveAction(Object o, boolean unknownLocation) {
+		return false;
+	}
+
+	@Override
+	public boolean showMenuAction(@Nullable Object o) {
 		return false;
 	}
 

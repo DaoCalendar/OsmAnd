@@ -19,8 +19,8 @@ import net.osmand.osm.PoiCategory;
 import net.osmand.plus.FavouritesDbHelper.FavoriteGroup;
 import net.osmand.plus.R;
 import net.osmand.plus.activities.MapActivity;
-import net.osmand.plus.mapcontextmenu.MenuBuilder;
 import net.osmand.plus.mapcontextmenu.CollapsableView;
+import net.osmand.plus.mapcontextmenu.MenuBuilder;
 import net.osmand.plus.myplaces.FavoritesActivity;
 import net.osmand.plus.widgets.TextViewEx;
 import net.osmand.util.Algorithms;
@@ -59,9 +59,9 @@ public class FavouritePointMenuBuilder extends MenuBuilder {
 	}
 
 	@Override
-	protected void buildNearestWikiRow(View view) {
+	protected void buildNearestRow(View view, List<Amenity> nearestAmenities, int iconId, String text, String amenityKey) {
 		if (originObject == null || !(originObject instanceof Amenity)) {
-			super.buildNearestWikiRow(view);
+			super.buildNearestRow(view, nearestAmenities, iconId, text, amenityKey);
 		}
 	}
 
@@ -73,6 +73,9 @@ public class FavouritePointMenuBuilder extends MenuBuilder {
 
 	@Override
 	public void buildInternal(View view) {
+		if (fav != null && fav.getTimestamp() != 0) {
+			buildDateRow(view, fav.getTimestamp());
+		}
 		if (originObject != null && originObject instanceof Amenity) {
 			AmenityMenuBuilder builder = new AmenityMenuBuilder(mapActivity, (Amenity) originObject);
 			builder.setLatLon(getLatLon());
@@ -85,7 +88,7 @@ public class FavouritePointMenuBuilder extends MenuBuilder {
 	protected void buildDescription(View view) {
 		String desc = fav.getDescription();
 		if (!Algorithms.isEmpty(desc)) {
-			buildDescriptionRow(view, app.getString(R.string.shared_string_description), desc, 0, 10, true);
+			buildDescriptionRow(view, desc);
 		}
 	}
 

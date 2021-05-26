@@ -12,7 +12,7 @@ import net.osmand.StateChangedListener;
 import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.settings.backend.OsmandSettings;
-import net.osmand.plus.settings.backend.OsmandSettings.MetricsConstants;
+import net.osmand.plus.helpers.enums.MetricsConstants;
 import net.osmand.plus.R;
 import net.osmand.plus.api.AudioFocusHelper;
 
@@ -95,7 +95,8 @@ public abstract class AbstractPrologCommandPlayer implements CommandPlayer, Stat
 				language = ((Struct) langVal).getName();
 			}
 		} else {
-			language = voiceProvider.replace("-tts", "").replace("-formal", "");
+			language = voiceProvider.replace(IndexConstants.VOICE_PROVIDER_SUFFIX, "")
+					.replace("-formal", "").replace("-casual", "");
 		}
 	}
 
@@ -221,7 +222,7 @@ public abstract class AbstractPrologCommandPlayer implements CommandPlayer, Stat
 
 	@Override
 	public List<String> execute(List<Struct> listCmd){
-		Struct list = new Struct(listCmd.toArray(new Term[listCmd.size()]));
+		Struct list = new Struct(listCmd.toArray(new Term[0]));
 		Var result = new Var("RESULT"); //$NON-NLS-1$
 		List<String> files = new ArrayList<String>();
 		if(prologSystem == null) {

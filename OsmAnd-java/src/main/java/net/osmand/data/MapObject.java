@@ -13,7 +13,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -90,40 +89,30 @@ public abstract class MapObject implements Comparable<MapObject> {
 			names.putAll(name);
 		}
 	}
-
+	
 	public Map<String, String> getNamesMap(boolean includeEn) {
-		if (!includeEn || Algorithms.isEmpty(enName)) {
-			if (names == null) {
-				return Collections.emptyMap();
-			}
-			return names;
+		if ((!includeEn || Algorithms.isEmpty(enName)) && names == null) {
+			return Collections.emptyMap();
 		}
 		Map<String, String> mp = new HashMap<String, String>();
 		if (names != null) {
-			Iterator<Entry<String, String>> it = mp.entrySet().iterator();
-			while(it.hasNext()) {
+			Iterator<Entry<String, String>> it = names.entrySet().iterator();
+			while (it.hasNext()) {
 				Entry<String, String> e = it.next();
 				mp.put(e.getKey(), unzipContent(e.getValue()));
 			}
 		}
-		mp.put("en", unzipContent(enName));
+		if (includeEn && !Algorithms.isEmpty(enName)) {
+			mp.put("en", unzipContent(enName));
+		}
 		return mp;
 	}
 
-	public List<String> getAllNames() {
-		List<String> l = new ArrayList<String>();
-		if (!Algorithms.isEmpty(enName)) {
-			l.add(unzipContent(enName));
-		}
-		if (names != null) {
-			for(String nm : names.values()) { 
-				l.add(unzipContent(nm));
-			}
-		}
-		return l;
+	public List<String> getOtherNames() {
+		return getOtherNames(false);
 	}
 	
-	public List<String> getAllNames(boolean transliterate) {
+	public List<String> getOtherNames(boolean transliterate) {
 		List<String> l = new ArrayList<String>();
 		String enName = getEnName(transliterate); 
 		if (!Algorithms.isEmpty(enName)) {
@@ -183,8 +172,9 @@ public abstract class MapObject implements Comparable<MapObject> {
 	public String getName(String lang, boolean transliterate) {
 		if (lang != null && lang.length() > 0) {
 			if (lang.equals("en")) {
-				// ignore transliterate option here for backward compatibility
-				return getEnName(true);
+				// for some objects like wikipedia, english name is stored 'name' tag
+				String enName = getEnName(transliterate);
+				return !Algorithms.isEmpty(enName) ? enName : getName();
 			} else {
 				// get name
 				if (names != null) {
@@ -351,8 +341,8 @@ public abstract class MapObject implements Comparable<MapObject> {
 		return json;
 	}
 	
-	public String unzipContent(String str) {
-		if (str != null && str.startsWith(" gz ")) {
+	String unzipContent(String str) {
+		if (isContentZipped(str)) {
 			try {
 				int ind = 4;
 				byte[] bytes = new byte[str.length() - ind];
@@ -369,11 +359,19 @@ public abstract class MapObject implements Comparable<MapObject> {
 				}
 				br.close();
 				str = bld.toString();
+				// ugly fix of temporary problem of map generation
+				if(isContentZipped(str)) {
+					str = unzipContent(str);
+				}
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		}
 		return str;
+	}
+
+	boolean isContentZipped(String str) {
+		return str != null && str.startsWith(" gz ");
 	}
 
 	protected static void parseJSON(JSONObject json, MapObject o) {

@@ -2,9 +2,7 @@ package net.osmand.plus.measurementtool;
 
 import android.util.Pair;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-
+import net.osmand.AndroidUtils;
 import net.osmand.GPXUtilities.GPXFile;
 import net.osmand.GPXUtilities.TrkSegment;
 import net.osmand.GPXUtilities.WptPt;
@@ -16,11 +14,12 @@ import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.measurementtool.command.ApplyGpxApproximationCommand;
 import net.osmand.plus.measurementtool.command.MeasurementCommandManager;
 import net.osmand.plus.measurementtool.command.MeasurementModeCommand;
+import net.osmand.plus.routing.IRouteSettingsListener;
 import net.osmand.plus.routing.RouteCalculationParams;
 import net.osmand.plus.routing.RouteCalculationParams.RouteCalculationResultListener;
+import net.osmand.plus.routing.RouteCalculationProgressCallback;
 import net.osmand.plus.routing.RouteCalculationResult;
 import net.osmand.plus.routing.RoutingHelper;
-import net.osmand.plus.routing.RoutingHelper.RouteCalculationProgressCallback;
 import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.router.RouteCalculationProgress;
 import net.osmand.router.RouteExporter;
@@ -37,15 +36,22 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import static net.osmand.plus.measurementtool.MeasurementEditingContext.CalculationMode.NEXT_SEGMENT;
 import static net.osmand.plus.measurementtool.MeasurementEditingContext.CalculationMode.WHOLE_TRACK;
 import static net.osmand.plus.measurementtool.command.MeasurementModeCommand.MeasurementCommandType.APPROXIMATE_POINTS;
 
-public class MeasurementEditingContext {
+public class MeasurementEditingContext implements IRouteSettingsListener {
 
 	public final static ApplicationMode DEFAULT_APP_MODE = ApplicationMode.DEFAULT;
 
@@ -53,91 +59,56 @@ public class MeasurementEditingContext {
 	private final MeasurementCommandManager commandManager = new MeasurementCommandManager();
 
 	private final TrkSegment before = new TrkSegment();
-	private TrkSegment beforeCacheForSnap;
+	private List<TrkSegment> beforeSegments = new ArrayList<>();
+	private List<TrkSegment> beforeSegmentsForSnap;
 	private final TrkSegment after = new TrkSegment();
-	private TrkSegment afterCacheForSnap;
+	private List<TrkSegment> afterSegments = new ArrayList<>();
+	private List<TrkSegment> afterSegmentsForSnap;
 
 	private GpxData gpxData;
+	private int selectedSegment = -1;
 
 	private int selectedPointPosition = -1;
 	private WptPt originalPointToMove;
 
 	private boolean inAddPointMode;
+	private boolean inAddPointBeforeMode;
 	private boolean inApproximationMode;
 	private int calculatedPairs;
 	private int pointsToCalculateSize;
 	private CalculationMode lastCalculationMode = WHOLE_TRACK;
-	private SnapToRoadProgressListener progressListener;
 	private ApplicationMode appMode = DEFAULT_APP_MODE;
-	private RouteCalculationProgress calculationProgress;
-	private Map<Pair<WptPt, WptPt>, RoadSegmentData> roadSegmentData = new ConcurrentHashMap<>();
 
+	private SnapToRoadProgressListener progressListener;
+	private RouteCalculationProgress calculationProgress;
+
+	private Map<Pair<WptPt, WptPt>, RoadSegmentData> roadSegmentData = new ConcurrentHashMap<>();
 
 	public enum CalculationMode {
 		NEXT_SEGMENT,
 		WHOLE_TRACK
 	}
 
-	public static class RoadSegmentData {
-		private ApplicationMode appMode;
-		private WptPt start;
-		private WptPt end;
-		private List<WptPt> points;
-		private List<RouteSegmentResult> segments;
-		private double distance;
-
-		public RoadSegmentData(@NonNull ApplicationMode appMode, @NonNull WptPt start, @NonNull WptPt end,
-							   @Nullable List<WptPt> points, @Nullable List<RouteSegmentResult> segments) {
-			this.appMode = appMode;
-			this.start = start;
-			this.end = end;
-			this.points = points;
-			this.segments = segments;
-			if (segments != null) {
-				double distance = 0;
-				for (RouteSegmentResult segment : segments) {
-					distance += segment.getDistance();
-				}
-				this.distance = distance;
-			} else if (points != null && points.size() > 1) {
-				double distance = 0;
-				for (int i = 1; i < points.size(); i++) {
-					distance += MapUtils.getDistance(points.get(i - 1).lat, points.get(i - 1).lon,
-							points.get(i).lat, points.get(i).lon);
-				}
-				this.distance = distance;
-			}
-		}
-
-		public ApplicationMode getAppMode() {
-			return appMode;
-		}
-
-		public WptPt getStart() {
-			return start;
-		}
-
-		public WptPt getEnd() {
-			return end;
-		}
-
-		@Nullable
-		public List<WptPt> getPoints() {
-			return points != null ? Collections.unmodifiableList(points) : null;
-		}
-
-		@Nullable
-		public List<RouteSegmentResult> getSegments() {
-			return segments != null ? Collections.unmodifiableList(segments) : null;
-		}
-
-		public double getDistance() {
-			return distance;
-		}
+	public enum AdditionMode {
+		UNDEFINED,
+		ADD_AFTER,
+		ADD_BEFORE,
 	}
 
 	public void setApplication(OsmandApplication application) {
 		this.application = application;
+	}
+
+	public void setupRouteSettingsListener() {
+		if (application != null) {
+			application.getRoutingHelper().addRouteSettingsListener(this);
+		}
+	}
+
+	public void resetRouteSettingsListener() {
+		if (application != null) {
+			application.getRoutingHelper().removeRouteSettingsListener(this);
+		}
 	}
 
 	MeasurementCommandManager getCommandManager() {
@@ -156,8 +127,12 @@ public class MeasurementEditingContext {
 		return inAddPointMode;
 	}
 
-	public void updateCacheForSnap() {
-		updateCacheForSnap(true);
+	public boolean isInAddPointBeforeMode() {
+		return inAddPointBeforeMode;
+	}
+
+	public void updateSegmentsForSnap() {
+		updateSegmentsForSnap(true);
 	}
 
 	public int getSelectedPointPosition() {
@@ -176,8 +151,9 @@ public class MeasurementEditingContext {
 		this.originalPointToMove = originalPointToMove;
 	}
 
-	void setInAddPointMode(boolean inAddPointMode) {
+	void setInAddPointMode(boolean inAddPointMode, boolean inAddPointAfterMode) {
 		this.inAddPointMode = inAddPointMode;
+		this.inAddPointBeforeMode = inAddPointAfterMode;
 	}
 
 	public boolean isInApproximationMode() {
@@ -188,10 +164,10 @@ public class MeasurementEditingContext {
 		this.inApproximationMode = inApproximationMode;
 	}
 
-	public List<WptPt> getOriginalTrackPointList() {
+	public List<List<WptPt>> getOriginalSegmentPointsList() {
 		MeasurementModeCommand command = commandManager.getLastCommand();
 		if (command.getType() == APPROXIMATE_POINTS) {
-			return ((ApplyGpxApproximationCommand) command).getPoints();
+			return ((ApplyGpxApproximationCommand) command).getOriginalSegmentPointsList();
 		}
 		return null;
 	}
@@ -209,12 +185,12 @@ public class MeasurementEditingContext {
 		this.gpxData = gpxData;
 	}
 
-	public boolean hasRoutePoints() {
-		return gpxData != null && gpxData.getGpxFile() != null && gpxData.getGpxFile().hasRtePt();
+	public void setSelectedSegment(int selectedSegment) {
+		this.selectedSegment = selectedSegment;
 	}
 
-	public boolean hasSavedRoute() {
-		return gpxData != null && gpxData.getGpxFile() != null && gpxData.getGpxFile().hasRoute();
+	public boolean hasRoutePoints() {
+		return gpxData != null && gpxData.getGpxFile() != null && gpxData.getGpxFile().hasRtePt();
 	}
 
 	public CalculationMode getLastCalculationMode() {
@@ -273,26 +249,79 @@ public class MeasurementEditingContext {
 		return !roadSegmentData.isEmpty();
 	}
 
+	public boolean isApproximationNeeded() {
+		boolean hasDefaultPointsOnly = false;
+		boolean newData = isNewData();
+		if (!newData) {
+			List<WptPt> points = getPoints();
+			hasDefaultPointsOnly = true;
+			for (WptPt point : points) {
+				if (point.hasProfile()) {
+					hasDefaultPointsOnly = false;
+					break;
+				}
+			}
+		}
+		return !newData && hasDefaultPointsOnly && getPoints().size() > 2;
+	}
+
+	public boolean isAddNewSegmentAllowed() {
+		return beforeSegments.size() > 0 && beforeSegments.get(beforeSegments.size() - 1).points.size() >= 2;
+	}
+
 	public void clearSnappedToRoadPoints() {
 		roadSegmentData.clear();
 	}
 
-	TrkSegment getBeforeTrkSegmentLine() {
-		if (beforeCacheForSnap != null) {
-			return beforeCacheForSnap;
+	List<TrkSegment> getBeforeTrkSegmentLine() {
+		if (beforeSegmentsForSnap != null) {
+			return beforeSegmentsForSnap;
 		}
-		return before;
+		return beforeSegments;
 	}
 
-	TrkSegment getAfterTrkSegmentLine() {
-		if (afterCacheForSnap != null) {
-			return afterCacheForSnap;
+	List<TrkSegment> getAfterTrkSegmentLine() {
+		if (afterSegmentsForSnap != null) {
+			return afterSegmentsForSnap;
 		}
-		return after;
+		return afterSegments;
+	}
+
+	public List<TrkSegment> getBeforeSegments() {
+		return beforeSegments;
+	}
+
+	public List<TrkSegment> getAfterSegments() {
+		return afterSegments;
 	}
 
 	public List<WptPt> getPoints() {
 		return getBeforePoints();
+	}
+
+	public List<List<WptPt>> getPointsSegments(boolean plain, boolean route) {
+		List<List<WptPt>> res = new ArrayList<>();
+		List<WptPt> allPoints = getPoints();
+		List<WptPt> segment = new ArrayList<>();
+		String prevProfileType = null;
+		for (WptPt point : allPoints) {
+			String profileType = point.getProfileType();
+			boolean isGap = point.isGap();
+			boolean plainPoint = Algorithms.isEmpty(profileType) || (isGap && Algorithms.isEmpty(prevProfileType));
+			boolean routePoint = !plainPoint;
+			if (plain && plainPoint || route && routePoint) {
+				segment.add(point);
+				if (isGap) {
+					res.add(segment);
+					segment = new ArrayList<>();
+				}
+			}
+			prevProfileType = profileType;
+		}
+		if (!segment.isEmpty()) {
+			res.add(segment);
+		}
+		return res;
 	}
 
 	List<WptPt> getBeforePoints() {
@@ -307,6 +336,69 @@ public class MeasurementEditingContext {
 		return before.points.size();
 	}
 
+	public boolean isPointsEnoughToCalculateRoute() {
+		return getPointsCount() >= 2;
+	}
+
+	public List<RouteSegmentResult> getOrderedRoadSegmentData() {
+		List<RouteSegmentResult> allSegments = new ArrayList<>();
+		for (Pair<WptPt, WptPt> key : getOrderedRoadSegmentDataKeys()) {
+			RoadSegmentData data = roadSegmentData.get(key);
+			if (data != null) {
+				List<RouteSegmentResult> segments = data.getSegments();
+				if (segments != null) {
+					allSegments.addAll(segments);
+				}
+			}
+		}
+		return allSegments.size() > 0 ? allSegments : null;
+	}
+
+	@NonNull
+	public List<RouteSegmentResult> getRoadSegmentData(@Nullable ApplicationMode mode) {
+		List<RouteSegmentResult> res = new ArrayList<>();
+		if (mode == null) {
+			for (RoadSegmentData data : roadSegmentData.values()) {
+				List<RouteSegmentResult> segments = data.getSegments();
+				if (!Algorithms.isEmpty(segments)) {
+					res.addAll(segments);
+				}
+			}
+		} else {
+			for (Entry<Pair<WptPt, WptPt>, RoadSegmentData> dataEntry : roadSegmentData.entrySet()) {
+				WptPt firstPoint = dataEntry.getKey().first;
+				if (mode.getStringKey().equals(firstPoint.getProfileType())) {
+					List<RouteSegmentResult> segments = dataEntry.getValue().getSegments();
+					if (!Algorithms.isEmpty(segments)) {
+						res.addAll(segments);
+					}
+				}
+			}
+		}
+		return res;
+	}
+
+	void recalculateRouteSegments(@Nullable ApplicationMode mode) {
+		boolean changed = false;
+		if (mode == null) {
+			roadSegmentData.clear();
+			changed = true;
+		} else {
+			for (Pair<WptPt, WptPt> pair : getOrderedRoadSegmentDataKeys()) {
+				if (mode.getStringKey().equals(pair.first.getProfileType())) {
+					RoadSegmentData data = roadSegmentData.get(pair);
+					if (data != null) {
+						roadSegmentData.remove(pair);
+						changed = true;
+					}
+				}
+			}
+		}
+		if (changed) {
+			updateSegmentsForSnap(false);
+		}
+	}
+
 	void splitSegments(int position) {
 		List<WptPt> points = new ArrayList<>();
 		points.addAll(before.points);
@@ -315,31 +407,124 @@ public class MeasurementEditingContext {
 		after.points.clear();
 		before.points.addAll(points.subList(0, position));
 		after.points.addAll(points.subList(position, points.size()));
-		updateCacheForSnap(true);
+		updateSegmentsForSnap(true);
+	}
+
+	private void preAddPoint(int position, AdditionMode additionMode, WptPt point) {
+		switch (additionMode) {
+			case UNDEFINED: {
+				if (appMode != MeasurementEditingContext.DEFAULT_APP_MODE) {
+					point.setProfileType(appMode.getStringKey());
+				}
+				break;
+			}
+			case ADD_AFTER: {
+				List<WptPt> points = getBeforePoints();
+				if (position > 0 && position <= points.size()) {
+					WptPt prevPt = points.get(position - 1);
+					if (prevPt.isGap()) {
+						if (position == points.size() && getAfterPoints().size() == 0) {
+							if (appMode != MeasurementEditingContext.DEFAULT_APP_MODE) {
+								point.setProfileType(appMode.getStringKey());
+							}
+						} else {
+							point.setGap();
+							if (position > 1) {
+								WptPt pt = points.get(position - 2);
+								if (pt.hasProfile()) {
+									prevPt.setProfileType(pt.getProfileType());
+								} else {
+									prevPt.removeProfileType();
+								}
+							}
+						}
+					} else if (prevPt.hasProfile()) {
+						point.setProfileType(prevPt.getProfileType());
+					}
+				} else if (appMode != MeasurementEditingContext.DEFAULT_APP_MODE) {
+					point.setProfileType(appMode.getStringKey());
+				}
+				break;
+			}
+			case ADD_BEFORE: {
+				List<WptPt> points = getAfterPoints();
+				if (position >= -1 && position + 1 < points.size()) {
+					WptPt nextPt = points.get(position + 1);
+					if (nextPt.hasProfile()) {
+						point.setProfileType(nextPt.getProfileType());
+					}
+				} else if (appMode != MeasurementEditingContext.DEFAULT_APP_MODE) {
+					point.setProfileType(appMode.getStringKey());
+				}
+				break;
+			}
+		}
 	}
 
 	public void addPoint(WptPt pt) {
+		addPoint(pt, AdditionMode.UNDEFINED);
+	}
+
+	public void addPoint(WptPt pt, AdditionMode additionMode) {
+		if (additionMode == AdditionMode.ADD_AFTER || additionMode == AdditionMode.ADD_BEFORE) {
+			preAddPoint(additionMode == AdditionMode.ADD_BEFORE ? -1 : getBeforePoints().size(), additionMode, pt);
+		}
 		before.points.add(pt);
-		updateCacheForSnap(false);
+		updateSegmentsForSnap(false);
 	}
 
 	public void addPoint(int position, WptPt pt) {
+		addPoint(position, pt, AdditionMode.UNDEFINED);
+	}
+
+	public void addPoint(int position, WptPt pt, AdditionMode additionMode) {
+		if (additionMode == AdditionMode.ADD_AFTER || additionMode == AdditionMode.ADD_BEFORE) {
+			preAddPoint(position, additionMode, pt);
+		}
 		before.points.add(position, pt);
-		updateCacheForSnap(false);
+		updateSegmentsForSnap(false);
 	}
 
 	public void addPoints(List<WptPt> points) {
 		before.points.addAll(points);
-		updateCacheForSnap(false);
+		updateSegmentsForSnap(false);
+	}
+
+	public void replacePoints(List<WptPt> originalPoints, List<WptPt> points) {
+		if (originalPoints.size() > 1) {
+			int firstPointIndex = before.points.indexOf(originalPoints.get(0));
+			int lastPointIndex = before.points.indexOf(originalPoints.get(originalPoints.size() - 1));
+			List<WptPt> newPoints = new ArrayList<>();
+			if (firstPointIndex != -1 && lastPointIndex != -1) {
+				newPoints.addAll(before.points.subList(0, firstPointIndex));
+				newPoints.addAll(points);
+				if (before.points.size() > lastPointIndex + 1) {
+					newPoints.addAll(before.points.subList(lastPointIndex + 1, before.points.size()));
+				}
+			} else {
+				newPoints.addAll(points);
+			}
+			before.points = newPoints;
+		} else {
+			before.points = points;
+		}
+		updateSegmentsForSnap(false);
 	}
 
 	public WptPt removePoint(int position, boolean updateSnapToRoad) {
 		if (position < 0 || position >= before.points.size()) {
 			return new WptPt();
 		}
-		WptPt pt = before.points.remove(position);
+		WptPt pt = before.points.get(position);
+		if (position > 0 && pt.isGap()) {
+			WptPt prevPt = before.points.get(position - 1);
+			if (!prevPt.isGap()) {
+				prevPt.setGap();
+			}
+		}
+		before.points.remove(position);
 		if (updateSnapToRoad) {
-			updateCacheForSnap(false);
+			updateSegmentsForSnap(false);
 		}
 		return pt;
 	}
@@ -354,6 +539,45 @@ public class MeasurementEditingContext {
 		clearAfterSegments();
 	}
 
+	public void splitPoints(int selectedPointPosition, boolean after) {
+		int pointIndex = after ? selectedPointPosition : selectedPointPosition - 1;
+		if (pointIndex >= 0 && pointIndex < before.points.size()) {
+			WptPt point = before.points.get(pointIndex);
+			WptPt nextPoint = before.points.size() > pointIndex + 1 ? before.points.get(pointIndex + 1) : null;
+			WptPt newPoint = new WptPt(point);
+			newPoint.copyExtensions(point);
+			newPoint.setGap();
+			before.points.remove(pointIndex);
+			before.points.add(pointIndex, newPoint);
+			if (newPoint != null) {
+				roadSegmentData.remove(new Pair<>(point, nextPoint));
+			}
+			updateSegmentsForSnap(false);
+		}
+	}
+
+	public void joinPoints(int selectedPointPosition) {
+		WptPt gapPoint = null;
+		int gapIndex = -1;
+		if (isFirstPointSelected(selectedPointPosition, false)) {
+			if (selectedPointPosition - 1 >= 0) {
+				gapPoint = before.points.get(selectedPointPosition - 1);
+				gapIndex = selectedPointPosition - 1;
+			}
+		} else if (isLastPointSelected(selectedPointPosition, false)) {
+			gapPoint = before.points.get(selectedPointPosition);
+			gapIndex = selectedPointPosition;
+		}
+		if (gapPoint != null) {
+			WptPt newPoint = new WptPt(gapPoint);
+			newPoint.copyExtensions(gapPoint);
+			newPoint.removeProfileType();
+			before.points.remove(gapIndex);
+			before.points.add(gapIndex, newPoint);
+			updateSegmentsForSnap(false);
+		}
+	}
+
 	public void clearSegments() {
 		clearBeforeSegments();
 		clearAfterSegments();
@@ -362,24 +586,68 @@ public class MeasurementEditingContext {
 
 	public void clearBeforeSegments() {
 		before.points.clear();
-		if (beforeCacheForSnap != null) {
-			beforeCacheForSnap.points.clear();
+		if (beforeSegmentsForSnap != null) {
+			beforeSegmentsForSnap.clear();
 		}
 	}
 
 	public void clearAfterSegments() {
 		after.points.clear();
-		if (afterCacheForSnap != null) {
-			afterCacheForSnap.points.clear();
+		if (afterSegmentsForSnap != null) {
+			afterSegmentsForSnap.clear();
 		}
 	}
 
-	public boolean isFirstPointSelected() {
-		return selectedPointPosition == 0;
+	public boolean canSplit(boolean after) {
+		WptPt selectedPoint = getPoints().get(selectedPointPosition);
+		List<TrkSegment> segments = getBeforeSegments();
+		for (TrkSegment segment : segments) {
+			int i = segment.points.indexOf(selectedPoint);
+			if (i != -1) {
+				return after ? i < segment.points.size() - 2 : i > 1;
+			}
+		}
+		return false;
 	}
 
-	public boolean isLastPointSelected() {
-		return selectedPointPosition == getPoints().size() - 1;
+	public boolean isFirstPointSelected(boolean outer) {
+		return isFirstPointSelected(selectedPointPosition, outer);
+	}
+
+	public boolean isFirstPointSelected(int selectedPointPosition, boolean outer) {
+		if (outer) {
+			return selectedPointPosition == 0;
+		} else {
+			return isBorderPointSelected(selectedPointPosition, true);
+		}
+	}
+
+	public boolean isLastPointSelected(boolean outer) {
+		return isLastPointSelected(selectedPointPosition, outer);
+	}
+
+	public boolean isLastPointSelected(int selectedPointPosition, boolean outer) {
+		if (outer) {
+			return selectedPointPosition == getPoints().size() - 1;
+		} else {
+			return isBorderPointSelected(selectedPointPosition, false);
+		}
+	}
+
+	private boolean isBorderPointSelected(int selectedPointPosition, boolean first) {
+		WptPt selectedPoint = getPoints().get(selectedPointPosition);
+		List<TrkSegment> segments = getBeforeSegments();
+		int count = 0;
+		for (TrkSegment segment : segments) {
+			int i = segment.points.indexOf(selectedPoint);
+			if (i != -1) {
+				int segmentPosition = selectedPointPosition - count;
+				return first ? segmentPosition == 0 : segmentPosition == segment.points.size() - 1;
+			} else {
+				count += segment.points.size();
+			}
+		}
+		return false;
 	}
 
 	public ApplicationMode getSelectedPointAppMode() {
@@ -403,7 +671,7 @@ public class MeasurementEditingContext {
 		if (progressListener != null && !routingHelper.isRouteBeingCalculated()) {
 			RouteCalculationParams params = getParams(true);
 			if (params != null) {
-				routingHelper.startRouteCalculationThread(params, true, true);
+				routingHelper.startRouteCalculationThread(params);
 				application.runInUIThread(new Runnable() {
 					@Override
 					public void run() {
@@ -418,8 +686,10 @@ public class MeasurementEditingContext {
 		List<Pair<WptPt, WptPt>> res = new ArrayList<>();
 		for (List<WptPt> points : Arrays.asList(before.points, after.points)) {
 			for (int i = 0; i < points.size() - 1; i++) {
-				Pair<WptPt, WptPt> pair = new Pair<>(points.get(i), points.get(i + 1));
-				if (roadSegmentData.get(pair) == null) {
+				WptPt startPoint = points.get(i);
+				WptPt endPoint = points.get(i + 1);
+				Pair<WptPt, WptPt> pair = new Pair<>(startPoint, endPoint);
+				if (roadSegmentData.get(pair) == null && (startPoint.hasProfile() || hasRoute())) {
 					res.add(pair);
 				}
 			}
@@ -427,173 +697,237 @@ public class MeasurementEditingContext {
 		return res;
 	}
 
-	private void recreateCacheForSnap(TrkSegment cache, TrkSegment original, boolean calculateIfNeeded) {
-		boolean hasDefaultModeOnly = true;
-		if (original.points.size() > 1) {
-			for (int i = 0; i < original.points.size(); i++) {
-				String profileType = original.points.get(i).getProfileType();
-				if (profileType != null && !profileType.equals(DEFAULT_APP_MODE.getStringKey())) {
-					hasDefaultModeOnly = false;
-					break;
-				}
+	private List<Pair<WptPt, WptPt>> getOrderedRoadSegmentDataKeys() {
+		List<Pair<WptPt, WptPt>> keys = new ArrayList<>();
+		for (List<WptPt> points : Arrays.asList(before.points, after.points)) {
+			for (int i = 0; i < points.size() - 1; i++) {
+				keys.add(new Pair<>(points.get(i), points.get(i + 1)));
 			}
 		}
-		if (original.points.size() > 1) {
-			for (int i = 0; i < original.points.size() - 1; i++) {
-				Pair<WptPt, WptPt> pair = new Pair<>(original.points.get(i), original.points.get(i + 1));
-				RoadSegmentData data = this.roadSegmentData.get(pair);
-				List<WptPt> pts = data != null ? data.getPoints() : null;
-				if (pts != null) {
-					cache.points.addAll(pts);
-				} else {
-					if (calculateIfNeeded && !hasDefaultModeOnly) {
-						scheduleRouteCalculateIfNotEmpty();
+		return keys;
+	}
+
+	private void recreateSegments(List<TrkSegment> segments, List<TrkSegment> segmentsForSnap, List<WptPt> points, boolean calculateIfNeeded) {
+		List<Integer> roadSegmentIndexes = new ArrayList<>();
+		TrkSegment s = new TrkSegment();
+		segments.add(s);
+		boolean defaultMode = true;
+		if (points.size() > 1) {
+			for (int i = 0; i < points.size(); i++) {
+				WptPt point = points.get(i);
+				s.points.add(point);
+				String profileType = point.getProfileType();
+				if (profileType != null) {
+					boolean isDefault = profileType.equals(DEFAULT_APP_MODE.getStringKey());
+					boolean isGap = point.isGap();
+					if (defaultMode && !isDefault && !isGap) {
+						roadSegmentIndexes.add(segments.size() - 1);
+						defaultMode = false;
 					}
-					cache.points.addAll(Arrays.asList(pair.first, pair.second));
+					if (isGap) {
+						if (!s.points.isEmpty()) {
+							s = new TrkSegment();
+							segments.add(s);
+							defaultMode = true;
+						}
+					}
 				}
 			}
 		} else {
-			cache.points.addAll(original.points);
+			s.points.addAll(points);
+		}
+		if (s.points.isEmpty()) {
+			segments.remove(s);
+		}
+		if (!segments.isEmpty()) {
+			for (TrkSegment segment : segments) {
+				TrkSegment segmentForSnap = new TrkSegment();
+				for (int i = 0; i < segment.points.size() - 1; i++) {
+					Pair<WptPt, WptPt> pair = new Pair<>(segment.points.get(i), segment.points.get(i + 1));
+					RoadSegmentData data = this.roadSegmentData.get(pair);
+					List<WptPt> pts = data != null ? data.getPoints() : null;
+					if (pts != null) {
+						segmentForSnap.points.addAll(pts);
+					} else {
+						if (calculateIfNeeded && roadSegmentIndexes.contains(segmentsForSnap.size())) {
+							scheduleRouteCalculateIfNotEmpty();
+						}
+						segmentForSnap.points.addAll(Arrays.asList(pair.first, pair.second));
+					}
+				}
+				if (segmentForSnap.points.isEmpty()) {
+					segmentForSnap.points.addAll(segment.points);
+				}
+				segmentsForSnap.add(segmentForSnap);
+			}
+		} else if (!points.isEmpty()) {
+			TrkSegment segmentForSnap = new TrkSegment();
+			segmentForSnap.points.addAll(points);
+			segmentsForSnap.add(segmentForSnap);
 		}
 	}
 
 	void addPoints() {
 		GpxData gpxData = getGpxData();
-		if (gpxData == null || gpxData.getTrkSegment() == null || Algorithms.isEmpty(gpxData.getTrkSegment().points)) {
+		if (gpxData == null || gpxData.getGpxFile() == null) {
 			return;
 		}
-		List<WptPt> points = gpxData.getTrkSegment().points;
-		if (isTrackSnappedToRoad()) {
-			RouteImporter routeImporter = new RouteImporter(gpxData.getGpxFile());
-			List<RouteSegmentResult> segments = routeImporter.importRoute();
-			List<WptPt> routePoints = gpxData.getGpxFile().getRoutePoints();
-			int prevPointIndex = 0;
-			for (int i = 0; i < routePoints.size() - 1; i++) {
-				Pair<WptPt, WptPt> pair = new Pair<>(routePoints.get(i), routePoints.get(i + 1));
-				int startIndex = pair.first.getTrkPtIndex();
-				if (startIndex < 0 || startIndex < prevPointIndex || startIndex >= points.size()) {
-					startIndex = findPointIndex(pair.first, points, prevPointIndex);
-				}
-				int endIndex = pair.second.getTrkPtIndex();
-				if (endIndex < 0 || endIndex < startIndex || endIndex >= points.size()) {
-					endIndex = findPointIndex(pair.second, points, startIndex);
-				}
-				if (startIndex >= 0 && endIndex >= 0) {
-					List<WptPt> pairPoints = new ArrayList<>();
-					for (int j = startIndex; j < endIndex && j < points.size(); j++) {
-						pairPoints.add(points.get(j));
-						prevPointIndex = j;
+		GPXFile gpxFile = gpxData.getGpxFile();
+		if(gpxFile.hasRtePt() && !gpxFile.hasTrkPt()){
+			addPoints(gpxFile.getRoutePoints());
+			return;
+		}
+		List<TrkSegment> segments = gpxFile.getNonEmptyTrkSegments(false);
+		if (Algorithms.isEmpty(segments)) {
+			return;
+		}
+		if (selectedSegment != -1 && segments.size() > selectedSegment) {
+			TrkSegment segment = segments.get(selectedSegment);
+			if (segment.hasRoute()) {
+				addPoints(collectRoutePointsFromSegment(segment, selectedSegment));
+			} else {
+				addPoints(segment.points);
+			}
+		} else {
+			for (int si = 0; si < segments.size(); si++) {
+				TrkSegment segment = segments.get(si);
+				if (segment.hasRoute()) {
+					List<WptPt> routePoints = collectRoutePointsFromSegment(segment, si);
+					if (!routePoints.isEmpty() && si < segments.size() - 1) {
+						routePoints.get(routePoints.size() - 1).setGap();
 					}
-					if (points.size() > prevPointIndex + 1) {
-						pairPoints.add(points.get(prevPointIndex + 1));
+					addPoints(routePoints);
+				} else {
+					List<WptPt> points = segment.points;
+					addPoints(points);
+					if (!points.isEmpty() && si < segments.size() - 1) {
+						points.get(points.size() - 1).setGap();
 					}
-					Iterator<RouteSegmentResult> it = segments.iterator();
-					int k = endIndex - startIndex - 1;
-					List<RouteSegmentResult> pairSegments = new ArrayList<>();
-					if (k == 0 && !segments.isEmpty()) {
-						pairSegments.add(segments.remove(0));
-					} else {
-						while (it.hasNext() && k > 0) {
-							RouteSegmentResult s = it.next();
-							pairSegments.add(s);
-							it.remove();
-							k -= Math.abs(s.getEndPointIndex() - s.getStartPointIndex());
-						}
-					}
-					ApplicationMode appMode = ApplicationMode.valueOfStringKey(pair.first.getProfileType(), DEFAULT_APP_MODE);
-					roadSegmentData.put(pair, new RoadSegmentData(appMode, pair.first, pair.second, pairPoints, pairSegments));
 				}
 			}
-			addPoints(routePoints);
-		} else {
-			addPoints(points);
 		}
 	}
 
-	public void setPoints(GpxRouteApproximation gpxApproximation, ApplicationMode mode) {
-		if (gpxApproximation == null || Algorithms.isEmpty(gpxApproximation.finalPoints) || Algorithms.isEmpty(gpxApproximation.result)) {
-			return;
+	private List<WptPt> collectRoutePointsFromSegment(TrkSegment segment, int segmentIndex) {
+		RouteImporter routeImporter = new RouteImporter(segment);
+		List<RouteSegmentResult> routeSegments = routeImporter.importRoute();
+		List<WptPt> routePoints = gpxData.getGpxFile().getRoutePoints(segmentIndex);
+		int prevPointIndex = 0;
+		List<WptPt> points = segment.points;
+		if (routePoints.isEmpty() && points.size() > 1) {
+			routePoints.add(points.get(0));
+			routePoints.add(points.get(points.size() - 1));
 		}
-		roadSegmentData.clear();
+		for (int i = 0; i < routePoints.size() - 1; i++) {
+			Pair<WptPt, WptPt> pair = new Pair<>(routePoints.get(i), routePoints.get(i + 1));
+			int startIndex = pair.first.getTrkPtIndex();
+			if (startIndex < 0 || startIndex < prevPointIndex || startIndex >= points.size()) {
+				startIndex = MeasurementEditingContextUtils.findPointIndex(pair.first, points, prevPointIndex);
+			}
+			int endIndex = pair.second.getTrkPtIndex();
+			if (endIndex < 0 || endIndex < startIndex || endIndex >= points.size()) {
+				endIndex = MeasurementEditingContextUtils.findPointIndex(pair.second, points, startIndex);
+			}
+			if (startIndex >= 0 && endIndex >= 0) {
+				List<WptPt> pairPoints = new ArrayList<>();
+				for (int j = startIndex; j < endIndex && j < points.size(); j++) {
+					pairPoints.add(points.get(j));
+					prevPointIndex = j;
+				}
+				if (points.size() > prevPointIndex + 1 && i == routePoints.size() - 2) {
+					pairPoints.add(points.get(prevPointIndex + 1));
+				}
+				Iterator<RouteSegmentResult> it = routeSegments.iterator();
+				int k = endIndex - startIndex - 1;
+				List<RouteSegmentResult> pairSegments = new ArrayList<>();
+				if (k == 0 && !routeSegments.isEmpty()) {
+					pairSegments.add(routeSegments.remove(0));
+				} else {
+					while (it.hasNext() && k > 0) {
+						RouteSegmentResult s = it.next();
+						pairSegments.add(s);
+						it.remove();
+						k -= Math.abs(s.getEndPointIndex() - s.getStartPointIndex());
+					}
+				}
+				ApplicationMode appMode = ApplicationMode.valueOfStringKey(pair.first.getProfileType(), DEFAULT_APP_MODE);
+				roadSegmentData.put(pair, new RoadSegmentData(appMode, pair.first, pair.second, pairPoints, pairSegments));
+			}
+		}
+		return routePoints;
+	}
+
+	public List<WptPt> setPoints(GpxRouteApproximation gpxApproximation, List<WptPt> originalPoints, ApplicationMode mode) {
+		if (gpxApproximation == null || Algorithms.isEmpty(gpxApproximation.finalPoints) || Algorithms.isEmpty(gpxApproximation.result)) {
+			return null;
+		}
 		List<WptPt> routePoints = new ArrayList<>();
 		List<GpxPoint> gpxPoints = gpxApproximation.finalPoints;
-		for (int i = 0; i < gpxPoints.size() - 1; i++) {
-			GpxPoint rp1 = gpxPoints.get(i);
-			GpxPoint rp2 = gpxPoints.get(i + 1);
-			WptPt p1 = new WptPt();
-			p1.lat = rp1.loc.getLatitude();
-			p1.lon = rp1.loc.getLongitude();
-			p1.setProfileType(mode.getStringKey());
-			if (i == 0) {
-				routePoints.add(p1);
-			}
-			WptPt p2 = new WptPt();
-			p2.lat = rp2.loc.getLatitude();
-			p2.lon = rp2.loc.getLongitude();
-			p2.setProfileType(mode.getStringKey());
-			routePoints.add(p2);
-			Pair<WptPt, WptPt> pair = new Pair<>(p1, p2);
+		for (int i = 0; i < gpxPoints.size(); i++) {
+			GpxPoint gp1 = gpxPoints.get(i);
+			boolean lastGpxPoint = MeasurementEditingContextUtils.isLastGpxPoint(gpxPoints, i);
 			List<WptPt> points = new ArrayList<>();
 			List<RouteSegmentResult> segments = new ArrayList<>();
-			for (RouteSegmentResult seg : rp1.routeToTarget) {
-				segments.add(seg);
-				if (seg.isForwardDirection()) {
-					for (int ik = seg.getStartPointIndex(); ik <= seg.getEndPointIndex(); ik++) {
-						LatLon l = seg.getPoint(ik);
-						WptPt pt = new WptPt();
-						pt.lat = l.getLatitude();
-						pt.lon = l.getLongitude();
-						points.add(pt);
-					}
-				} else {
-					for (int ik = seg.getEndPointIndex(); ik >= seg.getStartPointIndex(); ik--) {
-						LatLon l = seg.getPoint(ik);
-						WptPt pt = new WptPt();
-						pt.lat = l.getLatitude();
-						pt.lon = l.getLongitude();
-						points.add(pt);
-					}
+			for (int k = 0; k < gp1.routeToTarget.size(); k++) {
+				RouteSegmentResult seg = gp1.routeToTarget.get(k);
+				if (seg.getStartPointIndex() != seg.getEndPointIndex()) {
+					segments.add(seg);
 				}
 			}
-			roadSegmentData.put(pair, new RoadSegmentData(appMode, pair.first, pair.second, points, segments));
-		}
-		addPoints(routePoints);
-	}
-
-	private int findPointIndex(WptPt point, List<WptPt> points, int firstIndex) {
-		double minDistance = Double.MAX_VALUE;
-		int index = 0;
-		for (int i = Math.max(0, firstIndex); i < points.size(); i++) {
-			double distance = MapUtils.getDistance(point.lat, point.lon, points.get(i).lat, points.get(i).lon);
-			if (distance < minDistance) {
-				minDistance = distance;
-				index = i;
+			for (int k = 0; k < segments.size(); k++) {
+				RouteSegmentResult seg = segments.get(k);
+				MeasurementEditingContextUtils.fillPointsArray(points, seg, lastGpxPoint && k == segments.size() - 1);
+			}
+			if (!points.isEmpty()) {
+				WptPt wp1 = new WptPt();
+				wp1.lat = gp1.loc.getLatitude();
+				wp1.lon = gp1.loc.getLongitude();
+				wp1.setProfileType(mode.getStringKey());
+				routePoints.add(wp1);
+				WptPt wp2 = new WptPt();
+				if (lastGpxPoint) {
+					wp2.lat = points.get(points.size() - 1).getLatitude();
+					wp2.lon = points.get(points.size() - 1).getLongitude();
+					routePoints.add(wp2);
+				} else {
+					GpxPoint gp2 = gpxPoints.get(i + 1);
+					wp2.lat = gp2.loc.getLatitude();
+					wp2.lon = gp2.loc.getLongitude();
+				}
+				wp2.setProfileType(mode.getStringKey());
+				Pair<WptPt, WptPt> pair = new Pair<>(wp1, wp2);
+				roadSegmentData.put(pair, new RoadSegmentData(appMode, pair.first, pair.second, points, segments));
+			}
+			if (lastGpxPoint) {
+				break;
 			}
 		}
-		return index;
+		WptPt lastOriginalPoint = originalPoints.get(originalPoints.size() - 1);
+		WptPt lastRoutePoint = routePoints.get(routePoints.size() - 1);
+		if (lastOriginalPoint.isGap()) {
+			lastRoutePoint.setGap();
+		}
+		replacePoints(originalPoints, routePoints);
+		return routePoints;
 	}
 
-	boolean isTrackSnappedToRoad() {
-		GpxData gpxData = getGpxData();
-		return gpxData != null && gpxData.getTrkSegment() != null
-				&& !gpxData.getTrkSegment().points.isEmpty()
-				&& gpxData.getGpxFile().hasRoute();
-	}
-
-	private void updateCacheForSnap(boolean both) {
-		recreateCacheForSnap(beforeCacheForSnap = new TrkSegment(), before, true);
+	private void updateSegmentsForSnap(boolean both) {
+		recreateSegments(beforeSegments = new ArrayList<>(),
+				beforeSegmentsForSnap = new ArrayList<>(), before.points, true);
 		if (both) {
-			recreateCacheForSnap(afterCacheForSnap = new TrkSegment(), after, true);
+			recreateSegments(afterSegments = new ArrayList<>(),
+					afterSegmentsForSnap = new ArrayList<>(), after.points, true);
 		}
 	}
 
-	private void updateCacheForSnap(boolean both, boolean calculateIfNeeded) {
-		recreateCacheForSnap(beforeCacheForSnap = new TrkSegment(), before, calculateIfNeeded);
+	private void updateSegmentsForSnap(boolean both, boolean calculateIfNeeded) {
+		recreateSegments(beforeSegments = new ArrayList<>(),
+				beforeSegmentsForSnap = new ArrayList<>(), before.points, calculateIfNeeded);
 		if (both) {
-			recreateCacheForSnap(afterCacheForSnap = new TrkSegment(), after, calculateIfNeeded);
+			recreateSegments(afterSegments = new ArrayList<>(),
+					afterSegmentsForSnap = new ArrayList<>(), after.points, calculateIfNeeded);
 		}
 	}
-
 
 	void cancelSnapToRoad() {
 		progressListener.hideProgressBar();
@@ -643,7 +977,7 @@ public class MeasurementEditingContext {
 				int pairs = pointsToCalculateSize;
 				if (pairs != 0) {
 					float pairProgress = 100f / pairs;
-					progress = (int)(calculatedPairs * pairProgress + (float) progress / pairs);
+					progress = (int) (calculatedPairs * pairProgress + (float) progress / pairs);
 				}
 				progressListener.updateProgress(progress);
 			}
@@ -687,11 +1021,11 @@ public class MeasurementEditingContext {
 				application.runInUIThread(new Runnable() {
 					@Override
 					public void run() {
-						updateCacheForSnap(true, false);
+						updateSegmentsForSnap(true, false);
 						progressListener.refresh();
 						RouteCalculationParams params = getParams(false);
 						if (params != null) {
-							application.getRoutingHelper().startRouteCalculationThread(params, true, true);
+							application.getRoutingHelper().startRouteCalculationThread(params);
 						} else {
 							progressListener.hideProgressBar();
 						}
@@ -702,38 +1036,44 @@ public class MeasurementEditingContext {
 		return params;
 	}
 
-	public List<WptPt> getDistinctRoutePoints() {
-		List<WptPt> res = new ArrayList<>();
-		List<WptPt> points = new ArrayList<>(before.points);
-		points.addAll(after.points);
-		int size = points.size();
-		for (int i = 0; i < size - 1; i++) {
-			Pair<WptPt, WptPt> pair = new Pair<>(points.get(i), points.get(i + 1));
-			RoadSegmentData data = this.roadSegmentData.get(pair);
-			if (data != null) {
-				res.addAll(data.points);
-				if (i < size - 2) {
-					res.remove(res.size() - 1);
+	public List<List<WptPt>> getRoutePoints() {
+		List<List<WptPt>> res = new ArrayList<>();
+		List<WptPt> plainPoints = new ArrayList<>(before.points);
+		plainPoints.addAll(after.points);
+		List<WptPt> points = new ArrayList<>();
+		for (WptPt point : plainPoints) {
+			if (point.getTrkPtIndex() != -1) {
+				points.add(point);
+				if (point.isGap()) {
+					res.add(points);
+					points = new ArrayList<>();
 				}
 			}
+		}
+		if (!points.isEmpty()) {
+			res.add(points);
 		}
 		return res;
 	}
 
 	@Nullable
-	public GPXFile exportRouteAsGpx(@NonNull String gpxName) {
-		if (application == null || before.points.isEmpty() || !hasRoute()) {
+	public GPXFile exportGpx(@NonNull String gpxName) {
+		if (application == null || before.points.isEmpty()) {
 			return null;
 		}
+		return RouteExporter.exportRoute(gpxName, getRouteSegments(), null);
+	}
+
+	private TrkSegment getRouteSegment(int startPointIndex, int endPointIndex) {
 		List<RouteSegmentResult> route = new ArrayList<>();
 		List<Location> locations = new ArrayList<>();
-		before.points.get(0).setTrkPtIndex(0);
-		int size = before.points.size();
-		for (int i = 0; i < size - 1; i++) {
+		for (int i = startPointIndex; i < endPointIndex; i++) {
 			Pair<WptPt, WptPt> pair = new Pair<>(before.points.get(i), before.points.get(i + 1));
 			RoadSegmentData data = this.roadSegmentData.get(pair);
-			if (data != null) {
-				for (WptPt pt : data.points) {
+			List<WptPt> dataPoints = data != null ? data.getPoints() : null;
+			List<RouteSegmentResult> dataSegments = data != null ? data.getSegments() : null;
+			if (dataPoints != null && dataSegments != null) {
+				for (WptPt pt : dataPoints) {
 					Location l = new Location("");
 					l.setLatitude(pt.getLatitude());
 					l.setLongitude(pt.getLongitude());
@@ -742,24 +1082,74 @@ public class MeasurementEditingContext {
 					}
 					locations.add(l);
 				}
-				pair.second.setTrkPtIndex(locations.size() - 1);
-				if (i < size - 2 && !locations.isEmpty()) {
-					locations.remove(locations.size() - 1);
-				}
-				route.addAll(data.segments);
+				pair.second.setTrkPtIndex(i + 1 < before.points.size() - 1 ? locations.size() : locations.size() - 1);
+				route.addAll(dataSegments);
 			}
 		}
-		return new RouteExporter(gpxName, route, locations, null).exportRoute();
+		if (!locations.isEmpty() && !route.isEmpty()) {
+			before.points.get(startPointIndex).setTrkPtIndex(0);
+			return new RouteExporter("", route, locations, null).generateRouteSegment();
+		} else if (endPointIndex - startPointIndex >= 0) {
+			TrkSegment segment = new TrkSegment();
+			segment.points = new ArrayList<>(before.points.subList(startPointIndex, endPointIndex + 1));
+			return segment;
+		}
+		return null;
 	}
 
-	interface SnapToRoadProgressListener {
+	private List<TrkSegment> getRouteSegments() {
+		List<TrkSegment> res = new ArrayList<>();
+		List<Integer> lastPointIndexes = new ArrayList<>();
+		for (int i = 0; i < before.points.size(); i++) {
+			WptPt pt = before.points.get(i);
+			if (pt.isGap()) {
+				lastPointIndexes.add(i);
+			}
+		}
+		if (lastPointIndexes.isEmpty() || lastPointIndexes.get(lastPointIndexes.size() - 1) < before.points.size() - 1) {
+			lastPointIndexes.add(before.points.size() - 1);
+		}
+		int firstPointIndex = 0;
+		for (Integer lastPointIndex : lastPointIndexes) {
+			TrkSegment segment = getRouteSegment(firstPointIndex, lastPointIndex);
+			if (segment != null) {
+				res.add(segment);
+			}
+			firstPointIndex = lastPointIndex + 1;
+		}
+		return res;
+	}
 
-		void showProgressBar();
+	public boolean isInMultiProfileMode() {
+		Set<String> profiles = new HashSet<>();
+		List<TrkSegment> allSegments = new ArrayList<>();
+		allSegments.addAll(beforeSegments);
+		allSegments.addAll(afterSegments);
+		for (TrkSegment segment : allSegments) {
+			List<WptPt> points = segment.points;
+			if (Algorithms.isEmpty(points)) {
+				continue;
+			}
+			for (int i = 0; i < points.size() / 2 + 1; i++) {
+				WptPt left = points.get(i);
+				int rightIdx = points.size() - 1 - i;
+				WptPt right = points.get(rightIdx);
+				if (!left.isGap() && i + 1 < points.size()) {
+					profiles.add(left.getProfileType());
+				}
+				if (!right.isGap() && rightIdx + 1 < points.size()) {
+					profiles.add(right.getProfileType());
+				}
+				if (profiles.size() >= 2) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
 
-		void updateProgress(int progress);
-
-		void hideProgressBar();
-
-		void refresh();
+	@Override
+	public void onRouteSettingsChanged(@Nullable ApplicationMode mode) {
+		recalculateRouteSegments(mode);
 	}
 }

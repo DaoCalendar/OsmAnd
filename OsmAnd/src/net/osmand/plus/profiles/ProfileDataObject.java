@@ -1,7 +1,9 @@
 package net.osmand.plus.profiles;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.ColorRes;
 import androidx.annotation.NonNull;
+
 
 public class ProfileDataObject implements Comparable<ProfileDataObject> {
 
@@ -11,15 +13,20 @@ public class ProfileDataObject implements Comparable<ProfileDataObject> {
 	private String stringKey;
 	private boolean isSelected;
 	private boolean isEnabled;
-	private ProfileIconColors iconColor;
+	@ColorInt
+	private Integer iconColorLight;
+	@ColorInt
+	private Integer iconColorDark;
 
-	public ProfileDataObject(String name, String description, String stringKey, int iconRes,  boolean isSelected, ProfileIconColors iconColor) {
+	public ProfileDataObject(String name, String description, String stringKey, int iconRes, boolean isSelected,
+							 @ColorInt Integer iconColorLight, @ColorInt Integer iconColorDark) {
 		this.name = name;
 		this.iconRes = iconRes;
 		this.description = description;
 		this.isSelected = isSelected;
 		this.stringKey = stringKey;
-		this.iconColor = iconColor;
+		this.iconColorLight = iconColorLight;
+		this.iconColorDark = iconColorDark;
 	}
 
 	public String getName() {
@@ -54,12 +61,14 @@ public class ProfileDataObject implements Comparable<ProfileDataObject> {
 		return stringKey;
 	}
 
-	@ColorRes  public int getIconColor(boolean isNightMode) {
-		return iconColor.getColor(isNightMode);
+	@ColorInt
+	public int getIconColor(boolean isNightMode) {
+		return isNightMode ? iconColorDark : iconColorLight;
 	}
 
 	@Override
 	public int compareTo(@NonNull ProfileDataObject another) {
 		return this.name.compareToIgnoreCase(another.name);
 	}
+
 }

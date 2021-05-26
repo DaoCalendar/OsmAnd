@@ -1,12 +1,12 @@
 package net.osmand.plus.search;
 
-import android.os.Build;
 import android.os.Bundle;
-import android.text.Html;
 import android.view.ContextThemeWrapper;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.Nullable;
 
 import net.osmand.AndroidNetworkUtils;
 import net.osmand.plus.OsmandApplication;
@@ -50,11 +50,7 @@ public class SendSearchQueryBottomSheet extends MenuBottomSheetDialogFragment {
 		final int themeRes = nightMode ? R.style.OsmandDarkTheme : R.style.OsmandLightTheme;
 		final TextView textView = (TextView) View.inflate(new ContextThemeWrapper(getContext(), themeRes),
 				R.layout.send_missing_search_query_tv, null);
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-			textView.setText(getString(R.string.send_search_query_description, searchQuery));
-		} else {
-			textView.setText(getString(R.string.send_search_query_description, searchQuery));
-		}
+		textView.setText(getString(R.string.send_search_query_description, searchQuery));
 		BaseBottomSheetItem sendSearchQueryDescription = new SimpleBottomSheetItem.Builder().setCustomView(textView)
 				.create();
 		items.add(sendSearchQueryDescription);
@@ -77,7 +73,7 @@ public class SendSearchQueryBottomSheet extends MenuBottomSheetDialogFragment {
 				AndroidNetworkUtils.sendRequestAsync(app, "https://osmand.net/api/missing_search", params,
 						null, true, true, new AndroidNetworkUtils.OnRequestResultListener() {
 							@Override
-							public void onResult(String result) {
+							public void onResult(@Nullable String result, @Nullable String error) {
 								if (result != null && isAdded()) {
 									try {
 										JSONObject obj = new JSONObject(result);

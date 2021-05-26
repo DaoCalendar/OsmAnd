@@ -1,12 +1,15 @@
 package net.osmand.plus;
 
-
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import android.content.pm.PackageInfo;
-import 	android.content.pm.PackageManager;
+import android.content.pm.PackageManager;
+
+import androidx.annotation.NonNull;
 
 import net.osmand.plus.inapp.InAppPurchaseHelper;
+
+import java.io.File;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 
 public class Version {
 	
@@ -14,26 +17,29 @@ public class Version {
 	private final String appName;
 	private final static String FREE_VERSION_NAME = "net.osmand";
 	private final static String FREE_DEV_VERSION_NAME = "net.osmand.dev";
-	private final static String FREE_CUSTOM_VERSION_NAME = "net.osmand.freecustom";
 	private final static String UTM_REF = "&referrer=utm_source%3Dosmand";
-	
-	public static boolean isGpsStatusEnabled(OsmandApplication ctx) {
-		return isGooglePlayEnabled(ctx) && !isBlackberry(ctx);
-	}
-	
-	public static boolean isBlackberry(OsmandApplication ctx) {
-		return ctx.getString(R.string.versionFeatures).contains("+blackberry");
-	}
-	
-	public static boolean isHuawei(OsmandApplication ctx) {
-		return ctx.getPackageName().endsWith(".huawei");
-	}
-	
-	public static boolean isMarketEnabled(OsmandApplication ctx) {
-		return isGooglePlayEnabled(ctx) || isAmazonEnabled(ctx);
+
+	public static boolean isHuawei() {
+		return getBuildFlavor().contains("huawei");
 	}
 
-	public static boolean isGooglePlayInstalled(OsmandApplication ctx) {
+	public static boolean isAmazon() {
+		return getBuildFlavor().contains("amazon");
+	}
+
+	private static String getBuildFlavor() {
+		return net.osmand.plus.BuildConfig.FLAVOR;
+	}
+
+	public static boolean isGooglePlayEnabled() {
+		return !isHuawei() && !isAmazon();
+	}
+
+	public static boolean isMarketEnabled() {
+		return isGooglePlayEnabled() || isAmazon();
+	}
+
+	public static boolean isGooglePlayInstalled(@NonNull OsmandApplication ctx) {
 		try {
 			ctx.getPackageManager().getPackageInfo("com.android.vending", 0);
 		} catch (PackageManager.NameNotFoundException e) {
@@ -42,10 +48,10 @@ public class Version {
 		return true;
 	}
 	
-	public static String marketPrefix(OsmandApplication ctx) {
-		if (isAmazonEnabled(ctx)) {
+	public static String marketPrefix(@NonNull OsmandApplication ctx) {
+		if (isAmazon()) {
 			return "amzn://apps/android?p=";
-		} else if (isGooglePlayEnabled(ctx) && isGooglePlayInstalled(ctx)) {
+		} else if (isGooglePlayEnabled() && isGooglePlayInstalled(ctx)) {
 			return "market://details?id=";
 		} 
 		return "https://osmand.net/apps?id=";
@@ -55,22 +61,11 @@ public class Version {
 		return marketPrefix(ctx) + appName + UTM_REF;
 	}
 	
-	private static boolean isAmazonEnabled(OsmandApplication ctx) {
-		return ctx.getString(R.string.versionFeatures).contains("+amazon");
-	}
-	
-	public static boolean isGooglePlayEnabled(OsmandApplication ctx) {
-		return ctx.getString(R.string.versionFeatures).contains("+play_market");
-	}
-	
-	
 	private Version(OsmandApplication ctx) {
 		String appVersion = "";
-		int versionCode = -1;
 		try {
 			PackageInfo packageInfo = ctx.getPackageManager().getPackageInfo(ctx.getPackageName(), 0);
 			appVersion = packageInfo.versionName;  //Version suffix  ctx.getString(R.string.app_version_suffix)  already appended in build.gradle
-			versionCode = packageInfo.versionCode;
 		} catch (PackageManager.NameNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -121,14 +116,15 @@ public class Version {
 	public static boolean isFreeVersion(OsmandApplication ctx){
 		return ctx.getPackageName().equals(FREE_VERSION_NAME) || 
 				ctx.getPackageName().equals(FREE_DEV_VERSION_NAME) ||
-				ctx.getPackageName().equals(FREE_CUSTOM_VERSION_NAME)
-				;
+				isHuawei();
 	}
 
 	public static boolean isPaidVersion(OsmandApplication ctx) {
 		return !isFreeVersion(ctx)
 				|| InAppPurchaseHelper.isFullVersionPurchased(ctx)
-				|| InAppPurchaseHelper.isSubscribedToLiveUpdates(ctx);
+				|| InAppPurchaseHelper.isSubscribedToLiveUpdates(ctx)
+				|| InAppPurchaseHelper.isSubscribedToMaps(ctx)
+				|| InAppPurchaseHelper.isSubscribedToOsmAndPro(ctx);
 	}
 	
 	public static boolean isDeveloperVersion(OsmandApplication ctx){
@@ -149,4 +145,21 @@ public class Version {
 		return v;
 	}
 
+	public static boolean isOpenGlAvailable(OsmandApplication app) {
+		if ("qnx".equals(System.getProperty("os.name"))) {
+			return false;
+		}
+		File nativeLibraryDir = new File(app.getApplicationInfo().nativeLibraryDir);
+		if (nativeLibraryDir.exists() && nativeLibraryDir.canRead()) {
+			File[] files = nativeLibraryDir.listFiles();
+			if (files != null) {
+				for (File file : files) {
+					if ("libOsmAndCoreWithJNI.so".equals(file.getName())) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
 }

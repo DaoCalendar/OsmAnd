@@ -19,9 +19,11 @@
 		<attr name="expandable_list_background" format="color"/>
 		<attr name="bg_color" format="reference" />
 	    <attr name="bg_circle" format="reference"/>
+        <attr name="bg_circle_contour" format="reference" />
 	    <attr name="btn_round" format="reference" />
         <attr name="btn_round_border" format="reference" />
 		<attr name="btn_round_border_2" format="reference" />
+	    <attr name="bg_round_btn" format="reference" />
 		<attr name="bg_card" format="reference" />
         <attr name="context_menu_card" format="reference" />
         <attr name="ctx_menu_card_btn" format="reference" />
@@ -122,6 +124,7 @@
 		<attr name="divider_color_basic" format="reference" />
 		<attr name="main_font_color_basic" format="reference" />
 		<attr name="active_color_basic" format="reference" />
+		<attr name="profile_icon_color_green" format="reference" />
 		<attr name="card_and_list_background_basic" format="reference" />
 		<attr name="activity_background_basic" format="reference" />
 		<attr name="pages_bg" format="reference"/>
@@ -137,6 +140,10 @@
 		<attr name="btn_radio_button_right" format="reference"/>
 		<attr name="btn_radio_button_center" format="reference"/>
 		<attr name="bg_dash_line" format="reference"/>
+		<attr name="text_input_background" format="reference"/>
+		<attr name="image_help_announcement_time" format="reference"/>
+		<attr name="switch_button_active" format="reference" />
+		<attr name="bottom_navigation_item_background" format="reference" />
 	</declare-styleable>
 
     <declare-styleable name="PagerSlidingTabStrip">

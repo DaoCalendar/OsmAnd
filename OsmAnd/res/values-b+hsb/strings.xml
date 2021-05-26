@@ -444,7 +444,6 @@
     <string name="avoid_motorway">Awtodróhi wobeńć</string>
     <string name="auto_zoom_map_descr">Přiměrja wulkosć karty wotpowědujo aktualnej spěšnosći (karta so z tuchwilnym stejišćom synchronizuje).</string>
     <string name="auto_zoom_map">Awtomatiski zoom</string>
-    <string name="snap_to_road_descr">W běhu nawigacije poziciski dypk na dróhach zdźeržować.</string>
     <string name="snap_to_road">Na dróze wostać</string>
     <string name="interrupt_music_descr">Připowědźenje přetorhnje hudźbu.</string>
     <string name="interrupt_music">Wothrawanje hudźby přetorhować</string>
@@ -753,7 +752,6 @@
     <string name="error_calculating_route">Njemóžach čaru wobličić</string>
     <string name="error_calculating_route_occured">Njemóžach čaru wobličić</string>
     <string name="empty_route_calculated">Wobličena čara je prózdna</string>
-    <string name="new_route_calculated_dist">Nowa čara wobličena, zdalenosć</string>
     <string name="arrived_at_destination">Cil docpěty</string>
     <string name="invalid_locations">Njepłaćiwe koordinaty</string>
     <string name="go_back_to_osmand">Wróćo k OsmAnd</string>
@@ -914,9 +912,6 @@
     <string name="increase_search_radius">Pytanski radius powjetšić</string>
     <string name="nothing_found">Žadyn pytanski wuslědk</string>
     <string name="nothing_found_descr">Změń pytanje abo powjetš jeho radius.</string>
-    <string name="quick_action_showhide_osmbugs_title">OSM-noticy pokazać/schować</string>
-    <string name="quick_action_osmbugs_show">OSM-noticy pokazać</string>
-    <string name="quick_action_osmbugs_hide">OSM-noticy schować</string>
     <string name="sorted_by_distance">Sortěrowane po zdalenosći</string>
     <string name="search_favorites">W faworitach pytać</string>
     <string name="hillshade_menu_download_descr">Sćehń reliefowu kartu, zo by so relief pokazał.</string>
@@ -1023,10 +1018,6 @@
     <string name="add_point_before">Předchadny dypk dodać</string>
     <string name="add_point_after">Přichodny dypk dodać</string>
     <string name="quick_action_start_stop_navigation">Nawigaciju zahajić/přetorhnyć</string>
-    <string name="quick_action_showhide_favorites_title">Fawority pokazać/schować</string>
-    <string name="quick_action_favorites_show">Fawority pokazać</string>
-    <string name="quick_action_favorites_hide">Fawority schować</string>
-    <string name="quick_action_showhide_poi_title">POI pokazać/schować</string>
     <string name="quick_action_poi_show">%1$s pokazać</string>
     <string name="quick_action_poi_hide">%1$s schować</string>
     <string name="quick_action_add_category">Kategoriju dodać</string>
@@ -1142,7 +1133,6 @@
     <string name="file_size_in_mb">%.1f MB</string>
     <string name="other_menu_group">druhe</string>
     <string name="planning_trip_item">Jězbu planować</string>
-    <string name="update">Aktualizowanje</string>
     <string name="last_update">Poslednje aktualizowanje: %s</string>
     <string name="last_map_change">Poslednja změna karty: %s</string>
     <string name="weekly">tydźensce</string>
@@ -1246,7 +1236,6 @@
     <string name="new_filter">Nowy filter</string>
     <string name="osmand_plus_banner_desc">Njewobmjezowane sćehnjenje kartow, aktualizacijow a zapiski Wikipedije.</string>
     <string name="search_my_location">Moje stejišćo namakać</string>
-    <string name="no_update_info">Nowe wersije njepokazać</string>
     <string name="update_all_maps_now">Wšitke karty nětko aktualizować?</string>
     <string name="replace_favorite_confirmation">Sy sej wěsty/a, zo chceš narunać faworit %1$s?</string>
     <string name="coords_search">Pytanje za koordinatami</string>
@@ -1363,7 +1352,6 @@
     <string name="give_permission">Dowolić</string>
     <string name="allow_access_location">Přistup k stejišću dowolić</string>
     <string name="routing_attr_short_way_name">Naftu lutowacy puć</string>
-    <string name="routing_attr_short_way_description">Naftu lutowacy puć wužić (zwjetša krótši).</string>
     <string name="confirmation_to_delete_history_items">Wubrane objekty z archiwa wotstronić?</string>
     <string name="select_map_marker">Chorhojčku wubrać</string>
     <string name="map_markers_other">Druhe chorhojčki</string>
@@ -1586,12 +1574,6 @@
     <string name="update_all_maps">Wšě karty aktualizować</string>
     <string name="update_all_maps_q">Chceš woprawdźe wšě (%1$d) karty aktualizować\?</string>
     <string name="layer_osm_edits">Změny na OSM</string>
-    <string name="quick_action_contour_lines_show">Pokazaj wysokostne linije</string>
-    <string name="quick_action_contour_lines_hide">Schowaj wysokostne linije</string>
-    <string name="quick_action_show_hide_contour_lines">Wysokostne linije pokazać/schować</string>
-    <string name="quick_action_hillshade_show">Pokazaj relief</string>
-    <string name="quick_action_hillshade_hide">Schowaj relief</string>
-    <string name="quick_action_show_hide_hillshade">Relief pokazać/schować</string>
     <string name="export_profile">Profil eksportować</string>
     <string name="exported_osmand_profile">OsmAnd-profil: %1$s</string>
     <string name="overwrite_profile_q">Profil \'%1$s\' hižo eksistuje. Chceš jón přepisać\?</string>

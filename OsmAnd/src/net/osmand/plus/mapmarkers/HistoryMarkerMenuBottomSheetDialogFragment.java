@@ -3,13 +3,13 @@ package net.osmand.plus.mapmarkers;
 import android.os.Bundle;
 import android.view.View;
 
-import net.osmand.plus.MapMarkersHelper.MapMarker;
 import net.osmand.plus.R;
 import net.osmand.plus.base.MenuBottomSheetDialogFragment;
 import net.osmand.plus.base.bottomsheetmenu.BaseBottomSheetItem;
 import net.osmand.plus.base.bottomsheetmenu.BottomSheetItemWithDescription;
 import net.osmand.plus.base.bottomsheetmenu.SimpleBottomSheetItem;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.DividerItem;
+import net.osmand.plus.mapmarkers.MapMarker;
 import net.osmand.util.Algorithms;
 
 import java.text.SimpleDateFormat;

@@ -83,7 +83,7 @@ public class BinaryMapIndexReader {
 
 	public final static int TRANSPORT_STOP_ZOOM = 24;
 	public static final int SHIFT_COORDINATES = 5;
-	public static final int LABEL_ZOOM_ENCODE = 26;
+	public static final int LABEL_ZOOM_ENCODE = 31 - SHIFT_COORDINATES;
 	private final static Log log = PlatformUtil.getLog(BinaryMapIndexReader.class);
 	public static boolean READ_STATS = false;
 	public static final SearchPoiTypeFilter ACCEPT_ALL_POI_TYPE_FILTER = new SearchPoiTypeFilter() {
@@ -1538,9 +1538,20 @@ public class BinaryMapIndexReader {
 
 		return request;
 	}
-	
-	public static SearchRequest<RouteDataObject> buildSearchRouteRequest(int sleft, int sright, int stop, int sbottom,  
-			ResultMatcher<RouteDataObject> matcher){
+
+	public static SearchRequest<Amenity> buildSearchPoiRequest(LatLon latLon, int radius, int zoom,
+	                                                           SearchPoiTypeFilter poiTypeFilter,
+	                                                           ResultMatcher<Amenity> matcher) {
+		SearchRequest<Amenity> request = new SearchRequest<>();
+		request.setBBoxRadius(latLon.getLatitude(), latLon.getLongitude(), radius);
+		request.zoom = zoom;
+		request.poiTypeFilter = poiTypeFilter;
+		request.resultMatcher = matcher;
+		return request;
+	}
+
+	public static SearchRequest<RouteDataObject> buildSearchRouteRequest(int sleft, int sright, int stop, int sbottom,
+	                                                                     ResultMatcher<RouteDataObject> matcher) {
 		SearchRequest<RouteDataObject> request = new SearchRequest<RouteDataObject>();
 		request.left = sleft;
 		request.right = sright;
@@ -1557,6 +1568,10 @@ public class BinaryMapIndexReader {
 	}
 
 	public static SearchRequest<Amenity> buildSearchPoiRequest(int x, int y, String nameFilter, int sleft, int sright, int stop, int sbottom, ResultMatcher<Amenity> resultMatcher, ResultMatcher<Amenity> rawDataCollector) {
+		return buildSearchPoiRequest(x, y, nameFilter, sleft, sright, stop, sbottom, null, resultMatcher, null);
+	}
+
+	public static SearchRequest<Amenity> buildSearchPoiRequest(int x, int y, String nameFilter, int sleft, int sright, int stop, int sbottom, SearchPoiTypeFilter poiTypeFilter, ResultMatcher<Amenity> resultMatcher, ResultMatcher<Amenity> rawDataCollector) {
 		SearchRequest<Amenity> request = new SearchRequest<Amenity>();
 		request.x = x;
 		request.y = y;
@@ -1564,6 +1579,7 @@ public class BinaryMapIndexReader {
 		request.right = sright;
 		request.top = stop;
 		request.bottom = sbottom;
+		request.poiTypeFilter = poiTypeFilter;
 		request.resultMatcher = resultMatcher;
 		request.rawDataCollector = rawDataCollector;
 		request.nameQuery = nameFilter.trim();
@@ -1711,13 +1727,12 @@ public class BinaryMapIndexReader {
 			double half16t = MapUtils.getDistance(lat, MapUtils.getLongitudeFromTile(16, ((int) dx) + 0.5), 
 					lat, MapUtils.getLongitudeFromTile(16, (int) dx));
 			double cf31 = ((double) radiusMeters / (half16t * 2)) * (1 << 15);
-			int y31 = MapUtils.get31TileNumberY(lat);
-			int x31 = MapUtils.get31TileNumberX(lon);
-			left = (int) (x31 - cf31);
-			right = (int) (x31 + cf31);
-			top = (int) (y31 - cf31);
-			bottom = (int) (y31 + cf31);
-			
+			y = MapUtils.get31TileNumberY(lat);
+			x = MapUtils.get31TileNumberX(lon);
+			left = (int) (x - cf31);
+			right = (int) (x + cf31);
+			top = (int) (y - cf31);
+			bottom = (int) (y + cf31);
 		}
 
 		public boolean publish(T obj) {
@@ -1752,6 +1767,10 @@ public class BinaryMapIndexReader {
 
 		public boolean limitExceeded() {
 			return limit != -1 && searchResults.size() > limit;
+		}
+
+		public void setLimit(int limit) {
+			this.limit = limit;
 		}
 
 		public boolean isCancelled() {
@@ -2142,9 +2161,9 @@ public class BinaryMapIndexReader {
 	private static boolean testAddressSearch = false;
 	private static boolean testAddressSearchName = false;
 	private static boolean testAddressJustifySearch = false;
-	private static boolean testPoiSearch = false;
+	private static boolean testPoiSearch = true;
 	private static boolean testPoiSearchOnPath = false;
-	private static boolean testTransportSearch = true;
+	private static boolean testTransportSearch = false;
 	
 	private static int sleft = MapUtils.get31TileNumberX(27.55079);
 	private static int sright = MapUtils.get31TileNumberX(27.55317);
@@ -2158,7 +2177,7 @@ public class BinaryMapIndexReader {
 
 	public static void main(String[] args) throws IOException {
 		File fl = new File(System.getProperty("maps") + "/Synthetic_test_rendering.obf");
-		fl = new File("/home/madwasp79/OsmAnd-maps/Poly_center2.obf");
+		fl = new File(System.getProperty("maps") +"/Wikivoyage.obf__");
 		
 		RandomAccessFile raf = new RandomAccessFile(fl, "r");
 
@@ -2306,7 +2325,7 @@ public class BinaryMapIndexReader {
 
 	private static void testPoiSearchByName(BinaryMapIndexReader reader) throws IOException {
 		println("Searching by name...");
-		SearchRequest<Amenity> req = buildSearchPoiRequest(0, 0, "Art",
+		SearchRequest<Amenity> req = buildSearchPoiRequest(0, 0, "central ukraine",
 				0, Integer.MAX_VALUE, 0, Integer.MAX_VALUE, null);
 		
 		reader.searchPoiByName(req);
@@ -2366,54 +2385,72 @@ public class BinaryMapIndexReader {
 
 	}
 
-	int readIndexedStringTable(Collator instance, String query, String prefix, TIntArrayList list, int charMatches) throws IOException {
+	void readIndexedStringTable(Collator instance, List<String> queries, String prefix, List<TIntArrayList> listOffsets, TIntArrayList matchedCharacters) throws IOException {
 		String key = null;
+		boolean[] matched = new boolean[matchedCharacters.size()];
+		boolean shouldWeReadSubtable = false;
 		while (true) {
 			int t = codedIS.readTag();
 			int tag = WireFormat.getTagFieldNumber(t);
 			switch (tag) {
 			case 0:
-				return charMatches;
+				return;
 			case OsmandOdb.IndexedStringTable.KEY_FIELD_NUMBER :
 				key = codedIS.readString();
-				if(prefix.length() > 0){
+				if (prefix.length() > 0) {
 					key = prefix + key;
 				}
-				// check query is part of key (the best matching)
-				if(CollatorStringMatcher.cmatches(instance, key, query, StringMatcherMode.CHECK_ONLY_STARTS_WITH)){
-					if(query.length() >= charMatches){
-						if(query.length() > charMatches){
-							charMatches = query.length();
-							list.clear();
-						}
-					} else {
-						key = null;
+				shouldWeReadSubtable = false;
+				for (int i = 0; i < queries.size(); i++) {
+					int charMatches = matchedCharacters.get(i);
+					String query = queries.get(i);
+					matched[i] = false;
+					if (query == null) {
+						continue;
 					}
-					// check key is part of query
-				} else if (CollatorStringMatcher.cmatches(instance, query, key, StringMatcherMode.CHECK_ONLY_STARTS_WITH)) {
-					if (key.length() >= charMatches) {
-						if (key.length() > charMatches) {
-							charMatches = key.length();
-							list.clear();
+					
+					// check query is part of key (the best matching)
+					if (CollatorStringMatcher.cmatches(instance, key, query, StringMatcherMode.CHECK_ONLY_STARTS_WITH)) {
+						if (query.length() >= charMatches) {
+							if (query.length() > charMatches) {
+								matchedCharacters.set(i, query.length());
+								listOffsets.get(i).clear();
+							}
+							matched[i] = true;
 						}
-					} else {
-						key = null;
+						// check key is part of query
+					} else if (CollatorStringMatcher.cmatches(instance, query, key, StringMatcherMode.CHECK_ONLY_STARTS_WITH)) {
+						if (key.length() >= charMatches) {
+							if (key.length() > charMatches) {
+								matchedCharacters.set(i, key.length());
+								listOffsets.get(i).clear();
+							}
+							matched[i] = true;
+						}
 					}
-				} else {
-					key = null;
+					shouldWeReadSubtable |= matched[i];
 				}
 				break;
 			case OsmandOdb.IndexedStringTable.VAL_FIELD_NUMBER :
 				int val = readInt();
-				if (key != null) {
-					list.add(val);
+				for (int i = 0; i < queries.size(); i++) {
+					if (matched[i]) {
+						listOffsets.get(i).add(val);
+					}
 				}
 				break;
 			case OsmandOdb.IndexedStringTable.SUBTABLES_FIELD_NUMBER :
 				int len = codedIS.readRawVarint32();
 				int oldLim = codedIS.pushLimit(len);
-				if (key != null) {
-					charMatches = readIndexedStringTable(instance, query, key, list, charMatches);
+				if (shouldWeReadSubtable && key != null) {
+					List<String> subqueries = new ArrayList<>(queries);
+					// reset query so we don't search what was not matched
+					for(int i = 0; i < queries.size(); i++) {
+						if(!matched[i]) {
+							subqueries.set(i, null);
+						}
+					}
+					readIndexedStringTable(instance, subqueries, key, listOffsets, matchedCharacters);
 				} else {
 					codedIS.skipRawBytes(codedIS.getBytesUntilLimit());
 				}
@@ -2501,8 +2538,9 @@ public class BinaryMapIndexReader {
 				}
 			}
 		}
-		for (MapObject e : resMap.keySet()) {
-			Street s = resMap.get(e);
+		for (Entry<MapObject, Street> entry : resMap.entrySet()) {
+			MapObject e = entry.getKey();
+			Street s = entry.getValue();
 			if (e instanceof Building && MapUtils.getDistance(e.getLocation(), lat, lon) < 40) {
 				Building b = (Building) e;
 				System.out.println(b.getName() + "   " + s);

@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 
+import net.osmand.plus.profiles.ProfileDataUtils;
 import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities;
@@ -19,7 +20,6 @@ import net.osmand.plus.base.bottomsheetmenu.BaseBottomSheetItem;
 import net.osmand.plus.base.bottomsheetmenu.BottomSheetItemWithCompoundButton;
 import net.osmand.plus.base.bottomsheetmenu.BottomSheetItemWithDescription;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.TitleItem;
-import net.osmand.plus.settings.fragments.BaseSettingsFragment;
 
 public class ResetProfilePrefsBottomSheet extends BasePreferenceBottomSheet {
 
@@ -38,18 +38,17 @@ public class ResetProfilePrefsBottomSheet extends BasePreferenceBottomSheet {
 		String title = getString(customProfile ? R.string.restore_all_profile_settings : R.string.reset_all_profile_settings);
 		items.add(new TitleItem(title));
 
-		int profileColor = mode.getIconColorInfo().getColor(nightMode);
-		int colorNoAlpha = ContextCompat.getColor(ctx, profileColor);
+		int colorNoAlpha = mode.getProfileColor(nightMode);
 
 		Drawable backgroundIcon = UiUtilities.getColoredSelectableDrawable(ctx, colorNoAlpha, 0.3f);
 		Drawable[] layers = {new ColorDrawable(UiUtilities.getColorWithAlpha(colorNoAlpha, 0.10f)), backgroundIcon};
 
 		BaseBottomSheetItem profileItem = new BottomSheetItemWithCompoundButton.Builder()
 				.setChecked(true)
-				.setCompoundButtonColorId(profileColor)
-				.setButtonTintList(ColorStateList.valueOf(getResolvedColor(profileColor)))
-				.setDescription(BaseSettingsFragment.getAppModeDescription(ctx, mode))
-				.setIcon(getIcon(mode.getIconRes(), profileColor))
+				.setCompoundButtonColor(colorNoAlpha)
+				.setButtonTintList(ColorStateList.valueOf(colorNoAlpha))
+				.setDescription(ProfileDataUtils.getAppModeDescription(ctx, mode))
+				.setIcon(getPaintedIcon(mode.getIconRes(), colorNoAlpha))
 				.setTitle(mode.toHumanString())
 				.setBackground(new LayerDrawable(layers))
 				.setLayoutId(R.layout.preference_profile_item_with_radio_btn)

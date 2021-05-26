@@ -2,7 +2,7 @@ gradle
 gradlew
 gradlew.bat
 
-
+/net.osmand
 aarDependencies 
 libs/android*.jar
 libs/com.*.jar
@@ -13,10 +13,13 @@ libs/it.unibo.alice.tuprolog-tuprolog-3.2.1.jar
 libs/commons-codec-commons-codec-1.11.jar
 libs/OsmAndCore_android-0.1-SNAPSHOT.jar
 
+# Huawei
 libs/huawei-*.jar
 huaweidrmlib/
 HwDRM_SDK_*
 drm_strings.xml
+agconnect-services.json
+OsmAndHms.jks
 
 # copy_widget_icons.sh
 res/drawable-large/map_*
@@ -36,13 +39,7 @@ mx_*
 valgrind/
 bin/
 dist/
-res/values/no_translate.xml
-res/values/skip_translate.xml
-assets/specialphrases/*
-assets/voice/*
-assets/fonts/*
-assets/feature_articles/*
-assets/World_basemap_mini*
+
 gen/
 local.properties
 raw/
@@ -55,6 +52,11 @@ out/
 use/
 osmand.properties
 osmand.xml
+assets/specialphrases/*
+assets/voice/*
+assets/fonts/*
+assets/feature_articles/*
+assets/*.obf
 assets/style.css
 assets/poi_categories.json
 assets/help/*.html

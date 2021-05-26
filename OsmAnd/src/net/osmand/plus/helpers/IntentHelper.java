@@ -4,6 +4,8 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 
+import androidx.fragment.app.Fragment;
+
 import net.osmand.AndroidNetworkUtils;
 import net.osmand.CallbackWithObject;
 import net.osmand.IndexConstants;
@@ -11,18 +13,22 @@ import net.osmand.PlatformUtil;
 import net.osmand.data.LatLon;
 import net.osmand.data.PointDescription;
 import net.osmand.map.TileSourceManager;
-import net.osmand.plus.mapsource.EditMapSourceDialogFragment;
-import net.osmand.plus.search.QuickSearchDialogFragment;
-import net.osmand.plus.settings.backend.ApplicationMode;
-import net.osmand.plus.MapMarkersHelper;
 import net.osmand.plus.OsmandApplication;
-import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.plus.R;
 import net.osmand.plus.activities.MapActivity;
+import net.osmand.plus.activities.PluginsFragment;
 import net.osmand.plus.dashboard.DashboardOnMap.DashboardType;
 import net.osmand.plus.mapmarkers.MapMarkersDialogFragment;
+import net.osmand.plus.mapmarkers.MapMarkersGroup;
+import net.osmand.plus.mapsource.EditMapSourceDialogFragment;
+import net.osmand.plus.openplacereviews.OPRConstants;
+import net.osmand.plus.openplacereviews.OprAuthHelper.OprAuthorizationListener;
+import net.osmand.plus.search.QuickSearchDialogFragment;
+import net.osmand.plus.settings.backend.ApplicationMode;
+import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.plus.settings.fragments.BaseSettingsFragment;
 import net.osmand.plus.settings.fragments.BaseSettingsFragment.SettingsScreenType;
+import net.osmand.plus.track.TrackMenuFragment;
 import net.osmand.util.Algorithms;
 
 import org.apache.commons.logging.Log;
@@ -32,6 +38,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static net.osmand.plus.activities.TrackActivity.CURRENT_RECORDING;
+import static net.osmand.plus.activities.TrackActivity.TRACK_FILE_NAME;
+import static net.osmand.plus.osmedit.oauth.OsmOAuthHelper.OsmAuthorizationListener;
+import static net.osmand.plus.track.TrackMenuFragment.RETURN_SCREEN_NAME;
 
 public class IntentHelper {
 
@@ -58,6 +69,12 @@ public class IntentHelper {
 		if (!applied) {
 			applied = parseSendIntent();
 		}
+		if (!applied) {
+			applied = parseOAuthIntent();
+		}
+		if (!applied) {
+			applied = parseOprOAuthIntent();
+		}
 		return applied;
 	}
 
@@ -78,7 +95,7 @@ public class IntentHelper {
 						String zoom = data.getQueryParameter("z");
 						int z = settings.getLastKnownMapZoom();
 						if (zoom != null) {
-							z = Integer.parseInt(zoom);
+							z = (int) Double.parseDouble(zoom);
 						}
 						settings.setMapLocationToShow(lt, ln, z, new PointDescription(lt, ln));
 					} catch (NumberFormatException e) {
@@ -202,15 +219,27 @@ public class IntentHelper {
 			if (intent.hasExtra(MapMarkersDialogFragment.OPEN_MAP_MARKERS_GROUPS)) {
 				Bundle openMapMarkersGroupsExtra = intent.getBundleExtra(MapMarkersDialogFragment.OPEN_MAP_MARKERS_GROUPS);
 				if (openMapMarkersGroupsExtra != null) {
-					MapMarkersDialogFragment.showInstance(mapActivity, openMapMarkersGroupsExtra.getString(MapMarkersHelper.MapMarkersGroup.MARKERS_SYNC_GROUP_ID));
+					MapMarkersDialogFragment.showInstance(mapActivity, openMapMarkersGroupsExtra.getString(MapMarkersGroup.MARKERS_SYNC_GROUP_ID));
 				}
 				mapActivity.setIntent(null);
 			}
 			if (intent.hasExtra(BaseSettingsFragment.OPEN_SETTINGS)) {
-				String settingsType = intent.getStringExtra(BaseSettingsFragment.OPEN_SETTINGS);
 				String appMode = intent.getStringExtra(BaseSettingsFragment.APP_MODE_KEY);
-				if (BaseSettingsFragment.OPEN_CONFIG_PROFILE.equals(settingsType)) {
-					BaseSettingsFragment.showInstance(mapActivity, SettingsScreenType.CONFIGURE_PROFILE, ApplicationMode.valueOfStringKey(appMode, null));
+				String settingsTypeName = intent.getStringExtra(BaseSettingsFragment.OPEN_SETTINGS);
+				if (!Algorithms.isEmpty(settingsTypeName)) {
+					try {
+						SettingsScreenType screenType = SettingsScreenType.valueOf(settingsTypeName);
+						BaseSettingsFragment.showInstance(mapActivity, screenType, ApplicationMode.valueOfStringKey(appMode, null));
+					} catch (IllegalArgumentException e) {
+						LOG.error("error", e);
+					}
+				}
+				mapActivity.setIntent(null);
+			}
+			if (intent.hasExtra(PluginsFragment.OPEN_PLUGINS)) {
+				boolean openPlugins = intent.getBooleanExtra(PluginsFragment.OPEN_PLUGINS, false);
+				if (openPlugins) {
+					PluginsFragment.showInstance(mapActivity.getSupportFragmentManager());
 				}
 				mapActivity.setIntent(null);
 			}
@@ -224,6 +253,13 @@ public class IntentHelper {
 						mapActivity.getDashboard().setDashboardVisibility(true, DashboardType.CONFIGURE_SCREEN, null);
 						break;
 				}
+				mapActivity.setIntent(null);
+			}
+			if (intent.hasExtra(TrackMenuFragment.OPEN_TRACK_MENU)) {
+				String path = intent.getStringExtra(TRACK_FILE_NAME);
+				String name = intent.getStringExtra(RETURN_SCREEN_NAME);
+				boolean currentRecording = intent.getBooleanExtra(CURRENT_RECORDING, false);
+				TrackMenuFragment.showInstance(mapActivity, path, currentRecording, name, null);
 				mapActivity.setIntent(null);
 			}
 		}
@@ -269,6 +305,63 @@ public class IntentHelper {
 			}
 		}
 		return false;
+	}
+
+	private boolean parseOAuthIntent() {
+		Intent intent = mapActivity.getIntent();
+		if (intent != null && intent.getData() != null) {
+			Uri uri = intent.getData();
+			if (uri.toString().startsWith("osmand-oauth")) {
+				String oauthVerifier = uri.getQueryParameter("oauth_verifier");
+				app.getOsmOAuthHelper().addListener(getOnAuthorizeListener());
+				app.getOsmOAuthHelper().authorize(oauthVerifier);
+				mapActivity.setIntent(null);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean parseOprOAuthIntent() {
+		Intent intent = mapActivity.getIntent();
+		if (intent != null && intent.getData() != null) {
+			Uri uri = intent.getData();
+			if (uri.toString().startsWith(OPRConstants.OPR_OAUTH_PREFIX)) {
+				String token = uri.getQueryParameter("opr-token");
+				String username = uri.getQueryParameter("opr-nickname");
+				app.getOprAuthHelper().addListener(getOprAuthorizationListener());
+				app.getOprAuthHelper().authorize(token, username);
+				mapActivity.setIntent(null);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private OsmAuthorizationListener getOnAuthorizeListener() {
+		return new OsmAuthorizationListener() {
+			@Override
+			public void authorizationCompleted() {
+				for (Fragment fragment : mapActivity.getSupportFragmentManager().getFragments()) {
+					if (fragment instanceof OsmAuthorizationListener) {
+						((OsmAuthorizationListener) fragment).authorizationCompleted();
+					}
+				}
+			}
+		};
+	}
+
+	private OprAuthorizationListener getOprAuthorizationListener() {
+		return new OprAuthorizationListener() {
+			@Override
+			public void authorizationCompleted() {
+				for (Fragment fragment : mapActivity.getSupportFragmentManager().getFragments()) {
+					if (fragment instanceof OprAuthorizationListener) {
+						((OprAuthorizationListener) fragment).authorizationCompleted();
+					}
+				}
+			}
+		};
 	}
 
 	private boolean handleSendText(Intent intent) {

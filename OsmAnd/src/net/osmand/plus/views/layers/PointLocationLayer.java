@@ -1,5 +1,6 @@
 package net.osmand.plus.views.layers;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -11,6 +12,8 @@ import android.graphics.PorterDuffColorFilter;
 import android.graphics.RectF;
 import android.graphics.drawable.LayerDrawable;
 
+import androidx.annotation.ColorInt;
+import androidx.annotation.Nullable;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.DrawableCompat;
@@ -20,14 +23,15 @@ import net.osmand.PlatformUtil;
 import net.osmand.data.LatLon;
 import net.osmand.data.PointDescription;
 import net.osmand.data.RotatedTileBox;
-import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.plus.OsmAndLocationProvider;
 import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.base.MapViewTrackingUtilities;
 import net.osmand.plus.profiles.ProfileIconColors;
+import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.plus.views.OsmandMapLayer;
 import net.osmand.plus.views.OsmandMapTileView;
+import net.osmand.plus.views.layers.ContextMenuLayer.IContextMenuProvider;
 
 import org.apache.commons.logging.Log;
 
@@ -36,7 +40,7 @@ import java.util.List;
 import static android.graphics.Paint.ANTI_ALIAS_FLAG;
 import static android.graphics.Paint.FILTER_BITMAP_FLAG;
 
-public class PointLocationLayer extends OsmandMapLayer implements ContextMenuLayer.IContextMenuProvider {
+public class PointLocationLayer extends OsmandMapLayer implements IContextMenuProvider {
 	private static final Log LOG = PlatformUtil.getLog(PointLocationLayer.class);
 
 	protected final static int RADIUS = 7;
@@ -48,7 +52,8 @@ public class PointLocationLayer extends OsmandMapLayer implements ContextMenuLay
 	private OsmandMapTileView view;
 
 	private ApplicationMode appMode;
-	private int colorId;
+	@ColorInt
+	private int color;
 	private LayerDrawable navigationIcon;
 	private int navigationIconId;
 	private LayerDrawable locationIcon;
@@ -130,7 +135,9 @@ public class PointLocationLayer extends OsmandMapLayer implements ContextMenuLay
 				canvas.restore();
 			}
 			// Issue 5538: Some devices return positives for hasBearing() at rest, hence add 0.0 check:
-			boolean isBearing = lastKnownLocation.hasBearing() && (lastKnownLocation.getBearing() != 0.0);
+			boolean isBearing = lastKnownLocation.hasBearing() && (lastKnownLocation.getBearing() != 0.0)
+					&& (!lastKnownLocation.hasSpeed() || lastKnownLocation.getSpeed() > 0.1);
+
 			if (!locationOutdated && isBearing) {
 				float bearing = lastKnownLocation.getBearing();
 				canvas.rotate(bearing - 90, locationX, locationY);
@@ -158,30 +165,32 @@ public class PointLocationLayer extends OsmandMapLayer implements ContextMenuLay
 	}
 
 	private void updateIcons(ApplicationMode appMode, boolean nighMode, boolean locationOutdated) {
-		int colorId = locationOutdated ? ProfileIconColors.getOutdatedLocationColor(nighMode) : appMode.getIconColorInfo().getColor(nighMode);
+		Context ctx = view.getContext();
+		int color = locationOutdated ?
+				ContextCompat.getColor(ctx, ProfileIconColors.getOutdatedLocationColor(nighMode)) :
+				appMode.getProfileColor(nighMode);
 		int locationIconId = appMode.getLocationIcon().getIconId();
 		int navigationIconId = appMode.getNavigationIcon().getIconId();
 		int headingIconId = appMode.getLocationIcon().getHeadingIconId();
 		if (appMode != this.appMode || this.nm != nighMode || this.locationOutdated != locationOutdated
-				|| this.colorId != colorId
+				|| this.color != color
 				|| this.locationIconId != locationIconId
 				|| this.headingIconId != headingIconId
 				|| this.navigationIconId != navigationIconId) {
 			this.appMode = appMode;
-			this.colorId = colorId;
+			this.color = color;
 			this.nm = nighMode;
 			this.locationOutdated = locationOutdated;
 			this.locationIconId = locationIconId;
 			this.headingIconId = headingIconId;
 			this.navigationIconId = navigationIconId;
-			int color = ContextCompat.getColor(view.getContext(), colorId);
-			navigationIcon = (LayerDrawable) AppCompatResources.getDrawable(view.getContext(), navigationIconId);
+			navigationIcon = (LayerDrawable) AppCompatResources.getDrawable(ctx, navigationIconId);
 			if (navigationIcon != null) {
 				DrawableCompat.setTint(navigationIcon.getDrawable(1), color);
 			}
 			headingIcon = BitmapFactory.decodeResource(view.getResources(), headingIconId);
 			headingPaint.setColorFilter(new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN));
-			locationIcon = (LayerDrawable) AppCompatResources.getDrawable(view.getContext(), locationIconId);
+			locationIcon = (LayerDrawable) AppCompatResources.getDrawable(ctx, locationIconId);
 			if (locationIcon != null) {
 				DrawableCompat.setTint(DrawableCompat.wrap(locationIcon.getDrawable(1)), color);
 			}
@@ -219,7 +228,7 @@ public class PointLocationLayer extends OsmandMapLayer implements ContextMenuLay
 	}
 
 	@Override
-	public boolean disableLongPressOnMap() {
+	public boolean disableLongPressOnMap(PointF point, RotatedTileBox tileBox) {
 		return false;
 	}
 
@@ -230,6 +239,11 @@ public class PointLocationLayer extends OsmandMapLayer implements ContextMenuLay
 
 	@Override
 	public boolean runExclusiveAction(Object o, boolean unknownLocation) {
+		return false;
+	}
+
+	@Override
+	public boolean showMenuAction(@Nullable Object o) {
 		return false;
 	}
 

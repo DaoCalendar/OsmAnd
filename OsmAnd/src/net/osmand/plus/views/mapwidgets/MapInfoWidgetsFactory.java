@@ -33,6 +33,7 @@ import androidx.core.graphics.drawable.DrawableCompat;
 
 import com.google.android.material.snackbar.Snackbar;
 import com.jwetherell.openmap.common.LatLonPoint;
+import com.jwetherell.openmap.common.MGRSPoint;
 import com.jwetherell.openmap.common.UTMPoint;
 
 import net.osmand.AndroidUtils;
@@ -48,6 +49,9 @@ import net.osmand.plus.OsmAndFormatter;
 import net.osmand.plus.OsmAndLocationProvider;
 import net.osmand.plus.OsmAndLocationProvider.GPSInfo;
 import net.osmand.plus.OsmandApplication;
+import net.osmand.plus.routing.CurrentStreetName;
+import net.osmand.plus.routing.RoutingHelperUtils;
+import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.activities.MapActivity;
@@ -63,11 +67,8 @@ import net.osmand.plus.routepreparationmenu.ShowAlongTheRouteBottomSheet;
 import net.osmand.plus.routing.RouteCalculationResult;
 import net.osmand.plus.routing.RouteDirectionInfo;
 import net.osmand.plus.routing.RoutingHelper;
-import net.osmand.plus.settings.backend.OsmandSettings;
-import net.osmand.plus.settings.backend.OsmandSettings.RulerMode;
 import net.osmand.plus.views.OsmandMapLayer.DrawSettings;
-import net.osmand.plus.views.OsmandMapTileView;
-import net.osmand.plus.views.layers.RulerControlLayer;
+import net.osmand.plus.views.layers.RadiusRulerControlLayer.RadiusRulerMode;
 import net.osmand.plus.views.mapwidgets.widgets.TextInfoWidget;
 import net.osmand.render.RenderingRuleSearchRequest;
 import net.osmand.render.RenderingRulesStorage;
@@ -159,50 +160,24 @@ public class MapInfoWidgetsFactory {
 		return gpsInfoControl;
 	}
 
-	public TextInfoWidget createRulerControl(final MapActivity map) {
+	public TextInfoWidget createRadiusRulerControl(final MapActivity map) {
 		final String title = "—";
-		final TextInfoWidget rulerControl = new TextInfoWidget(map) {
-			RulerControlLayer rulerLayer = map.getMapLayers().getRulerControlLayer();
-			LatLon cacheFirstTouchPoint = new LatLon(0, 0);
-			LatLon cacheSecondTouchPoint = new LatLon(0, 0);
-			LatLon cacheSingleTouchPoint = new LatLon(0, 0);
-			boolean fingerAndLocDistWasShown;
+		final TextInfoWidget radiusRulerControl = new TextInfoWidget(map) {
 
 			@Override
 			public boolean updateInfo(DrawSettings drawSettings) {
-				OsmandMapTileView view = map.getMapView();
 				Location currentLoc = map.getMyApplication().getLocationProvider().getLastKnownLocation();
+				LatLon centerLoc = map.getMapLocation();
 
-				if (rulerLayer.isShowDistBetweenFingerAndLocation() && currentLoc != null) {
-					if (!cacheSingleTouchPoint.equals(rulerLayer.getTouchPointLatLon())) {
-						cacheSingleTouchPoint = rulerLayer.getTouchPointLatLon();
-						setDistanceText(cacheSingleTouchPoint.getLatitude(), cacheSingleTouchPoint.getLongitude(),
-								currentLoc.getLatitude(), currentLoc.getLongitude());
-						fingerAndLocDistWasShown = true;
-					}
-				} else if (rulerLayer.isShowTwoFingersDistance()) {
-					if (!cacheFirstTouchPoint.equals(view.getFirstTouchPointLatLon()) ||
-							!cacheSecondTouchPoint.equals(view.getSecondTouchPointLatLon()) ||
-							fingerAndLocDistWasShown) {
-						cacheFirstTouchPoint = view.getFirstTouchPointLatLon();
-						cacheSecondTouchPoint = view.getSecondTouchPointLatLon();
-						setDistanceText(cacheFirstTouchPoint.getLatitude(), cacheFirstTouchPoint.getLongitude(),
-								cacheSecondTouchPoint.getLatitude(), cacheSecondTouchPoint.getLongitude());
-						fingerAndLocDistWasShown = false;
+				if (currentLoc != null && centerLoc != null) {
+					if (map.getMapViewTrackingUtilities().isMapLinkedToLocation()) {
+						setDistanceText(0);
+					} else {
+						setDistanceText(currentLoc.getLatitude(), currentLoc.getLongitude(),
+								centerLoc.getLatitude(), centerLoc.getLongitude());
 					}
 				} else {
-					LatLon centerLoc = map.getMapLocation();
-
-					if (currentLoc != null && centerLoc != null) {
-						if (map.getMapViewTrackingUtilities().isMapLinkedToLocation()) {
-							setDistanceText(0);
-						} else {
-							setDistanceText(currentLoc.getLatitude(), currentLoc.getLongitude(),
-									centerLoc.getLatitude(), centerLoc.getLongitude());
-						}
-					} else {
-						setText(title, null);
-					}
+					setText(title, null);
 				}
 				return true;
 			}
@@ -223,29 +198,29 @@ public class MapInfoWidgetsFactory {
 			}
 		};
 
-		rulerControl.setText(title, null);
-		setRulerControlIcon(rulerControl, map.getMyApplication().getSettings().RULER_MODE.get());
-		rulerControl.setOnClickListener(new OnClickListener() {
+		radiusRulerControl.setText(title, null);
+		setRulerControlIcon(radiusRulerControl, map.getMyApplication().getSettings().RADIUS_RULER_MODE.get());
+		radiusRulerControl.setOnClickListener(new OnClickListener() {
 			@Override
 			public void onClick(View view) {
-				final RulerMode mode = map.getMyApplication().getSettings().RULER_MODE.get();
-				RulerMode newMode = RulerMode.FIRST;
-				if (mode == RulerMode.FIRST) {
-					newMode = RulerMode.SECOND;
-				} else if (mode == RulerMode.SECOND) {
-					newMode = RulerMode.EMPTY;
+				final RadiusRulerMode mode = map.getMyApplication().getSettings().RADIUS_RULER_MODE.get();
+				RadiusRulerMode newMode = RadiusRulerMode.FIRST;
+				if (mode == RadiusRulerMode.FIRST) {
+					newMode = RadiusRulerMode.SECOND;
+				} else if (mode == RadiusRulerMode.SECOND) {
+					newMode = RadiusRulerMode.EMPTY;
 				}
-				setRulerControlIcon(rulerControl, newMode);
-				map.getMyApplication().getSettings().RULER_MODE.set(newMode);
+				setRulerControlIcon(radiusRulerControl, newMode);
+				map.getMyApplication().getSettings().RADIUS_RULER_MODE.set(newMode);
 				map.refreshMap();
 			}
 		});
 
-		return rulerControl;
+		return radiusRulerControl;
 	}
 
-	private void setRulerControlIcon(TextInfoWidget rulerControl, RulerMode mode) {
-		if (mode == RulerMode.FIRST || mode == RulerMode.SECOND) {
+	private void setRulerControlIcon(TextInfoWidget rulerControl, RadiusRulerMode mode) {
+		if (mode == RadiusRulerMode.FIRST || mode == RadiusRulerMode.SECOND) {
 			rulerControl.setIcons(R.drawable.widget_ruler_circle_day, R.drawable.widget_ruler_circle_night);
 		} else {
 			rulerControl.setIcons(R.drawable.widget_hidden_day, R.drawable.widget_hidden_night);
@@ -930,9 +905,8 @@ public class MapInfoWidgetsFactory {
 		}
 
 
-
 		public boolean updateInfo(DrawSettings d) {
-			RoutingHelper.CurrentStreetName streetName = null;
+			CurrentStreetName streetName = null;
 			boolean showClosestWaypointFirstInAddress = true;
 			if (routingHelper != null && routingHelper.isRouteCalculated() && !routingHelper.isDeviatedFromRoute()) {
 				if (routingHelper.isFollowingMode()) {
@@ -952,11 +926,11 @@ public class MapInfoWidgetsFactory {
 				}
 			} else if (map.getMapViewTrackingUtilities().isMapLinkedToLocation() &&
 					settings.SHOW_STREET_NAME.get()) {
-				streetName = new RoutingHelper.CurrentStreetName();
+				streetName = new CurrentStreetName();
 				RouteDataObject rt = locationProvider.getLastKnownRouteSegment();
 				if (rt != null) {
 					Location lastKnownLocation = locationProvider.getLastKnownLocation();
-					streetName.text = RoutingHelper.formatStreetName(
+					streetName.text = RoutingHelperUtils.formatStreetName(
 							rt.getName(settings.MAP_PREFERRED_LOCALE.get(), settings.MAP_TRANSLITERATE_NAMES.get()),
 							rt.getRef(settings.MAP_PREFERRED_LOCALE.get(), settings.MAP_TRANSLITERATE_NAMES.get(), rt.bearingVsRouteDirection(lastKnownLocation)),
 							rt.getDestinationName(settings.MAP_PREFERRED_LOCALE.get(), settings.MAP_TRANSLITERATE_NAMES.get(), rt.bearingVsRouteDirection(lastKnownLocation)),
@@ -971,7 +945,7 @@ public class MapInfoWidgetsFactory {
 					}
 				}
 			}
-			if (map.isTopToolbarActive() || !map.getContextMenu().shouldShowTopControls() || MapRouteInfoMenu.chooseRoutesVisible || MapRouteInfoMenu.waypointsVisible) {
+			if (map.isTopToolbarActive() || map.shouldHideTopControls() || MapRouteInfoMenu.chooseRoutesVisible || MapRouteInfoMenu.waypointsVisible) {
 				updateVisibility(false);
 			} else if (showClosestWaypointFirstInAddress && updateWaypoint()) {
 				updateVisibility(true);
@@ -995,7 +969,7 @@ public class MapInfoWidgetsFactory {
 					AndroidUiHelper.updateVisibility(shieldIcon, false);
 				}
 
-				if (!Algorithms.isEmpty(streetName.exitRef) ) {
+				if (!Algorithms.isEmpty(streetName.exitRef)) {
 					exitRefText.setText(streetName.exitRef);
 					AndroidUiHelper.updateVisibility(exitRefText, true);
 				} else {
@@ -1015,12 +989,12 @@ public class MapInfoWidgetsFactory {
 						AndroidUiHelper.updateVisibility(turnIcon, false);
 					}
 				}
-				if(streetName.text == null || streetName.text.isEmpty()) {
+				if (streetName.text == null || streetName.text.isEmpty()) {
 					addressTextShadow.setText("");
 					addressText.setText("");
 				} else if (!streetName.text.equals(addressText.getText().toString())) {
 					addressTextShadow.setText(streetName.text);
-					addressText.setText(streetName.text );
+					addressText.setText(streetName.text);
 					return true;
 				}
 			}
@@ -1041,14 +1015,15 @@ public class MapInfoWidgetsFactory {
 				String val = object.names.get(object.nameIds[i]);
 				if (key.startsWith("road_ref")) {
 					boolean visible = setRoadShield(view, object, key, val, additional);
-					if(visible) {
+					if (visible) {
 						return true;
 					}
 				}
 			}
 			return false;
 		}
-		private boolean setRoadShield(ImageView view, RouteDataObject object, String nameTag, String name, StringBuilder additional ) {
+
+		private boolean setRoadShield(ImageView view, RouteDataObject object, String nameTag, String name, StringBuilder additional) {
 
 			Context context = topBar.getContext();
 			int[] tps = object.getTypes();
@@ -1085,7 +1060,7 @@ public class MapInfoWidgetsFactory {
 
 			if (rreq.isSpecified(rreq.ALL.R_TEXT_SHIELD)) {
 				text.setShieldResIcon(rreq.getStringPropertyValue(rreq.ALL.R_TEXT_SHIELD));
-				shieldRes = app.getResources().getIdentifier("h_"+text.getShieldResIcon(),
+				shieldRes = app.getResources().getIdentifier("h_" + text.getShieldResIcon(),
 						"drawable", app.getPackageName());
 			}
 
@@ -1229,12 +1204,7 @@ public class MapInfoWidgetsFactory {
 
 		@SuppressLint("SetTextI18n")
 		public boolean updateInfo() {
-			boolean visible = settings.SHOW_COORDINATES_WIDGET.get() && map.getContextMenu().shouldShowTopControls()
-					&& map.getMapRouteInfoMenu().shouldShowTopControls() && !map.isTopToolbarActive()
-					&& !map.getMapLayers().getGpxLayer().isInTrackAppearanceMode()
-					&& !MapRouteInfoMenu.chooseRoutesVisible && !MapRouteInfoMenu.waypointsVisible
-					&& !MapRouteInfoMenu.followTrackVisible;
-
+			boolean visible = map.getWidgetsVisibilityHelper().shouldShowTopCoordinatesWidget();
 			updateVisibility(visible);
 			if (visible) {
 				lastKnownLocation = locationProvider.getLastKnownLocation();
@@ -1251,6 +1221,13 @@ public class MapInfoWidgetsFactory {
 						UTMPoint pnt = new UTMPoint(new LatLonPoint(lat, lon));
 						String utmLocation = pnt.zone_number + "" + pnt.zone_letter + " " + ((long) pnt.easting) + " " + ((long) pnt.northing);
 						latitudeText.setText(utmLocation);
+					} else if (f == PointDescription.MGRS_FORMAT) {
+						AndroidUiHelper.updateVisibility(lonCoordinatesContainer, false);
+						AndroidUiHelper.updateVisibility(coordinatesDivider, false);
+						AndroidUiHelper.updateVisibility(latitudeIcon, true);
+						latitudeIcon.setImageDrawable(iconsCache.getIcon(nightMode ? R.drawable.widget_coordinates_utm_night : R.drawable.widget_coordinates_utm_day));
+						MGRSPoint pnt = new MGRSPoint(new LatLonPoint(lat, lon));
+						latitudeText.setText(pnt.toFlavoredString(5));
 					} else if (f == PointDescription.OLC_FORMAT) {
 						AndroidUiHelper.updateVisibility(lonCoordinatesContainer, false);
 						AndroidUiHelper.updateVisibility(coordinatesDivider, false);

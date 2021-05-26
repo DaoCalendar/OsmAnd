@@ -282,10 +282,12 @@ public class GeocodingUtilities {
 		} else {
 			Collections.sort(streetsList, DISTANCE_COMPARATOR);
 			double streetDistance = 0;
+			boolean isBuildingFound = knownMinBuildingDistance > 0;
 			for (GeocodingResult street : streetsList) {
 				if (streetDistance == 0) {
 					streetDistance = street.getDistance();
-				} else if (street.getDistance() > streetDistance + DISTANCE_STREET_FROM_CLOSEST_WITH_SAME_NAME) {
+				} else if (streetDistance > 0 && street.getDistance() > streetDistance + DISTANCE_STREET_FROM_CLOSEST_WITH_SAME_NAME && 
+						isBuildingFound) {
 					continue;
 				}
 				street.connectionPoint = road.connectionPoint;
@@ -296,6 +298,7 @@ public class GeocodingUtilities {
 					if (knownMinBuildingDistance == 0) {
 						GeocodingResult firstBld = it.next();
 						knownMinBuildingDistance = firstBld.getDistance();
+						isBuildingFound = true;  
 						res.add(firstBld);
 					}
 					while (it.hasNext()) {
@@ -334,14 +337,16 @@ public class GeocodingUtilities {
 		boolean eqStreet = Algorithms.stringsEqual(gr1.streetName, gr2.streetName);
 		if (eqStreet) {
 			boolean sameObj = false;
-			if (gr1.building != null && gr2.building != null) {
-				if (Algorithms.stringsEqual(gr1.building.getName(), gr2.building.getName())) {
-					// same building
+			if (gr1.city != null && gr2.city != null) {
+				if (gr1.building != null && gr2.building != null) {
+					if (Algorithms.stringsEqual(gr1.building.getName(), gr2.building.getName())) {
+						// same building
+						sameObj = true;
+					}
+				} else if (gr1.building == null && gr2.building == null) {
+					// same street
 					sameObj = true;
 				}
-			} else if (gr1.building == null && gr2.building == null) {
-				// same street
-				sameObj = true;
 			}
 			if (sameObj) {
 				double cityDist1 = MapUtils.getDistance(gr1.searchPoint, gr1.city.getLocation());

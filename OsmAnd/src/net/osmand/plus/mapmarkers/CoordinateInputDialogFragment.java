@@ -5,7 +5,6 @@ import android.app.Dialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
-import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
@@ -43,7 +42,6 @@ import androidx.annotation.DrawableRes;
 import androidx.annotation.IdRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.core.content.ContextCompat;
@@ -57,17 +55,16 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.snackbar.Snackbar;
 
 import net.osmand.AndroidUtils;
+import net.osmand.FileUtils;
 import net.osmand.GPXUtilities;
 import net.osmand.GPXUtilities.GPXFile;
 import net.osmand.GPXUtilities.WptPt;
 import net.osmand.IndexConstants;
 import net.osmand.Location;
 import net.osmand.plus.GpxSelectionHelper;
-import net.osmand.plus.MapMarkersHelper;
 import net.osmand.plus.OsmAndLocationProvider.OsmAndCompassListener;
 import net.osmand.plus.OsmAndLocationProvider.OsmAndLocationListener;
 import net.osmand.plus.OsmandApplication;
-import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.Version;
@@ -79,6 +76,8 @@ import net.osmand.plus.mapmarkers.CoordinateInputFormats.DDM;
 import net.osmand.plus.mapmarkers.CoordinateInputFormats.DMS;
 import net.osmand.plus.mapmarkers.CoordinateInputFormats.Format;
 import net.osmand.plus.mapmarkers.adapters.CoordinateInputAdapter;
+import net.osmand.plus.settings.backend.OsmandPreference;
+import net.osmand.plus.track.TrackMenuFragment;
 import net.osmand.plus.widgets.EditTextEx;
 import net.osmand.util.Algorithms;
 import net.osmand.util.LocationParser;
@@ -170,7 +169,7 @@ public class CoordinateInputDialogFragment extends DialogFragment implements Osm
 
 	private void syncGpx(GPXFile gpxFile) {
 		MapMarkersHelper helper = getMyApplication().getMapMarkersHelper();
-		MapMarkersHelper.MapMarkersGroup group = helper.getMarkersGroup(gpxFile);
+		MapMarkersGroup group = helper.getMarkersGroup(gpxFile);
 		if (group != null) {
 			helper.runSynchronization(group);
 		}
@@ -1023,7 +1022,7 @@ public class CoordinateInputDialogFragment extends DialogFragment implements Osm
 	}
 
 	private void changeOsmandKeyboardSetting() {
-		OsmandSettings.OsmandPreference<Boolean> pref = getMyApplication().getSettings().COORDS_INPUT_USE_OSMAND_KEYBOARD;
+		OsmandPreference<Boolean> pref = getMyApplication().getSettings().COORDS_INPUT_USE_OSMAND_KEYBOARD;
 		pref.set(!pref.get());
 	}
 
@@ -1098,11 +1097,7 @@ public class CoordinateInputDialogFragment extends DialogFragment implements Osm
 						.setAction(R.string.shared_string_show, new View.OnClickListener() {
 							@Override
 							public void onClick(View view) {
-								Intent intent = new Intent(app, app.getAppCustomization().getTrackActivity());
-								intent.putExtra(TrackActivity.OPEN_POINTS_TAB, true);
-								intent.putExtra(TrackActivity.TRACK_FILE_NAME, getGpx().path);
-								intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-								startActivity(intent);
+								TrackMenuFragment.openTrack(app, new File(getGpx().path), null);
 							}
 						});
 				UiUtilities.setupSnackbar(snackbar, !lightTheme);
@@ -1449,8 +1444,9 @@ public class CoordinateInputDialogFragment extends DialogFragment implements Osm
 		if (!compassUpdateAllowed) {
 			return;
 		}
-		final OsmandApplication app = getMyApplication();
-		if (app != null && adapter != null) {
+		Activity activity = getActivity();
+		if (activity != null && adapter != null) {
+			OsmandApplication app = (OsmandApplication) activity.getApplication();
 			app.runInUIThread(new Runnable() {
 				@Override
 				public void run() {
@@ -1498,15 +1494,13 @@ public class CoordinateInputDialogFragment extends DialogFragment implements Osm
 		protected Void doInBackground(Void... params) {
 			if (Algorithms.isEmpty(gpx.path)) {
 				if (!Algorithms.isEmpty(fileName)) {
-					final File dir = app.getAppPath(IndexConstants.GPX_INDEX_DIR + IndexConstants.MAP_MARKERS_INDEX_DIR);
+					String dirName = IndexConstants.GPX_INDEX_DIR + IndexConstants.MAP_MARKERS_INDEX_DIR;
+					File dir = app.getAppPath(dirName);
 					if (!dir.exists()) {
 						dir.mkdirs();
 					}
-					File fout = new File(dir, fileName + IndexConstants.GPX_FILE_EXT);
-					int ind = 1;
-					while (fout.exists()) {
-						fout = new File(dir, fileName + "_" + (++ind) + IndexConstants.GPX_FILE_EXT);
-					}
+					String uniqueFileName = FileUtils.createUniqueFileName(app, fileName, dirName, IndexConstants.GPX_FILE_EXT);
+					File fout = new File(dir, uniqueFileName + IndexConstants.GPX_FILE_EXT);
 					GPXUtilities.writeGpxFile(fout, gpx);
 				}
 			} else {

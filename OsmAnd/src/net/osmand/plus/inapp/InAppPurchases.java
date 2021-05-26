@@ -10,87 +10,52 @@ import android.text.style.ForegroundColorSpan;
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-
-import com.android.billingclient.api.SkuDetails;
+import androidx.annotation.StringRes;
 
 import net.osmand.AndroidUtils;
 import net.osmand.Period;
 import net.osmand.Period.PeriodUnit;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
-import net.osmand.plus.Version;
 import net.osmand.plus.helpers.FontCache;
+import net.osmand.plus.settings.backend.CommonPreference;
+import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.plus.widgets.style.CustomTypefaceSpan;
 import net.osmand.util.Algorithms;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.text.NumberFormat;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Currency;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class InAppPurchases {
+public abstract class InAppPurchases {
 
-	private static final InAppPurchase FULL_VERSION = new InAppPurchaseFullVersion();
-	private static final InAppPurchaseDepthContoursFull DEPTH_CONTOURS_FULL = new InAppPurchaseDepthContoursFull();
-	private static final InAppPurchaseDepthContoursFree DEPTH_CONTOURS_FREE = new InAppPurchaseDepthContoursFree();
-	private static final InAppPurchaseContourLinesFull CONTOUR_LINES_FULL = new InAppPurchaseContourLinesFull();
-	private static final InAppPurchaseContourLinesFree CONTOUR_LINES_FREE = new InAppPurchaseContourLinesFree();
+	protected InAppPurchase fullVersion;
+	protected InAppPurchase depthContours;
+	protected InAppPurchase contourLines;
+	protected InAppSubscription monthlyLiveUpdates;
+	protected InAppSubscription legacyMonthlyLiveUpdates;
+	protected InAppSubscriptionList subscriptions;
+	protected InAppPurchase[] inAppPurchases;
 
-	private static final InAppSubscription[] LIVE_UPDATES_FULL = new InAppSubscription[]{
-			new InAppPurchaseLiveUpdatesOldMonthlyFull(),
-			new InAppPurchaseLiveUpdatesMonthlyFull(),
-			new InAppPurchaseLiveUpdates3MonthsFull(),
-			new InAppPurchaseLiveUpdatesAnnualFull()
-	};
+	protected InAppPurchases(OsmandApplication ctx) {
+	}
 
-	private static final InAppSubscription[] LIVE_UPDATES_FREE = new InAppSubscription[]{
-			new InAppPurchaseLiveUpdatesOldMonthlyFree(),
-			new InAppPurchaseLiveUpdatesMonthlyFree(),
-			new InAppPurchaseLiveUpdates3MonthsFree(),
-			new InAppPurchaseLiveUpdatesAnnualFree()
-	};
-
-	private InAppPurchase fullVersion;
-	private InAppPurchase depthContours;
-	private InAppPurchase contourLines;
-	private InAppSubscription monthlyLiveUpdates;
-	private InAppSubscription discountedMonthlyLiveUpdates;
-	private InAppSubscriptionList liveUpdates;
-	private InAppPurchase[] inAppPurchases;
-
-	InAppPurchases(OsmandApplication ctx) {
-		fullVersion = FULL_VERSION;
-		if (Version.isFreeVersion(ctx)) {
-			liveUpdates = new LiveUpdatesInAppPurchasesFree();
-		} else {
-			liveUpdates = new LiveUpdatesInAppPurchasesFull();
-		}
-		for (InAppSubscription s : liveUpdates.getAllSubscriptions()) {
-			if (s instanceof InAppPurchaseLiveUpdatesMonthly) {
-				if (s.isDiscounted()) {
-					discountedMonthlyLiveUpdates = s;
-				} else {
-					monthlyLiveUpdates = s;
-				}
-			}
-		}
-		if (Version.isFreeVersion(ctx)) {
-			depthContours = DEPTH_CONTOURS_FREE;
-		} else {
-			depthContours = DEPTH_CONTOURS_FULL;
-		}
-		if (Version.isFreeVersion(ctx)) {
-			contourLines = CONTOUR_LINES_FREE;
-		} else {
-			contourLines = CONTOUR_LINES_FULL;
-		}
-
-		inAppPurchases = new InAppPurchase[] { fullVersion, depthContours, contourLines };
+	private static OsmandSettings getSettings(@NonNull Context ctx) {
+		return ((OsmandApplication) ctx.getApplicationContext()).getSettings();
 	}
 
 	public InAppPurchase getFullVersion() {
@@ -123,14 +88,25 @@ public class InAppPurchases {
 	public InAppSubscription getPurchasedMonthlyLiveUpdates() {
 		if (monthlyLiveUpdates.isAnyPurchased()) {
 			return monthlyLiveUpdates;
-		} else if (discountedMonthlyLiveUpdates.isAnyPurchased()) {
-			return discountedMonthlyLiveUpdates;
+		} else if (legacyMonthlyLiveUpdates != null && legacyMonthlyLiveUpdates.isAnyPurchased()) {
+			return legacyMonthlyLiveUpdates;
 		}
 		return null;
 	}
 
-	public InAppSubscriptionList getLiveUpdates() {
-		return liveUpdates;
+	@Nullable
+	public InAppSubscription getAnyPurchasedSubscription() {
+		List<InAppSubscription> allSubscriptions = subscriptions.getAllSubscriptions();
+		for (InAppSubscription subscription : allSubscriptions) {
+			if (subscription.isPurchased()) {
+				return subscription;
+			}
+		}
+		return null;
+	}
+
+	public InAppSubscriptionList getSubscriptions() {
+		return subscriptions;
 	}
 
 	public List<InAppPurchase> getAllInAppPurchases(boolean includeSubscriptions) {
@@ -139,18 +115,18 @@ public class InAppPurchases {
 		purchases.add(depthContours);
 		purchases.add(contourLines);
 		if (includeSubscriptions) {
-			purchases.addAll(liveUpdates.getAllSubscriptions());
+			purchases.addAll(subscriptions.getAllSubscriptions());
 		}
 		return purchases;
 	}
 
 	public List<InAppSubscription> getAllInAppSubscriptions() {
-		return liveUpdates.getAllSubscriptions();
+		return subscriptions.getAllSubscriptions();
 	}
 
 	@Nullable
 	public InAppSubscription getInAppSubscriptionBySku(@NonNull String sku) {
-		for (InAppSubscription s : liveUpdates.getAllSubscriptions()) {
+		for (InAppSubscription s : subscriptions.getAllSubscriptions()) {
 			if (sku.startsWith(s.getSkuNoVersion())) {
 				return s;
 			}
@@ -158,41 +134,27 @@ public class InAppPurchases {
 		return null;
 	}
 
-	public boolean isFullVersion(String sku) {
-		return FULL_VERSION.getSku().equals(sku);
-	}
+	public abstract boolean isFullVersion(InAppPurchase p);
 
-	public boolean isDepthContours(String sku) {
-		return DEPTH_CONTOURS_FULL.getSku().equals(sku) || DEPTH_CONTOURS_FREE.getSku().equals(sku);
-	}
+	public abstract boolean isDepthContours(InAppPurchase p);
 
-	public boolean isContourLines(String sku) {
-		return CONTOUR_LINES_FULL.getSku().equals(sku) || CONTOUR_LINES_FREE.getSku().equals(sku);
-	}
+	public abstract boolean isContourLines(InAppPurchase p);
 
-	public boolean isLiveUpdates(String sku) {
-		for (InAppPurchase p : LIVE_UPDATES_FULL) {
-			if (p.getSku().equals(sku)) {
-				return true;
-			}
-		}
-		for (InAppPurchase p : LIVE_UPDATES_FREE) {
-			if (p.getSku().equals(sku)) {
-				return true;
-			}
-		}
-		return false;
-	}
+	public abstract boolean isLiveUpdatesSubscription(InAppPurchase p);
+
+	public abstract boolean isOsmAndProSubscription(InAppPurchase p);
+
+	public abstract boolean isMapsSubscription(InAppPurchase p);
 
 	public abstract static class InAppSubscriptionList {
 
-		private List<InAppSubscription> subscriptions;
+		private final List<InAppSubscription> subscriptions;
 
 		InAppSubscriptionList(@NonNull InAppSubscription[] subscriptionsArray) {
 			this.subscriptions = Arrays.asList(subscriptionsArray);
 		}
 
-		private List<InAppSubscription> getSubscriptions() {
+		public List<InAppSubscription> getSubscriptions() {
 			return new ArrayList<>(subscriptions);
 		}
 
@@ -226,7 +188,7 @@ public class InAppPurchases {
 						added = true;
 					}
 				}
-				if (!added && !s.isDiscounted()) {
+				if (!added && !s.isLegacy()) {
 					res.add(s);
 				}
 			}
@@ -258,19 +220,27 @@ public class InAppPurchases {
 			}
 			return null;
 		}
-	}
 
-	public static class LiveUpdatesInAppPurchasesFree extends InAppSubscriptionList {
-
-		public LiveUpdatesInAppPurchasesFree() {
-			super(LIVE_UPDATES_FREE);
-		}
-	}
-
-	public static class LiveUpdatesInAppPurchasesFull extends InAppSubscriptionList {
-
-		public LiveUpdatesInAppPurchasesFull() {
-			super(LIVE_UPDATES_FULL);
+		@Nullable
+		public InAppSubscription getTopExpiredSubscription() {
+			List<InAppSubscription> expiredSubscriptions = new ArrayList<>();
+			for (InAppSubscription s : getAllSubscriptions()) {
+				if (s.getState().isGone()) {
+					expiredSubscriptions.add(s);
+				}
+			}
+			Collections.sort(expiredSubscriptions, new Comparator<InAppSubscription>() {
+				@Override
+				public int compare(InAppSubscription s1, InAppSubscription s2) {
+					int orderS1 = s1.getState().ordinal();
+					int orderS2 = s2.getState().ordinal();
+					if (orderS1 != orderS2) {
+						return (orderS1 < orderS2) ? -1 : ((orderS1 == orderS2) ? 0 : 1);
+					}
+					return Double.compare(s1.getMonthlyPriceValue(), s2.getMonthlyPriceValue());
+				}
+			});
+			return expiredSubscriptions.isEmpty() ? null : expiredSubscriptions.get(0);
 		}
 	}
 
@@ -282,31 +252,74 @@ public class InAppPurchases {
 			NOT_PURCHASED
 		}
 
-		private String sku;
+		private final int featureId;
+		private final String sku;
 		private String price;
 		private double priceValue;
 		private String priceCurrencyCode;
 		private PurchaseState purchaseState = PurchaseState.UNKNOWN;
-		private long purchaseTime;
+		private PurchaseInfo purchaseInfo;
 
 		double monthlyPriceValue;
 		boolean donationSupported = false;
-		boolean discounted = false;
 
 		private NumberFormat currencyFormatter;
 
-		private InAppPurchase(@NonNull String sku) {
+		protected InAppPurchase(int featureId, @NonNull String sku) {
+			this.featureId = featureId;
 			this.sku = sku;
 		}
 
-		private InAppPurchase(@NonNull String sku, boolean discounted) {
-			this(sku);
-			this.discounted = discounted;
+		public int getFeatureId() {
+			return featureId;
+		}
+
+		@NonNull
+		public abstract int[] getScope();
+
+		public boolean hasFeatureInScope(int featureId) {
+			for (int id : getScope()) {
+				if (featureId == id) {
+					return true;
+				}
+			}
+			return false;
 		}
 
 		@NonNull
 		public String getSku() {
 			return sku;
+		}
+
+		@Nullable
+		public String getOrderId() {
+			return purchaseInfo != null ? purchaseInfo.getOrderId() : null;
+		}
+
+		private CommonPreference<String> getPurchaseInfoPref(@NonNull Context ctx) {
+			return getSettings(ctx).registerStringPreference(sku + "_purchase_info", "").makeGlobal();
+		}
+
+		public boolean storePurchaseInfo(@NonNull Context ctx) {
+			PurchaseInfo purchaseInfo = this.purchaseInfo;
+			if (purchaseInfo != null) {
+				getPurchaseInfoPref(ctx).set(purchaseInfo.toJson());
+				return true;
+			}
+			return false;
+		}
+
+		public boolean restorePurchaseInfo(@NonNull Context ctx) {
+			String json = getPurchaseInfoPref(ctx).get();
+			if (!Algorithms.isEmpty(json)) {
+				try {
+					purchaseInfo = new PurchaseInfo(json);
+				} catch (JSONException e) {
+					// ignore
+				}
+				return true;
+			}
+			return false;
 		}
 
 		public String getPrice(Context ctx) {
@@ -322,11 +335,16 @@ public class InAppPurchases {
 		}
 
 		public long getPurchaseTime() {
-			return purchaseTime;
+			return purchaseInfo != null ? purchaseInfo.getPurchaseTime() : 0;
 		}
 
-		public void setPurchaseTime(long purchaseTime) {
-			this.purchaseTime = purchaseTime;
+		public PurchaseInfo getPurchaseInfo() {
+			return purchaseInfo;
+		}
+
+		void setPurchaseInfo(@NonNull Context ctx, PurchaseInfo purchaseInfo) {
+			this.purchaseInfo = purchaseInfo;
+			storePurchaseInfo(ctx);
 		}
 
 		public String getDefaultPrice(Context ctx) {
@@ -353,9 +371,7 @@ public class InAppPurchases {
 			return purchaseState == PurchaseState.UNKNOWN;
 		}
 
-		public boolean isDiscounted() {
-			return discounted;
-		}
+		public abstract boolean isLegacy();
 
 		public CharSequence getTitle(Context ctx) {
 			return "";
@@ -463,16 +479,12 @@ public class InAppPurchases {
 												 String introductoryPrice,
 												 long introductoryPriceAmountMicros,
 												 String introductoryPeriodString,
-												 String introductoryCycles) throws ParseException {
+												 int introductoryCycles) throws ParseException {
 			this.subscription = subscription;
 			this.introductoryPrice = introductoryPrice;
 			this.introductoryPriceAmountMicros = introductoryPriceAmountMicros;
 			this.introductoryPeriodString = introductoryPeriodString;
-			try {
-				this.introductoryCycles = Integer.parseInt(introductoryCycles);
-			} catch (NumberFormatException e) {
-				throw new ParseException("Cannot parse introductoryCycles = " + introductoryCycles, 0);
-			}
+			this.introductoryCycles = introductoryCycles;
 			introductoryPriceValue = introductoryPriceAmountMicros / 1000000d;
 			introductoryPeriod = Period.parse(introductoryPeriodString);
 		}
@@ -631,23 +643,75 @@ public class InAppPurchases {
 
 	public static abstract class InAppSubscription extends InAppPurchase {
 
-		private Map<String, InAppSubscription> upgrades = new ConcurrentHashMap<>();
-		private String skuNoVersion;
+		private final Map<String, InAppSubscription> upgrades = new ConcurrentHashMap<>();
+		private final String skuNoVersion;
 		private String subscriptionPeriodString;
 		private Period subscriptionPeriod;
 		private boolean upgrade = false;
+		private SubscriptionState state = SubscriptionState.UNDEFINED;
+		private SubscriptionState previousState = SubscriptionState.UNDEFINED;
+		private long expireTime = 0;
 
 		private InAppSubscriptionIntroductoryInfo introductoryInfo;
 
-		InAppSubscription(@NonNull String skuNoVersion, int version) {
-			super(skuNoVersion + "_v" + version);
+		public enum SubscriptionState {
+			UNDEFINED("undefined", R.string.shared_string_undefined),
+			ACTIVE("active", R.string.osm_live_active),
+			CANCELLED("cancelled", R.string.osmand_live_cancelled),
+			IN_GRACE_PERIOD("in_grace_period", R.string.in_grace_period),
+			ON_HOLD("on_hold", R.string.on_hold),
+			PAUSED("paused", R.string.shared_string_paused),
+			EXPIRED("expired", R.string.expired);
+
+			private final String stateStr;
+			@StringRes
+			private final int stringRes;
+
+			SubscriptionState(@NonNull String stateStr, @StringRes int stringRes) {
+				this.stateStr = stateStr;
+				this.stringRes = stringRes;
+			}
+
+			public String getStateStr() {
+				return stateStr;
+			}
+
+			@StringRes
+			public int getStringRes() {
+				return stringRes;
+			}
+
+			@NonNull
+			public static SubscriptionState getByStateStr(@NonNull String stateStr) {
+				for (SubscriptionState state : SubscriptionState.values()) {
+					if (state.stateStr.equals(stateStr)) {
+						return state;
+					}
+				}
+				return UNDEFINED;
+			}
+
+			public boolean isGone() {
+				return this == ON_HOLD || this == PAUSED || this == EXPIRED;
+			}
+
+			public boolean isActive() {
+				return this == ACTIVE || this == CANCELLED || this == IN_GRACE_PERIOD;
+			}
+		}
+
+		InAppSubscription(int id, @NonNull String skuNoVersion, int version) {
+			super(id, skuNoVersion + "_v" + version);
 			this.skuNoVersion = skuNoVersion;
 		}
 
-		InAppSubscription(@NonNull String sku, boolean discounted) {
-			super(sku, discounted);
+		InAppSubscription(int id, @NonNull String sku) {
+			super(id, sku);
 			this.skuNoVersion = sku;
 		}
+
+		@StringRes
+		public abstract int getPeriodTypeString();
 
 		@NonNull
 		private List<InAppSubscription> getUpgrades() {
@@ -672,6 +736,86 @@ public class InAppPurchases {
 
 		public boolean isUpgrade() {
 			return upgrade;
+		}
+
+		@NonNull
+		public SubscriptionState getState() {
+			return state;
+		}
+
+		public void setState(@NonNull Context ctx, @NonNull SubscriptionState state) {
+			this.state = state;
+			storeState(ctx, state);
+		}
+
+		@NonNull
+		public SubscriptionState getPreviousState() {
+			return previousState;
+		}
+
+		public boolean hasStateChanged() {
+			return state != previousState;
+		}
+
+		private CommonPreference<String> getStatePref(@NonNull Context ctx) {
+			return getSettings(ctx).registerStringPreference(getSku() + "_state", "").makeGlobal();
+		}
+
+		void storeState(@NonNull Context ctx, @NonNull SubscriptionState state) {
+			getStatePref(ctx).set(state.getStateStr());
+		}
+
+		boolean restoreState(@NonNull Context ctx) {
+			String stateStr = getStatePref(ctx).get();
+			if (!Algorithms.isEmpty(stateStr)) {
+				SubscriptionState state = SubscriptionState.getByStateStr(stateStr);
+				this.previousState = state;
+				this.state = state;
+				return true;
+			}
+			return false;
+		}
+
+		public long getCalculatedExpiredTime() {
+			long purchaseTime = getPurchaseTime();
+			Period period = getSubscriptionPeriod();
+			if (purchaseTime == 0 || period == null || period.getUnit() == null) {
+				return 0;
+			}
+			Date date = new Date(purchaseTime);
+			Calendar calendar = Calendar.getInstance();
+			calendar.setTime(date);
+			long currentTime = System.currentTimeMillis();
+			while (calendar.getTimeInMillis() < currentTime) {
+				calendar.add(period.getUnit().getCalendarIdx(), period.getNumberOfUnits());
+			}
+			return calendar.getTimeInMillis();
+		}
+
+		public long getExpireTime() {
+			return expireTime;
+		}
+
+		public void setExpireTime(@NonNull Context ctx, long expireTime) {
+			this.expireTime = expireTime;
+			storeExpireTime(ctx, expireTime);
+		}
+
+		private CommonPreference<Long> getExpireTimePref(@NonNull Context ctx) {
+			return getSettings(ctx).registerLongPreference(getSku() + "_expire_time", 0L).makeGlobal();
+		}
+
+		boolean restoreExpireTime(@NonNull Context ctx) {
+			Long expireTime = getExpireTimePref(ctx).get();
+			if (expireTime != null) {
+				this.expireTime = expireTime;
+				return true;
+			}
+			return false;
+		}
+
+		void storeExpireTime(@NonNull Context ctx, long expireTime) {
+			getExpireTimePref(ctx).set(expireTime);
 		}
 
 		public boolean isAnyPurchased() {
@@ -777,24 +921,10 @@ public class InAppPurchases {
 		}
 	}
 
-	public static class InAppPurchaseFullVersion extends InAppPurchase {
+	public static abstract class InAppPurchaseDepthContours extends InAppPurchase {
 
-		private static final String SKU_FULL_VERSION_PRICE = "osmand_full_version_price";
-
-		InAppPurchaseFullVersion() {
-			super(SKU_FULL_VERSION_PRICE);
-		}
-
-		@Override
-		public String getDefaultPrice(Context ctx) {
-			return ctx.getString(R.string.full_version_price);
-		}
-	}
-
-	public static class InAppPurchaseDepthContours extends InAppPurchase {
-
-		private InAppPurchaseDepthContours(String sku) {
-			super(sku);
+		protected InAppPurchaseDepthContours(int featureId, String sku) {
+			super(featureId, sku);
 		}
 
 		@Override
@@ -803,28 +933,10 @@ public class InAppPurchases {
 		}
 	}
 
-	public static class InAppPurchaseDepthContoursFull extends InAppPurchaseDepthContours {
+	public static abstract class InAppPurchaseContourLines extends InAppPurchase {
 
-		private static final String SKU_DEPTH_CONTOURS_FULL = "net.osmand.seadepth_plus";
-
-		InAppPurchaseDepthContoursFull() {
-			super(SKU_DEPTH_CONTOURS_FULL);
-		}
-	}
-
-	public static class InAppPurchaseDepthContoursFree extends InAppPurchaseDepthContours {
-
-		private static final String SKU_DEPTH_CONTOURS_FREE = "net.osmand.seadepth";
-
-		InAppPurchaseDepthContoursFree() {
-			super(SKU_DEPTH_CONTOURS_FREE);
-		}
-	}
-
-	public static class InAppPurchaseContourLines extends InAppPurchase {
-
-		private InAppPurchaseContourLines(String sku) {
-			super(sku);
+		protected InAppPurchaseContourLines(int featureId, String sku) {
+			super(featureId, sku);
 		}
 
 		@Override
@@ -833,38 +945,21 @@ public class InAppPurchases {
 		}
 	}
 
-	public static class InAppPurchaseContourLinesFull extends InAppPurchaseContourLines {
+	protected static abstract class InAppPurchaseMonthlySubscription extends InAppSubscription {
 
-		private static final String SKU_CONTOUR_LINES_FULL = "net.osmand.contourlines_plus";
-
-		InAppPurchaseContourLinesFull() {
-			super(SKU_CONTOUR_LINES_FULL);
-		}
-	}
-
-	public static class InAppPurchaseContourLinesFree extends InAppPurchaseContourLines {
-
-		private static final String SKU_CONTOUR_LINES_FREE = "net.osmand.contourlines";
-
-		InAppPurchaseContourLinesFree() {
-			super(SKU_CONTOUR_LINES_FREE);
-		}
-	}
-
-	public static abstract class InAppPurchaseLiveUpdatesMonthly extends InAppSubscription {
-
-		InAppPurchaseLiveUpdatesMonthly(String skuNoVersion, int version) {
-			super(skuNoVersion, version);
+		InAppPurchaseMonthlySubscription(int featureId, String skuNoVersion, int version) {
+			super(featureId, skuNoVersion, version);
 			donationSupported = true;
 		}
 
-		InAppPurchaseLiveUpdatesMonthly(@NonNull String sku, boolean discounted) {
-			super(sku, discounted);
+		InAppPurchaseMonthlySubscription(int featureId, @NonNull String sku) {
+			super(featureId, sku);
 			donationSupported = true;
 		}
 
-		InAppPurchaseLiveUpdatesMonthly(@NonNull String sku) {
-			this(sku, false);
+		@Override
+		public int getPeriodTypeString() {
+			return R.string.monthly_subscription;
 		}
 
 		@Override
@@ -905,52 +1000,19 @@ public class InAppPurchases {
 		}
 	}
 
-	public static class InAppPurchaseLiveUpdatesMonthlyFull extends InAppPurchaseLiveUpdatesMonthly {
+	protected static abstract class InAppPurchaseQuarterlySubscription extends InAppSubscription {
 
-		private static final String SKU_LIVE_UPDATES_MONTHLY_FULL = "osm_live_subscription_monthly_full";
-
-		InAppPurchaseLiveUpdatesMonthlyFull() {
-			super(SKU_LIVE_UPDATES_MONTHLY_FULL, 1);
+		InAppPurchaseQuarterlySubscription(int featureId, String skuNoVersion, int version) {
+			super(featureId, skuNoVersion, version);
 		}
 
-		private InAppPurchaseLiveUpdatesMonthlyFull(@NonNull String sku) {
-			super(sku);
+		InAppPurchaseQuarterlySubscription(int featureId, @NonNull String sku) {
+			super(featureId, sku);
 		}
 
-		@Nullable
 		@Override
-		protected InAppSubscription newInstance(@NonNull String sku) {
-			return sku.startsWith(getSkuNoVersion()) ? new InAppPurchaseLiveUpdatesMonthlyFull(sku) : null;
-		}
-	}
-
-	public static class InAppPurchaseLiveUpdatesMonthlyFree extends InAppPurchaseLiveUpdatesMonthly {
-
-		private static final String SKU_LIVE_UPDATES_MONTHLY_FREE = "osm_live_subscription_monthly_free";
-
-		InAppPurchaseLiveUpdatesMonthlyFree() {
-			super(SKU_LIVE_UPDATES_MONTHLY_FREE, 1);
-		}
-
-		private InAppPurchaseLiveUpdatesMonthlyFree(@NonNull String sku) {
-			super(sku);
-		}
-
-		@Nullable
-		@Override
-		protected InAppSubscription newInstance(@NonNull String sku) {
-			return sku.startsWith(getSkuNoVersion()) ? new InAppPurchaseLiveUpdatesMonthlyFree(sku) : null;
-		}
-	}
-
-	public static abstract class InAppPurchaseLiveUpdates3Months extends InAppSubscription {
-
-		InAppPurchaseLiveUpdates3Months(String skuNoVersion, int version) {
-			super(skuNoVersion, version);
-		}
-
-		InAppPurchaseLiveUpdates3Months(@NonNull String sku) {
-			super(sku, false);
+		public int getPeriodTypeString() {
+			return R.string.three_months_subscription;
 		}
 
 		@Override
@@ -986,52 +1048,19 @@ public class InAppPurchases {
 		}
 	}
 
-	public static class InAppPurchaseLiveUpdates3MonthsFull extends InAppPurchaseLiveUpdates3Months {
+	protected static abstract class InAppPurchaseAnnualSubscription extends InAppSubscription {
 
-		private static final String SKU_LIVE_UPDATES_3_MONTHS_FULL = "osm_live_subscription_3_months_full";
-
-		InAppPurchaseLiveUpdates3MonthsFull() {
-			super(SKU_LIVE_UPDATES_3_MONTHS_FULL, 1);
+		InAppPurchaseAnnualSubscription(int featureId, String skuNoVersion, int version) {
+			super(featureId, skuNoVersion, version);
 		}
 
-		private InAppPurchaseLiveUpdates3MonthsFull(@NonNull String sku) {
-			super(sku);
+		InAppPurchaseAnnualSubscription(int featureId, @NonNull String sku) {
+			super(featureId, sku);
 		}
 
-		@Nullable
 		@Override
-		protected InAppSubscription newInstance(@NonNull String sku) {
-			return sku.startsWith(getSkuNoVersion()) ? new InAppPurchaseLiveUpdates3MonthsFull(sku) : null;
-		}
-	}
-
-	public static class InAppPurchaseLiveUpdates3MonthsFree extends InAppPurchaseLiveUpdates3Months {
-
-		private static final String SKU_LIVE_UPDATES_3_MONTHS_FREE = "osm_live_subscription_3_months_free";
-
-		InAppPurchaseLiveUpdates3MonthsFree() {
-			super(SKU_LIVE_UPDATES_3_MONTHS_FREE, 1);
-		}
-
-		private InAppPurchaseLiveUpdates3MonthsFree(@NonNull String sku) {
-			super(sku);
-		}
-
-		@Nullable
-		@Override
-		protected InAppSubscription newInstance(@NonNull String sku) {
-			return sku.startsWith(getSkuNoVersion()) ? new InAppPurchaseLiveUpdates3MonthsFree(sku) : null;
-		}
-	}
-
-	public static abstract class InAppPurchaseLiveUpdatesAnnual extends InAppSubscription {
-
-		InAppPurchaseLiveUpdatesAnnual(String skuNoVersion, int version) {
-			super(skuNoVersion, version);
-		}
-
-		InAppPurchaseLiveUpdatesAnnual(@NonNull String sku) {
-			super(sku, false);
+		public int getPeriodTypeString() {
+			return R.string.annual_subscription;
 		}
 
 		@Override
@@ -1067,48 +1096,15 @@ public class InAppPurchases {
 		}
 	}
 
-	public static class InAppPurchaseLiveUpdatesAnnualFull extends InAppPurchaseLiveUpdatesAnnual {
+	public abstract static class InAppPurchaseLiveUpdatesOldMonthly extends InAppPurchaseMonthlySubscription {
 
-		private static final String SKU_LIVE_UPDATES_ANNUAL_FULL = "osm_live_subscription_annual_full";
-
-		InAppPurchaseLiveUpdatesAnnualFull() {
-			super(SKU_LIVE_UPDATES_ANNUAL_FULL, 1);
+		InAppPurchaseLiveUpdatesOldMonthly(int featureId, String sku) {
+			super(featureId, sku);
 		}
 
-		private InAppPurchaseLiveUpdatesAnnualFull(@NonNull String sku) {
-			super(sku);
-		}
-
-		@Nullable
 		@Override
-		protected InAppSubscription newInstance(@NonNull String sku) {
-			return sku.startsWith(getSkuNoVersion()) ? new InAppPurchaseLiveUpdatesAnnualFull(sku) : null;
-		}
-	}
-
-	public static class InAppPurchaseLiveUpdatesAnnualFree extends InAppPurchaseLiveUpdatesAnnual {
-
-		private static final String SKU_LIVE_UPDATES_ANNUAL_FREE = "osm_live_subscription_annual_free";
-
-		InAppPurchaseLiveUpdatesAnnualFree() {
-			super(SKU_LIVE_UPDATES_ANNUAL_FREE, 1);
-		}
-
-		private InAppPurchaseLiveUpdatesAnnualFree(@NonNull String sku) {
-			super(sku);
-		}
-
-		@Nullable
-		@Override
-		protected InAppSubscription newInstance(@NonNull String sku) {
-			return sku.startsWith(getSkuNoVersion()) ? new InAppPurchaseLiveUpdatesAnnualFree(sku) : null;
-		}
-	}
-
-	public static class InAppPurchaseLiveUpdatesOldMonthly extends InAppPurchaseLiveUpdatesMonthly {
-
-		InAppPurchaseLiveUpdatesOldMonthly(String sku) {
-			super(sku, true);
+		public boolean isLegacy() {
+			return true;
 		}
 
 		@Override
@@ -1128,52 +1124,93 @@ public class InAppPurchases {
 		}
 	}
 
-	public static class InAppPurchaseLiveUpdatesOldMonthlyFull extends InAppPurchaseLiveUpdatesOldMonthly {
+	public static class PurchaseInfo {
+		private String sku;
+		private String orderId;
+		private String purchaseToken;
+		private long purchaseTime;
+		private int purchaseState;
+		private boolean acknowledged;
+		private boolean autoRenewing;
 
-		private static final String SKU_LIVE_UPDATES_OLD_MONTHLY_FULL = "osm_live_subscription_2";
-
-		InAppPurchaseLiveUpdatesOldMonthlyFull() {
-			super(SKU_LIVE_UPDATES_OLD_MONTHLY_FULL);
-		}
-	}
-
-	public static class InAppPurchaseLiveUpdatesOldMonthlyFree extends InAppPurchaseLiveUpdatesOldMonthly {
-
-		private static final String SKU_LIVE_UPDATES_OLD_MONTHLY_FREE = "osm_free_live_subscription_2";
-
-		InAppPurchaseLiveUpdatesOldMonthlyFree() {
-			super(SKU_LIVE_UPDATES_OLD_MONTHLY_FREE);
-		}
-	}
-
-	public static class InAppPurchaseLiveUpdatesOldSubscription extends InAppSubscription {
-
-		private SkuDetails details;
-
-		InAppPurchaseLiveUpdatesOldSubscription(@NonNull SkuDetails details) {
-			super(details.getSku(), true);
-			this.details = details;
+		PurchaseInfo(String sku, String orderId, String purchaseToken, long purchaseTime,
+							int purchaseState, boolean acknowledged, boolean autoRenewing) {
+			this.sku = sku;
+			this.orderId = orderId;
+			this.purchaseToken = purchaseToken;
+			this.purchaseTime = purchaseTime;
+			this.purchaseState = purchaseState;
+			this.acknowledged = acknowledged;
+			this.autoRenewing = autoRenewing;
 		}
 
-		@Override
-		public String getDefaultPrice(Context ctx) {
-			return "";
+		PurchaseInfo(@NonNull String json) throws JSONException {
+			parseJson(json);
 		}
 
-		@Override
-		public CharSequence getTitle(Context ctx) {
-			return details.getTitle();
+		public String getSku() {
+			return sku;
 		}
 
-		@Override
-		public CharSequence getDescription(@NonNull Context ctx) {
-			return details.getDescription();
+		public String getOrderId() {
+			return orderId;
 		}
 
-		@Nullable
-		@Override
-		protected InAppSubscription newInstance(@NonNull String sku) {
-			return null;
+		public String getPurchaseToken() {
+			return purchaseToken;
+		}
+
+		public long getPurchaseTime() {
+			return purchaseTime;
+		}
+
+		public int getPurchaseState() {
+			return purchaseState;
+		}
+
+		public boolean isAcknowledged() {
+			return acknowledged;
+		}
+
+		public boolean isAutoRenewing() {
+			return autoRenewing;
+		}
+
+		public String toJson() {
+			Map<String, Object> jsonMap = new HashMap<>();
+			jsonMap.put("sku", sku);
+			jsonMap.put("orderId", orderId);
+			jsonMap.put("purchaseToken", purchaseToken);
+			jsonMap.put("purchaseTime", purchaseTime);
+			jsonMap.put("purchaseState", purchaseState);
+			jsonMap.put("acknowledged", acknowledged);
+			jsonMap.put("autoRenewing", autoRenewing);
+			return new JSONObject(jsonMap).toString();
+		}
+
+		public void parseJson(@NonNull String json) throws JSONException {
+			JSONObject jsonObj = new JSONObject(json);
+			if (jsonObj.has("sku")) {
+				this.sku = jsonObj.getString("sku");
+			}
+			if (jsonObj.has("orderId")) {
+				this.orderId = jsonObj.getString("orderId");
+			}
+			if (jsonObj.has("purchaseToken")) {
+				this.purchaseToken = jsonObj.getString("purchaseToken");
+			}
+			if (jsonObj.has("purchaseTime")) {
+				this.purchaseTime = jsonObj.getLong("purchaseTime");
+			}
+			if (jsonObj.has("purchaseState")) {
+				this.purchaseState = jsonObj.getInt("purchaseState");
+			}
+			if (jsonObj.has("acknowledged")) {
+				this.acknowledged = jsonObj.getBoolean("acknowledged");
+			}
+			if (jsonObj.has("autoRenewing")) {
+				this.autoRenewing = jsonObj.getBoolean("autoRenewing");
+			}
 		}
 	}
 }

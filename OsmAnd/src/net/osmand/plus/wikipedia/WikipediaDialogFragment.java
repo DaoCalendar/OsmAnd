@@ -13,10 +13,10 @@ import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebSettings;
-import android.webkit.WebView;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -67,7 +67,7 @@ public class WikipediaDialogFragment extends WikiArticleBaseDialogFragment {
 		this.lang = lang;
 	}
 
-	@SuppressLint("SetJavaScriptEnabled")
+	@SuppressLint({"SetJavaScriptEnabled", "ClickableViewAccessibility"})
 	@Nullable
 	@Override
 	public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -120,7 +120,38 @@ public class WikipediaDialogFragment extends WikiArticleBaseDialogFragment {
 		selectedLangTv.setBackgroundResource(nightMode
 				? R.drawable.wikipedia_select_lang_bg_dark_n : R.drawable.wikipedia_select_lang_bg_light_n);
 
-		contentWebView = (WebView) mainView.findViewById(R.id.content_web_view);
+		contentWebView = mainView.findViewById(R.id.content_web_view);
+		contentWebView.setOnTouchListener(new View.OnTouchListener() {
+			float initialY, finalY;
+			boolean isScrollingUp;
+
+			@Override
+			public boolean onTouch(View v, MotionEvent event) {
+				int action = event.getAction();
+
+				switch(action) {
+					case (MotionEvent.ACTION_DOWN):
+						initialY = event.getY();
+					case (MotionEvent.ACTION_UP):
+						finalY = event.getY();
+						if (initialY < finalY) {
+							isScrollingUp = true;
+						} else if (initialY > finalY) {
+							isScrollingUp = false;
+						}
+					default:
+				}
+
+				if (isScrollingUp) {
+					readFullArticleButton.setVisibility(View.VISIBLE);
+				} else {
+					readFullArticleButton.setVisibility(View.GONE);
+				}
+
+				return false; 
+			}
+		});
+
 		WebSettings webSettings = contentWebView.getSettings();
 		webSettings.setJavaScriptEnabled(true);
 		webSettings.setTextZoom((int) (getResources().getConfiguration().fontScale * 100f));

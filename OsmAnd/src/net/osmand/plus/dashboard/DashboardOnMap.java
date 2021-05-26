@@ -96,6 +96,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+
 public class DashboardOnMap implements ObservableScrollViewCallbacks, IRouteInformationListener {
 	private static final org.apache.commons.logging.Log LOG =
 			PlatformUtil.getLog(DashboardOnMap.class);
@@ -568,7 +569,7 @@ public class DashboardOnMap implements ObservableScrollViewCallbacks, IRouteInfo
 
 		boolean refresh = this.visibleType == type && !appModeChanged;
 		previousAppMode = currentAppMode;
-		this.visibleType = type;
+		visibleType = type;
 		DashboardOnMap.staticVisible = visible;
 		DashboardOnMap.staticVisibleType = type;
 		mapActivity.enableDrawer();
@@ -577,6 +578,7 @@ public class DashboardOnMap implements ObservableScrollViewCallbacks, IRouteInfo
 
 		if (visible) {
 			mapActivity.dismissCardDialog();
+			mapActivity.dismissTrackMenu();
 			mapActivity.getContextMenu().hideMenues();
 			mapViewLocation = mapActivity.getMapLocation();
 			mapRotation = mapActivity.getMapRotate();
@@ -777,7 +779,7 @@ public class DashboardOnMap implements ObservableScrollViewCallbacks, IRouteInfo
 					plugin.registerLayers(mapActivity);
 				}
 			}
-			SRTMPlugin.refreshMapComplete(mapActivity);
+			mapActivity.refreshMapComplete();
 		} else if (visibleType == DashboardType.WIKIPEDIA) {
 			refreshContent(true);
 		}
@@ -1003,7 +1005,7 @@ public class DashboardOnMap implements ObservableScrollViewCallbacks, IRouteInfo
 				new TransactionBuilder(mapActivity.getSupportFragmentManager(), settings, mapActivity);
 		builder.addFragmentsData(fragmentsData)
 				.addFragmentsData(OsmandPlugin.getPluginsCardsList())
-				.getFragmentTransaction().commit();
+				.getFragmentTransaction().commitAllowingStateLoss();
 	}
 
 	private void removeFragment(String tag) {
@@ -1029,6 +1031,24 @@ public class DashboardOnMap implements ObservableScrollViewCallbacks, IRouteInfo
 			if (wr.get() == dashBaseFragment) {
 				it.remove();
 			}
+		}
+	}
+
+	public void onMapSettingsUpdated() {
+		if (DashboardType.CONFIGURE_MAP.equals(visibleType)) {
+			updateMenuItems();
+		}
+	}
+
+	public void updateMenuItems() {
+		if (listAdapter != null) {
+			for (int i = 0; i < listAdapter.getCount(); i++) {
+				Object o = listAdapter.getItem(i);
+				if (o instanceof ContextMenuItem) {
+					((ContextMenuItem) o).update();
+				}
+			}
+			listAdapter.notifyDataSetChanged();
 		}
 	}
 

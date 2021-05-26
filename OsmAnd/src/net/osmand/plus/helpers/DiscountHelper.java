@@ -20,12 +20,14 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.content.res.AppCompatResources;
 
 import net.osmand.AndroidNetworkUtils;
+import net.osmand.PlatformUtil;
 import net.osmand.osm.AbstractPoiType;
 import net.osmand.osm.MapPoiTypes;
 import net.osmand.osm.PoiCategory;
 import net.osmand.osm.PoiType;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.OsmandPlugin;
+import net.osmand.plus.chooseplan.ChoosePlanDialogFragment.ChoosePlanDialogType;
 import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.plus.R;
 import net.osmand.plus.Version;
@@ -56,7 +58,7 @@ import java.util.Map;
 public class DiscountHelper {
 
 	private static final String TAG = "DiscountHelper";
-	//private static final String DISCOUNT_JSON = "discount.json";
+	private static final org.apache.commons.logging.Log LOG = PlatformUtil.getLog(DiscountHelper.class);
 
 	private static long mLastCheckTime;
 	private static ControllerData mData;
@@ -81,7 +83,7 @@ public class DiscountHelper {
 	public static void checkAndDisplay(final MapActivity mapActivity) {
 		OsmandApplication app = mapActivity.getMyApplication();
 		OsmandSettings settings = app.getSettings();
-		if (settings.DO_NOT_SHOW_STARTUP_MESSAGES.get() || !settings.INAPPS_READ.get() || Version.isHuawei(app)) {
+		if (settings.DO_NOT_SHOW_STARTUP_MESSAGES.get() || !settings.INAPPS_READ.get()) {
 			return;
 		}
 		if (mBannerVisible) {
@@ -215,10 +217,7 @@ public class DiscountHelper {
 		if (url.startsWith(INAPP_PREFIX) && url.length() > INAPP_PREFIX.length()) {
 			String inAppSku = url.substring(INAPP_PREFIX.length());
 			InAppPurchaseHelper purchaseHelper = app.getInAppPurchaseHelper();
-			if (purchaseHelper != null
-					&& purchaseHelper.isPurchased(inAppSku) || InAppPurchaseHelper.isSubscribedToLiveUpdates(app)) {
-				return false;
-			}
+			return purchaseHelper == null || !purchaseHelper.isPurchased(inAppSku);
 		}
 		return true;
 	}
@@ -312,11 +311,15 @@ public class DiscountHelper {
 			if (purchaseHelper != null) {
 				if (url.contains(purchaseHelper.getFullVersion().getSku())) {
 					app.logEvent("in_app_purchase_redirect");
-					purchaseHelper.purchaseFullVersion(mapActivity);
+					try {
+						purchaseHelper.purchaseFullVersion(mapActivity);
+					} catch (UnsupportedOperationException e) {
+						LOG.error("purchaseFullVersion is not supported", e);
+					}
 				} else {
-					for (InAppPurchase p : purchaseHelper.getLiveUpdates().getAllSubscriptions()) {
+					for (InAppPurchase p : purchaseHelper.getSubscriptions().getAllSubscriptions()) {
 						if (url.contains(p.getSku())) {
-							ChoosePlanDialogFragment.showOsmLiveInstance(mapActivity.getSupportFragmentManager());
+							ChoosePlanDialogFragment.showDialogInstance(app, mapActivity.getSupportFragmentManager(), ChoosePlanDialogType.SUBSCRIPTION);
 							break;
 						}
 					}
@@ -361,17 +364,17 @@ public class DiscountHelper {
 		} else if (url.startsWith(SHOW_CHOOSE_PLAN_PREFIX)) {
 			String planType = url.substring(SHOW_CHOOSE_PLAN_PREFIX.length()).trim();
 			if (CHOOSE_PLAN_TYPE_FREE.equals(planType)) {
-				ChoosePlanDialogFragment.showFreeVersionInstance(mapActivity.getSupportFragmentManager());
+				ChoosePlanDialogFragment.showDialogInstance(mapActivity.getMyApplication(), mapActivity.getSupportFragmentManager(), ChoosePlanDialogType.FREE_VERSION);
 			} else if (CHOOSE_PLAN_TYPE_LIVE.equals(planType)) {
-				ChoosePlanDialogFragment.showOsmLiveInstance(mapActivity.getSupportFragmentManager());
+				ChoosePlanDialogFragment.showDialogInstance(mapActivity.getMyApplication(), mapActivity.getSupportFragmentManager(), ChoosePlanDialogType.SUBSCRIPTION);
 			} else if (CHOOSE_PLAN_TYPE_SEA_DEPTH.equals(planType)) {
-				ChoosePlanDialogFragment.showSeaDepthMapsInstance(mapActivity.getSupportFragmentManager());
+				ChoosePlanDialogFragment.showDialogInstance(mapActivity.getMyApplication(), mapActivity.getSupportFragmentManager(), ChoosePlanDialogType.SEA_DEPTH_MAPS);
 			} else if (CHOOSE_PLAN_TYPE_HILLSHADE.equals(planType)) {
-				ChoosePlanDialogFragment.showHillshadeSrtmPluginInstance(mapActivity.getSupportFragmentManager());
+				ChoosePlanDialogFragment.showDialogInstance(mapActivity.getMyApplication(), mapActivity.getSupportFragmentManager(), ChoosePlanDialogType.HILLSHADE_SRTM_PLUGIN);
 			} else if (CHOOSE_PLAN_TYPE_WIKIPEDIA.equals(planType)) {
-				ChoosePlanDialogFragment.showWikipediaInstance(mapActivity.getSupportFragmentManager());
+				ChoosePlanDialogFragment.showDialogInstance(mapActivity.getMyApplication(), mapActivity.getSupportFragmentManager(), ChoosePlanDialogType.WIKIPEDIA);
 			} else if (CHOOSE_PLAN_TYPE_WIKIVOYAGE.equals(planType)) {
-				ChoosePlanDialogFragment.showWikivoyageInstance(mapActivity.getSupportFragmentManager());
+				ChoosePlanDialogFragment.showDialogInstance(mapActivity.getMyApplication(), mapActivity.getSupportFragmentManager(), ChoosePlanDialogType.WIKIVOYAGE);
 			}
 		} else {
 			Intent intent = new Intent(Intent.ACTION_VIEW);
@@ -528,7 +531,7 @@ public class DiscountHelper {
 
 		SubscriptionCondition(OsmandApplication app) {
 			super(app);
-			liveUpdates = app.getInAppPurchaseHelper().getLiveUpdates();
+			liveUpdates = app.getInAppPurchaseHelper().getSubscriptions();
 		}
 	}
 

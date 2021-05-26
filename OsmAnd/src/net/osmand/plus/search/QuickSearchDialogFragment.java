@@ -34,6 +34,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -41,6 +42,7 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentPagerAdapter;
 import androidx.fragment.app.FragmentTransaction;
@@ -68,6 +70,7 @@ import net.osmand.osm.PoiCategory;
 import net.osmand.osm.PoiType;
 import net.osmand.plus.AppInitializer;
 import net.osmand.plus.AppInitializer.AppInitializeListener;
+import net.osmand.plus.AppInitializer.InitEvents;
 import net.osmand.plus.FavouritesDbHelper;
 import net.osmand.plus.LockableViewPager;
 import net.osmand.plus.OsmAndFormatter;
@@ -232,13 +235,24 @@ public class QuickSearchDialogFragment extends DialogFragment implements OsmAndC
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		FragmentActivity activity = requireActivity();
 		app = getMyApplication();
 		nightMode = !app.getSettings().isLightContent();
 		navigationInfo = new NavigationInfo(app);
-		accessibilityAssistant = new AccessibilityAssistant(getActivity());
+		accessibilityAssistant = new AccessibilityAssistant(activity);
+
 		boolean isLightTheme = app.getSettings().isLightContent();
 		int themeId = isLightTheme ? R.style.OsmandLightTheme : R.style.OsmandDarkTheme;
 		setStyle(STYLE_NO_FRAME, themeId);
+
+		activity.getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+			public void handleOnBackPressed() {
+				MapActivity mapActivity = getMapActivity();
+				if (mapActivity != null) {
+					mapActivity.showQuickSearch(ShowQuickSearchMode.CURRENT, false);
+				}
+			}
+		});
 	}
 
 	@Override
@@ -246,6 +260,7 @@ public class QuickSearchDialogFragment extends DialogFragment implements OsmAndC
 	public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
 							 Bundle savedInstanceState) {
 		final MapActivity mapActivity = getMapActivity();
+		final UiUtilities iconsCache = app.getUIUtilities();
 		final View view = inflater.inflate(R.layout.search_dialog_fragment, container, false);
 
 		toolbarController = new QuickSearchToolbarController();
@@ -312,9 +327,9 @@ public class QuickSearchDialogFragment extends DialogFragment implements OsmAndC
 
 		buttonToolbarView = view.findViewById(R.id.button_toolbar_layout);
 		buttonToolbarImage = (ImageView) view.findViewById(R.id.buttonToolbarImage);
-		buttonToolbarImage.setImageDrawable(app.getUIUtilities().getThemedIcon(R.drawable.ic_action_marker_dark));
+		buttonToolbarImage.setImageDrawable(iconsCache.getThemedIcon(R.drawable.ic_action_marker_dark));
 		buttonToolbarFilter = (ImageButton) view.findViewById(R.id.filterButton);
-		buttonToolbarFilter.setImageDrawable(app.getUIUtilities().getThemedIcon(R.drawable.ic_action_filter));
+		buttonToolbarFilter.setImageDrawable(iconsCache.getThemedIcon(R.drawable.ic_action_filter));
 		buttonToolbarFilter.setOnClickListener(new OnClickListener() {
 			@Override
 			public void onClick(View v) {
@@ -461,7 +476,7 @@ public class QuickSearchDialogFragment extends DialogFragment implements OsmAndC
 		if (!app.getSettings().isLightContent()) {
 			toolbar.setBackgroundColor(ContextCompat.getColor(mapActivity, R.color.app_bar_color_dark));
 		}
-		Drawable icBack = app.getUIUtilities().getThemedIcon(AndroidUtils.getNavigationIconResId(app));
+		Drawable icBack = iconsCache.getThemedIcon(AndroidUtils.getNavigationIconResId(app));
 		toolbar.setNavigationIcon(icBack);
 		toolbar.setNavigationContentDescription(R.string.access_shared_string_navigate_up);
 		toolbar.setNavigationOnClickListener(
@@ -476,7 +491,7 @@ public class QuickSearchDialogFragment extends DialogFragment implements OsmAndC
 		);
 
 		toolbarEdit = (Toolbar) view.findViewById(R.id.toolbar_edit);
-		toolbarEdit.setNavigationIcon(app.getUIUtilities().getIcon(R.drawable.ic_action_remove_dark));
+		toolbarEdit.setNavigationIcon(iconsCache.getIcon(R.drawable.ic_action_remove_dark));
 		toolbarEdit.setNavigationContentDescription(R.string.shared_string_cancel);
 		toolbarEdit.setNavigationOnClickListener(
 				new OnClickListener() {
@@ -488,8 +503,7 @@ public class QuickSearchDialogFragment extends DialogFragment implements OsmAndC
 		);
 
 		titleEdit = (TextView) view.findViewById(R.id.titleEdit);
-		Drawable shareIcon = app.getUIUtilities().getIcon(R.drawable.ic_action_gshare_dark,
-				nightMode ? R.color.text_color_secondary_dark : R.color.text_color_secondary_light);
+		Drawable shareIcon = iconsCache.getIcon(R.drawable.ic_action_gshare_dark, R.color.color_white);
 		shareIcon = AndroidUtils.getDrawableForDirection(app, shareIcon);
 		ImageView shareButton = (ImageView) view.findViewById(R.id.shareButton);
 		shareButton.setImageDrawable(shareIcon);
@@ -500,7 +514,7 @@ public class QuickSearchDialogFragment extends DialogFragment implements OsmAndC
 						List<HistoryEntry> historyEntries = new ArrayList<HistoryEntry>();
 						List<QuickSearchListItem> selectedItems = historySearchFragment.getListAdapter().getSelectedItems();
 						for (QuickSearchListItem searchListItem : selectedItems) {
-							Object object = searchListItem.getSearchResult().object;
+							Object object = searchListItem.getSearchResult().object;;
 							if (object instanceof HistoryEntry) {
 								historyEntries.add((HistoryEntry) object);
 							}
@@ -631,7 +645,7 @@ public class QuickSearchDialogFragment extends DialogFragment implements OsmAndC
 
 		progressBar = (ProgressBar) view.findViewById(R.id.searchProgressBar);
 		clearButton = (ImageButton) view.findViewById(R.id.clearButton);
-		clearButton.setImageDrawable(app.getUIUtilities().getThemedIcon(R.drawable.ic_action_remove_dark));
+		clearButton.setImageDrawable(iconsCache.getThemedIcon(R.drawable.ic_action_remove_dark));
 		clearButton.setOnClickListener(
 				new OnClickListener() {
 					@Override
@@ -1192,7 +1206,12 @@ public class QuickSearchDialogFragment extends DialogFragment implements OsmAndC
 			showProgressBar();
 			app.getAppInitializer().addListener(new AppInitializeListener() {
 				@Override
-				public void onProgress(AppInitializer init, AppInitializer.InitEvents event) {
+				public void onStart(AppInitializer init) {
+
+				}
+
+				@Override
+				public void onProgress(AppInitializer init, InitEvents event) {
 				}
 
 				@Override
@@ -1313,7 +1332,12 @@ public class QuickSearchDialogFragment extends DialogFragment implements OsmAndC
 			showProgressBar();
 			app.getAppInitializer().addListener(new AppInitializeListener() {
 				@Override
-				public void onProgress(AppInitializer init, AppInitializer.InitEvents event) {
+				public void onStart(AppInitializer init) {
+
+				}
+
+				@Override
+				public void onProgress(AppInitializer init, InitEvents event) {
 				}
 
 				@Override
@@ -1501,7 +1525,12 @@ public class QuickSearchDialogFragment extends DialogFragment implements OsmAndC
 			showProgressBar();
 			app.getAppInitializer().addListener(new AppInitializeListener() {
 				@Override
-				public void onProgress(AppInitializer init, AppInitializer.InitEvents event) {
+				public void onStart(AppInitializer init) {
+
+				}
+
+				@Override
+				public void onProgress(AppInitializer init, InitEvents event) {
 				}
 
 				@Override
@@ -1661,7 +1690,12 @@ public class QuickSearchDialogFragment extends DialogFragment implements OsmAndC
 		if (app.isApplicationInitializing() && text.length() > 0) {
 			app.getAppInitializer().addListener(new AppInitializeListener() {
 				@Override
-				public void onProgress(AppInitializer init, AppInitializer.InitEvents event) {
+				public void onStart(AppInitializer init) {
+
+				}
+
+				@Override
+				public void onProgress(AppInitializer init, InitEvents event) {
 				}
 
 				@Override

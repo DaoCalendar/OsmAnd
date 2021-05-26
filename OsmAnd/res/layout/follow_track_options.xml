@@ -18,7 +18,7 @@
 			android:id="@+id/route_menu_top_shadow_all"
 			android:layout_width="match_parent"
 			android:layout_height="wrap_content"
-			android:background="?attr/card_and_list_background_basic"
+			android:background="?attr/bg_color"
 			android:minHeight="@dimen/bottom_sheet_title_height"
 			android:orientation="vertical">
 
@@ -55,6 +55,17 @@
 					android:textSize="@dimen/default_list_text_size"
 					osmand:typeface="@string/font_roboto_medium" />
 
+				<ImageButton
+					android:id="@+id/sort_button"
+					android:layout_width="@dimen/wikipedia_options_button_width"
+					android:layout_height="@dimen/dialog_button_height"
+					android:layout_gravity="center"
+					android:layout_marginEnd="@dimen/content_padding"
+					android:layout_marginRight="@dimen/content_padding"
+					android:background="?attr/bg_dash_line"
+					android:tint="?attr/color_dialog_buttons"
+					osmand:srcCompat="@drawable/ic_sort_waypoint_dark" />
+
 			</LinearLayout>
 
 		</FrameLayout>
@@ -64,59 +75,23 @@
 			android:layout_width="match_parent"
 			android:layout_height="match_parent"
 			android:background="?attr/route_info_bg"
-			android:foreground="@drawable/bg_contextmenu_shadow"
 			android:foregroundGravity="top|fill_horizontal">
 
-			<androidx.core.widget.NestedScrollView
-				android:id="@+id/route_menu_bottom_scroll"
+			<LinearLayout
+				android:id="@+id/route_menu_cards_container"
 				android:layout_width="match_parent"
-				android:layout_height="match_parent"
-				android:background="?attr/route_info_bg">
+				android:layout_height="wrap_content"
+				android:background="?attr/route_info_bg"
+				android:orientation="vertical"
+				android:paddingBottom="@dimen/dialog_button_ex_height">
 
-				<LinearLayout
-					android:id="@+id/route_menu_cards_container"
-					android:layout_width="match_parent"
-					android:layout_height="wrap_content"
-					android:background="?attr/route_info_bg"
-					android:orientation="vertical"
-					android:paddingBottom="@dimen/dialog_button_ex_height">
-
-				</LinearLayout>
-
-			</androidx.core.widget.NestedScrollView>
+			</LinearLayout>
 
 		</FrameLayout>
 
 	</LinearLayout>
 
-	<FrameLayout
-		android:id="@+id/map_controls_container"
-		android:layout_width="match_parent"
-		android:layout_height="wrap_content"
-		android:layout_gravity="bottom"
-		tools:visibility="invisible">
-
-		<include
-			layout="@layout/map_ruler"
-			android:layout_width="wrap_content"
-			android:layout_height="wrap_content"
-			android:layout_gravity="start|bottom"
-			android:layout_marginStart="@dimen/fab_margin_right"
-			android:layout_marginLeft="@dimen/fab_margin_right"
-			android:layout_marginEnd="@dimen/fab_margin_right"
-			android:layout_marginRight="@dimen/fab_margin_right" />
-
-		<include
-			layout="@layout/map_hud_controls"
-			android:layout_width="wrap_content"
-			android:layout_height="wrap_content"
-			android:layout_gravity="end|bottom"
-			android:layout_marginStart="@dimen/fab_margin_right"
-			android:layout_marginLeft="@dimen/fab_margin_right"
-			android:layout_marginEnd="@dimen/fab_margin_right"
-			android:layout_marginRight="@dimen/fab_margin_right" />
-
-	</FrameLayout>
+	<include layout="@layout/context_menu_controls" />
 
 	<LinearLayout
 		android:id="@+id/control_buttons"
@@ -128,9 +103,9 @@
 		<androidx.appcompat.widget.AppCompatImageView
 			android:id="@+id/buttons_shadow"
 			android:layout_width="match_parent"
-			android:layout_height="10dp"
+			android:layout_height="8dp"
 			android:layout_gravity="bottom"
-			android:background="@drawable/bg_contextmenu_shadow_top_light" />
+			android:background="@drawable/shadow" />
 
 		<include
 			layout="@layout/bottom_buttons"

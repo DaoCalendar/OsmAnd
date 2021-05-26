@@ -21,12 +21,12 @@
 
 	<PreferenceCategory
 		android:key="select_color"
-		android:layout="@layout/preference_category_with_descr"
+		android:layout="@layout/preference_category_with_right_text"
 		android:title="@string/select_color" />
 
 	<Preference
 		android:key="color_items"
-		android:layout="@layout/preference_color_select"
+		android:layout="@layout/preference_colors_card"
 		android:title="@string/select_color"
 		android:selectable="false"/>
 
@@ -75,5 +75,12 @@
 		android:layout="@layout/preference_color_select"
 		android:title="@string/select_navigation_icon"
 		android:selectable="false"/>
+
+	<Preference
+		android:key="customize_route_line"
+		android:layout="@layout/preference_button"
+		android:persistent="false"
+		android:title="@string/customize_route_line"
+		android:icon="@drawable/ic_action_route_distance" />
 
 </PreferenceScreen>

@@ -1,7 +1,6 @@
 package net.osmand.plus.download;
 
 import android.Manifest;
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -22,7 +21,6 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.Space;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -35,8 +33,9 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.viewpager.widget.ViewPager;
 
+import com.ibm.icu.impl.IllegalIcuArgumentException;
+
 import net.osmand.AndroidUtils;
-import net.osmand.IProgress;
 import net.osmand.IndexConstants;
 import net.osmand.PlatformUtil;
 import net.osmand.access.AccessibilityAssistant;
@@ -45,7 +44,6 @@ import net.osmand.data.PointDescription;
 import net.osmand.map.WorldRegion;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.OsmandPlugin;
-import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.plus.R;
 import net.osmand.plus.Version;
 import net.osmand.plus.activities.LocalIndexInfo;
@@ -54,7 +52,9 @@ import net.osmand.plus.activities.TabActivity;
 import net.osmand.plus.base.BasicProgressAsyncTask;
 import net.osmand.plus.base.BottomSheetDialogFragment;
 import net.osmand.plus.chooseplan.ChoosePlanDialogFragment;
+import net.osmand.plus.chooseplan.ChoosePlanDialogFragment.ChoosePlanDialogType;
 import net.osmand.plus.download.DownloadIndexesThread.DownloadEvents;
+import net.osmand.plus.download.ReloadIndexesTask.ReloadIndexesListener;
 import net.osmand.plus.download.ui.ActiveDownloadsDialogFragment;
 import net.osmand.plus.download.ui.DownloadResourceGroupFragment;
 import net.osmand.plus.download.ui.LocalIndexesFragment;
@@ -64,6 +64,7 @@ import net.osmand.plus.helpers.FileNameTranslationHelper;
 import net.osmand.plus.inapp.InAppPurchaseHelper;
 import net.osmand.plus.inapp.InAppPurchaseHelper.InAppPurchaseTaskType;
 import net.osmand.plus.openseamapsplugin.NauticalMapsPlugin;
+import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.plus.srtmplugin.SRTMPlugin;
 import net.osmand.plus.views.controls.PagerSlidingTabStrip;
 import net.osmand.util.Algorithms;
@@ -389,8 +390,7 @@ public class DownloadActivity extends AbstractDownloadActivity implements Downlo
 		return !Version.isPaidVersion(application)
 				|| application.getSettings().SHOULD_SHOW_FREE_VERSION_BANNER.get();
 	}
-	
-	
+
 	public static class FreeVersionBanner {
 		private final View freeVersionBanner;
 		private final View freeVersionBannerTitle;
@@ -408,7 +408,7 @@ public class DownloadActivity extends AbstractDownloadActivity implements Downlo
 					collapseBanner();
 				} else {
 					ctx.getMyApplication().logEvent("click_free_dialog");
-					ChoosePlanDialogFragment.showFreeVersionInstance(ctx.getSupportFragmentManager());
+					ChoosePlanDialogFragment.showDialogInstance(ctx.getMyApplication(), ctx.getSupportFragmentManager(), ChoosePlanDialogType.FREE_VERSION);
 				}
 			}
 		};
@@ -441,7 +441,7 @@ public class DownloadActivity extends AbstractDownloadActivity implements Downlo
 			freeVersionBanner.setVisibility(View.VISIBLE);
 			downloadsLeftProgressBar.setMax(DownloadValidationManager.MAXIMUM_AVAILABLE_FREE_DOWNLOADS);
 			freeVersionDescriptionTextView.setText(ctx.getString(R.string.free_version_message,
-					DownloadValidationManager.MAXIMUM_AVAILABLE_FREE_DOWNLOADS +"" ));
+					DownloadValidationManager.MAXIMUM_AVAILABLE_FREE_DOWNLOADS + ""));
 
 			LinearLayout marksLinearLayout = (LinearLayout) freeVersionBanner.findViewById(R.id.marksLinearLayout);
 			Space spaceView = new Space(ctx);
@@ -493,6 +493,7 @@ public class DownloadActivity extends AbstractDownloadActivity implements Downlo
 				freeVersionBannerTitle.setVisibility(View.VISIBLE);
 			}
 		}
+
 		private void updateAvailableDownloads() {
 			int activeTasks = ctx.getDownloadThread().getCountedDownloads();
 			OsmandSettings settings = ctx.getMyApplication().getSettings();
@@ -570,35 +571,25 @@ public class DownloadActivity extends AbstractDownloadActivity implements Downlo
 		}
 	}
 
-	@SuppressLint("StaticFieldLeak")
 	public void reloadLocalIndexes() {
-		AsyncTask<Void, String, List<String>> task = new AsyncTask<Void, String, List<String>>() {
+		final OsmandApplication app = (OsmandApplication) getApplication();
+		ReloadIndexesTask reloadIndexesTask = new ReloadIndexesTask(app, new ReloadIndexesListener() {
 			@Override
-			protected void onPreExecute() {
-				super.onPreExecute();
+			public void reloadIndexesStarted() {
 				setSupportProgressBarIndeterminateVisibility(true);
 			}
 
 			@Override
-			protected List<String> doInBackground(Void... params) {
-				return getMyApplication().getResourceManager().reloadIndexes(IProgress.EMPTY_PROGRESS,
-						new ArrayList<String>()
-				);
-			}
-
-			@Override
-			protected void onPostExecute(List<String> warnings) {
+			public void reloadIndexesFinished(List<String> warnings) {
 				setSupportProgressBarIndeterminateVisibility(false);
-				if (!warnings.isEmpty()) {
-					Toast.makeText(DownloadActivity.this, AndroidUtils.formatWarnings(warnings).toString(), Toast.LENGTH_LONG).show();
+				if (!Algorithms.isEmpty(warnings)) {
+					app.showToastMessage(AndroidUtils.formatWarnings(warnings).toString());
 				}
 				newDownloadIndexes();
 			}
-		};
-		task.executeOnExecutor(singleThreadExecutor);
+		});
+		reloadIndexesTask.executeOnExecutor(singleThreadExecutor);
 	}
-
-	
 
 	public void setDownloadItem(WorldRegion region, String targetFileName) {
 		if (downloadItem == null) {
@@ -661,13 +652,17 @@ public class DownloadActivity extends AbstractDownloadActivity implements Downlo
 		TextView messageTextView = (TextView) view.findViewById(R.id.leftTextView);
 		ProgressBar sizeProgress = (ProgressBar) view.findViewById(R.id.progressBar);
 
-		File dir = activity.getMyApplication().getAppPath("").getParentFile();
+		File dir = activity.getMyApplication().getAppPath(null);
 		String size = "";
 		int percent = 0;
 		if (dir.canRead()) {
-			StatFs fs = new StatFs(dir.getAbsolutePath());
-			size = AndroidUtils.formatSize(activity, ((long)fs.getAvailableBlocks()) * fs.getBlockSize());
-			percent = 100 - (int)((long)fs.getAvailableBlocks() * 100 / fs.getBlockCount());
+			try {
+				StatFs fs = new StatFs(dir.getAbsolutePath());
+				size = AndroidUtils.formatSize(activity, ((long) fs.getAvailableBlocks()) * fs.getBlockSize());
+				percent = 100 - (int) ((long) fs.getAvailableBlocks() * 100 / fs.getBlockCount());
+			} catch (IllegalIcuArgumentException e) {
+				LOG.error(e);
+			}
 		}
 		sizeProgress.setIndeterminate(false);
 		sizeProgress.setProgress(percent);
@@ -695,11 +690,12 @@ public class DownloadActivity extends AbstractDownloadActivity implements Downlo
 	}
 
 	public void initAppStatusVariables() {
+		OsmandApplication app = getMyApplication();
 		srtmDisabled = OsmandPlugin.getEnabledPlugin(SRTMPlugin.class) == null
-				&& !InAppPurchaseHelper.isSubscribedToLiveUpdates(getMyApplication());
+				&& !InAppPurchaseHelper.isContourLinesPurchased(app);
 		nauticalPluginDisabled = OsmandPlugin.getEnabledPlugin(NauticalMapsPlugin.class) == null;
-		freeVersion = Version.isFreeVersion(getMyApplication());
-		OsmandPlugin srtmPlugin = OsmandPlugin.getPlugin(SRTMPlugin.class);
+		freeVersion = Version.isFreeVersion(app);
+		SRTMPlugin srtmPlugin = OsmandPlugin.getPlugin(SRTMPlugin.class);
 		srtmNeedsInstallation = srtmPlugin == null || srtmPlugin.needsInstallation();
 
 	}

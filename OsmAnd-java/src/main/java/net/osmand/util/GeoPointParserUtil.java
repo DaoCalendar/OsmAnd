@@ -62,7 +62,7 @@ public class GeoPointParserUtil {
 
 	private static Map<String, String> getQueryParameters(String query) {
 		final LinkedHashMap<String, String> map = new LinkedHashMap<String, String>();
-		if (query != null && !query.equals("")) {
+		if (query != null && !query.isEmpty()) {
 			String[] params = query.split("[&/]");
 			for (String p : params) {
 				String[] keyValue = p.split("=");
@@ -553,11 +553,20 @@ public class GeoPointParserUtil {
 			}
 
 			if (searchRequest != null) {
+				String searchPattern = Pattern.compile("(?:\\.|,|\\s+|\\+|[+-]?\\d+(?:\\.\\d+)?)").pattern();
+				String[] search = searchRequest.split(searchPattern);
+				if (search.length > 0) {
+					return new GeoParsedPoint(searchRequest);
+				}
 				final Matcher positionInSearchRequestMatcher =
 						positionPattern.matcher(searchRequest);
 				if (lat == 0.0 && lon == 0.0 && positionInSearchRequestMatcher.find()) {
-					lat = Double.valueOf(positionInSearchRequestMatcher.group(1));
-					lon = Double.valueOf(positionInSearchRequestMatcher.group(2));
+					double tempLat = Double.valueOf(positionInSearchRequestMatcher.group(1));
+					double tempLon = Double.valueOf(positionInSearchRequestMatcher.group(2));
+					if (tempLat >= -90 && tempLat <= 90 && tempLon >= -180 && tempLon <= 180) {
+						lat = tempLat;
+						lon = tempLon;
+					}
 				}
 			}
 
@@ -803,10 +812,10 @@ public class GeoPointParserUtil {
 				if (map.size() > 0)
 					uriString += "?";
 				int i = 0;
-				for (String key : map.keySet()) {
+				for (Map.Entry<String, String> entry : map.entrySet()) {
 					if (i > 0)
 						uriString += "&";
-					uriString += key + "=" + map.get(key);
+					uriString += entry.getKey() + "=" + entry.getValue();
 					i++;
 				}
 				return uriString;

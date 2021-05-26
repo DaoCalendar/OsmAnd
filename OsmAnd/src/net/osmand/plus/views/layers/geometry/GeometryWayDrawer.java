@@ -5,8 +5,10 @@ import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PointF;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
+import android.util.Pair;
 
 import net.osmand.data.RotatedTileBox;
 
@@ -16,6 +18,20 @@ import java.util.List;
 public class GeometryWayDrawer<T extends GeometryWayContext> {
 
 	private T context;
+
+	public static class DrawPathData {
+		Path path;
+		PointF start;
+		PointF end;
+		GeometryWayStyle<?> style;
+
+		public DrawPathData(Path path, PointF start, PointF end, GeometryWayStyle<?> style) {
+			this.path = path;
+			this.start = start;
+			this.end = end;
+			this.style = style;
+		}
+	}
 
 	public GeometryWayDrawer(T context) {
 		this.context = context;
@@ -31,22 +47,28 @@ public class GeometryWayDrawer<T extends GeometryWayContext> {
 
 		int h = tb.getPixHeight();
 		int w = tb.getPixWidth();
-		int left =  -w / 4;
+		int left = -w / 4;
 		int right = w + w / 4;
-		int top = - h/4;
-		int bottom = h + h/4;
+		int top = -h / 4;
+		int bottom = h + h / 4;
 
 		boolean hasStyles = styles != null && styles.size() == tx.size();
 		double zoomCoef = tb.getZoomAnimation() > 0 ? (Math.pow(2, tb.getZoomAnimation() + tb.getZoomFloatPart())) : 1f;
-		Bitmap arrow = context.getArrowBitmap();
-		int arrowHeight = arrow.getHeight();
-		double pxStep = arrowHeight * 4f * zoomCoef;
-		double pxStepRegular = arrowHeight * 4f * zoomCoef;
+
+		int startIndex = tx.size() - 2;
+		double defaultPxStep;
+		if (hasStyles && styles.get(startIndex) != null) {
+			defaultPxStep = styles.get(startIndex).getPointStepPx(zoomCoef);
+		} else {
+			Bitmap arrow = context.getArrowBitmap();
+			defaultPxStep = arrow.getHeight() * 4f * zoomCoef;
+		}
+		double pxStep = defaultPxStep;
 		double dist = 0;
 		if (distPixToFinish != 0) {
 			dist = distPixToFinish - pxStep * ((int) (distPixToFinish / pxStep)); // dist < 1
 		}
-		for (int i = tx.size() - 2; i >= 0; i --) {
+		for (int i = startIndex; i >= 0; i--) {
 			GeometryWayStyle<?> style = hasStyles ? styles.get(i) : null;
 			float px = tx.get(i);
 			float py = ty.get(i);
@@ -57,7 +79,7 @@ public class GeometryWayDrawer<T extends GeometryWayContext> {
 			if (distSegment == 0) {
 				continue;
 			}
-			pxStep = style != null ? style.getPointStepPx(zoomCoef) : pxStepRegular;
+			pxStep = style != null ? style.getPointStepPx(zoomCoef) : defaultPxStep;
 			if (dist >= pxStep) {
 				dist = 0;
 			}
@@ -83,13 +105,20 @@ public class GeometryWayDrawer<T extends GeometryWayContext> {
 		}
 	}
 
+	protected void drawFullBorder(Canvas canvas, int zoom, List<DrawPathData> pathsData) {
+	}
+
+	protected void drawSegmentBorder(Canvas canvas, int zoom, DrawPathData pathData) {
+	}
+
 	protected PathPoint getArrowPathPoint(float iconx, float icony, GeometryWayStyle<?> style, double angle) {
 		return new PathPoint(iconx, icony, angle, style);
 	}
 
-	public void drawPath(Canvas canvas, Path path, GeometryWayStyle<?> style) {
-		context.getAttrs().customColor = style.getColor();
-		context.getAttrs().drawPath(canvas, path);
+	public void drawPath(Canvas canvas, DrawPathData pathData) {
+		context.getAttrs().customColor = pathData.style.getColor();
+		context.getAttrs().customWidth = pathData.style.getWidth();
+		context.getAttrs().drawPath(canvas, pathData.path);
 	}
 
 	public static class PathPoint {

@@ -38,9 +38,8 @@ import net.osmand.plus.dialogs.HelpArticleDialogFragment;
 import net.osmand.plus.helpers.AndroidUiHelper;
 import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.plus.settings.backend.OsmAndAppCustomization;
-import net.osmand.plus.settings.backend.OsmandSettings;
-import net.osmand.plus.settings.backend.OsmandSettings.ContextMenuItemsPreference;
-import net.osmand.plus.settings.backend.OsmandSettings.OsmandPreference;
+import net.osmand.plus.settings.backend.ContextMenuItemsPreference;
+import net.osmand.plus.settings.backend.OsmandPreference;
 import net.osmand.util.Algorithms;
 
 import org.apache.commons.logging.Log;
@@ -52,6 +51,9 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+
+import static net.osmand.aidlapi.OsmAndCustomizationConstants.DRAWER_CONFIGURE_PROFILE_ID;
+import static net.osmand.aidlapi.OsmAndCustomizationConstants.DRAWER_SWITCH_PROFILE_ID;
 
 public class ContextMenuAdapter {
 	private static final Log LOG = PlatformUtil.getLog(ContextMenuAdapter.class);
@@ -134,6 +136,19 @@ public class ContextMenuAdapter {
 		Collections.sort(items, new Comparator<ContextMenuItem>() {
 			@Override
 			public int compare(ContextMenuItem item1, ContextMenuItem item2) {
+				if (DRAWER_CONFIGURE_PROFILE_ID.equals(item1.getId())
+						&& DRAWER_SWITCH_PROFILE_ID.equals(item2.getId())) {
+					return 1;
+				} else if (DRAWER_SWITCH_PROFILE_ID.equals(item1.getId())
+						&& DRAWER_CONFIGURE_PROFILE_ID.equals(item2.getId())) {
+					return -1;
+				} else if (DRAWER_SWITCH_PROFILE_ID.equals(item1.getId())
+						|| DRAWER_CONFIGURE_PROFILE_ID.equals(item1.getId())) {
+					return -1;
+				} else if (DRAWER_SWITCH_PROFILE_ID.equals(item2.getId())
+						|| DRAWER_CONFIGURE_PROFILE_ID.equals(item2.getId())) {
+					return 1;
+				}
 				int order1 = item1.getOrder();
 				int order2 = item2.getOrder();
 				if (order1 < order2) {
@@ -193,7 +208,7 @@ public class ContextMenuAdapter {
 		}
 		items.removeAll(itemsToRemove);
 		return new ContextMenuArrayAdapter(activity, layoutId, R.id.title,
-				items.toArray(new ContextMenuItem[items.size()]), app, lightTheme, changeAppModeListener);
+				items.toArray(new ContextMenuItem[0]), app, lightTheme, changeAppModeListener);
 	}
 
 	public class ContextMenuArrayAdapter extends ArrayAdapter<ContextMenuItem> {
@@ -234,8 +249,7 @@ public class ContextMenuAdapter {
 			final ContextMenuItem item = getItem(position);
 			int layoutId = item.getLayout();
 			layoutId = layoutId != ContextMenuItem.INVALID_ID ? layoutId : DEFAULT_LAYOUT_ID;
-			int currentModeColorRes = app.getSettings().getApplicationMode().getIconColorInfo().getColor(nightMode);
-			int currentModeColor = ContextCompat.getColor(app, currentModeColorRes);
+			int currentModeColor = app.getSettings().getApplicationMode().getProfileColor(nightMode);
 			if (layoutId == R.layout.mode_toggles) {
 				final Set<ApplicationMode> selected = new LinkedHashSet<>();
 				return AppModeDialog.prepareAppModeDrawerView((Activity) getContext(),
@@ -243,7 +257,7 @@ public class ContextMenuAdapter {
 							@Override
 							public void onClick(View view) {
 								if (selected.size() > 0) {
-									app.getSettings().APPLICATION_MODE.set(selected.iterator().next());
+									app.getSettings().setApplicationMode(selected.iterator().next());
 									notifyDataSetChanged();
 								}
 								if (changeAppModeListener != null) {
@@ -263,15 +277,13 @@ public class ContextMenuAdapter {
 			}
 			if (layoutId == R.layout.main_menu_drawer_btn_switch_profile || 
 					layoutId == R.layout.main_menu_drawer_btn_configure_profile) {
-				int colorResId = item.getColorRes();
-				int colorNoAlpha = ContextCompat.getColor(app, colorResId);
-				
+				int colorNoAlpha = item.getColor();
 				TextView title = convertView.findViewById(R.id.title);
 				title.setText(item.getTitle());
 
 				if (layoutId == R.layout.main_menu_drawer_btn_switch_profile) {
 					ImageView icon = convertView.findViewById(R.id.icon);
-					icon.setImageDrawable(mIconsCache.getIcon(item.getIcon(), colorResId));
+					icon.setImageDrawable(mIconsCache.getPaintedIcon(item.getIcon(), colorNoAlpha));
 					ImageView icArrow = convertView.findViewById(R.id.ic_expand_list);
 					icArrow.setImageDrawable(mIconsCache.getIcon(item.getSecondaryIcon()));
 					TextView desc = convertView.findViewById(R.id.description);
@@ -291,16 +303,13 @@ public class ContextMenuAdapter {
 				return convertView;
 			}
 			if (layoutId == R.layout.profile_list_item) {
-				
 				int tag = item.getTag();
-
-				int colorResId = item.getColorRes();
-				int colorNoAlpha = ContextCompat.getColor(app, colorResId);
+				int colorNoAlpha = item.getColor();
 				TextView title = convertView.findViewById(R.id.title);
 				TextView desc = convertView.findViewById(R.id.description);
 				ImageView icon = convertView.findViewById(R.id.icon);
 				title.setText(item.getTitle());
-				
+
 				convertView.findViewById(R.id.divider_up).setVisibility(View.INVISIBLE);
 				convertView.findViewById(R.id.divider_bottom).setVisibility(View.INVISIBLE);
 				convertView.findViewById(R.id.menu_image).setVisibility(View.GONE);
@@ -316,7 +325,7 @@ public class ContextMenuAdapter {
 					AndroidUiHelper.updateVisibility(icon, true);
 					AndroidUiHelper.updateVisibility(desc, true);
 					AndroidUtils.setTextPrimaryColor(app, title, nightMode);
-					icon.setImageDrawable(mIconsCache.getIcon(item.getIcon(), colorResId));
+					icon.setImageDrawable(mIconsCache.getPaintedIcon(item.getIcon(), colorNoAlpha));
 					desc.setText(item.getDescription());
 					boolean selectedMode = tag == PROFILES_CHOSEN_PROFILE_TAG;
 					if (selectedMode) {
@@ -404,17 +413,18 @@ public class ContextMenuAdapter {
 				}
 			} else {
 				if (item.getIcon() != ContextMenuItem.INVALID_ID) {
-					int colorRes = item.getColorRes();
-					if (colorRes == ContextMenuItem.INVALID_ID) {
-						if (!item.shouldSkipPainting()) {
-							colorRes = lightTheme ? R.color.icon_color_default_light : R.color.icon_color_default_dark;
-						} else {
-							colorRes = 0;
-						}
+					Integer color = item.getColor();
+					Drawable drawable;
+					if (color == null) {
+						int colorRes = lightTheme ? R.color.icon_color_default_light : R.color.icon_color_default_dark;
+						colorRes = item.shouldSkipPainting() ? 0 : colorRes;
+						drawable = mIconsCache.getIcon(item.getIcon(), colorRes);
 					} else if (profileDependent) {
-						colorRes = currentModeColorRes;
+						drawable = mIconsCache.getPaintedIcon(item.getIcon(), currentModeColor);
+					} else {
+						drawable = mIconsCache.getPaintedIcon(item.getIcon(), color);
 					}
-					final Drawable drawable = mIconsCache.getIcon(item.getIcon(), colorRes);
+
 					((AppCompatImageView) convertView.findViewById(R.id.icon)).setImageDrawable(drawable);
 					convertView.findViewById(R.id.icon).setVisibility(View.VISIBLE);
 				} else if (convertView.findViewById(R.id.icon) != null) {
@@ -435,6 +445,9 @@ public class ContextMenuAdapter {
 				ImageView imageView = (ImageView) convertView.findViewById(R.id.secondary_icon);
 				imageView.setImageDrawable(drawable);
 				imageView.setVisibility(View.VISIBLE);
+				if (secondaryDrawable == R.drawable.ic_action_additional_option) {
+					UiUtilities.rotateImageByLayoutDirection(imageView);
+				}
 			} else {
 				ImageView imageView = (ImageView) convertView.findViewById(R.id.secondary_icon);
 				if (imageView != null) {
@@ -628,10 +641,10 @@ public class ContextMenuAdapter {
 	}
 
 	public static OnItemDeleteAction makeDeleteAction(final List<? extends OsmandPreference> prefs) {
-		return makeDeleteAction(prefs.toArray(new OsmandPreference[prefs.size()]));
+		return makeDeleteAction(prefs.toArray(new OsmandPreference[0]));
 	}
 
-	private static void resetSetting(ApplicationMode appMode, OsmandSettings.OsmandPreference preference, boolean profileOnly) {
+	private static void resetSetting(ApplicationMode appMode, OsmandPreference preference, boolean profileOnly) {
 		if (profileOnly) {
 			preference.resetModeToDefault(appMode);
 		} else {

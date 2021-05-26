@@ -14,9 +14,12 @@ import androidx.fragment.app.FragmentManager;
 import com.google.android.material.slider.Slider;
 
 import net.osmand.AndroidUtils;
+import net.osmand.plus.helpers.enums.MetricsConstants;
+import net.osmand.plus.routing.RoutingHelper;
 import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.plus.OsmAndFormatter;
 import net.osmand.plus.OsmandApplication;
+import net.osmand.plus.settings.backend.CommonPreference;
 import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities;
@@ -26,7 +29,6 @@ import net.osmand.plus.base.bottomsheetmenu.simpleitems.LongDescriptionItem;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.DividerSpaceItem;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.SubtitmeListDividerItem;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.TitleItem;
-import net.osmand.plus.routing.RoutingHelper;
 import net.osmand.plus.settings.fragments.ApplyQueryType;
 import net.osmand.plus.settings.fragments.OnConfirmPreferenceChange;
 import net.osmand.plus.settings.preferences.SwitchPreferenceEx;
@@ -43,7 +45,7 @@ public class RecalculateRouteInDeviationBottomSheet extends BooleanPreferenceBot
 	private OsmandApplication app;
 	private OsmandSettings settings;
 	private ApplicationMode appMode;
-	private OsmandSettings.CommonPreference<Float> preference;
+	private CommonPreference<Float> preference;
 
 	private Slider slider;
 	private TextView tvSliderTitle;
@@ -75,15 +77,14 @@ public class RecalculateRouteInDeviationBottomSheet extends BooleanPreferenceBot
 		int contentPaddingSmall = app.getResources().getDimensionPixelSize(R.dimen.content_padding_small);
 		int contentPadding = app.getResources().getDimensionPixelSize(R.dimen.content_padding);
 
-		OsmandSettings.MetricsConstants mc = settings.METRIC_SYSTEM.get();
-		if (mc == OsmandSettings.MetricsConstants.KILOMETERS_AND_METERS) {
+		MetricsConstants mc = settings.METRIC_SYSTEM.get();
+		if (mc == MetricsConstants.KILOMETERS_AND_METERS) {
 			entryValues = new Float[]{10.f, 20.0f, 30.0f, 50.0f, 100.0f, 200.0f, 500.0f, 1000.0f, 1500.0f};
 		} else {
 			entryValues = new Float[]{9.1f, 18.3f, 30.5f, 45.7f, 91.5f, 183.0f, 482.0f, 965.0f, 1609.0f};
 		}
 
-		final int appModeColorId = appMode.getIconColorInfo().getColor(nightMode);
-		final int appModeColor = ContextCompat.getColor(themedCtx, appModeColorId);
+		final int appModeColor = appMode.getProfileColor(nightMode);
 		final int activeColor = AndroidUtils.resolveAttribute(themedCtx, R.attr.active_color_basic);
 		final int disabledColor = AndroidUtils.resolveAttribute(themedCtx, android.R.attr.textColorSecondary);
 
@@ -106,10 +107,10 @@ public class RecalculateRouteInDeviationBottomSheet extends BooleanPreferenceBot
 		final BottomSheetItemWithCompoundButton[] preferenceBtn = new BottomSheetItemWithCompoundButton[1];
 		preferenceBtn[0] = (BottomSheetItemWithCompoundButton) new BottomSheetItemWithCompoundButton.Builder()
 				.setChecked(enabled)
-				.setCompoundButtonColorId(appModeColorId)
+				.setCompoundButtonColor(appModeColor)
 				.setTitle(enabled ? on : off)
 				.setTitleColorId(enabled ? activeColor : disabledColor)
-				.setCustomView(getCustomButtonView(enabled))
+				.setCustomView(getCustomButtonView(app, getAppMode(), enabled, nightMode))
 				.setOnClickListener(new View.OnClickListener() {
 					@Override
 					public void onClick(View v) {
@@ -121,7 +122,7 @@ public class RecalculateRouteInDeviationBottomSheet extends BooleanPreferenceBot
 						preferenceBtn[0].setChecked(enabled);
 						getDefaultValue();
 						updateSliderView();
-						updateCustomButtonView(v, enabled);
+						updateCustomButtonView(app, getAppMode(), v, enabled, nightMode);
 						Fragment target = getTargetFragment();
 						float newValue = enabled ? DEFAULT_MODE : DISABLE_MODE;
 						if (target instanceof OnConfirmPreferenceChange) {
@@ -205,8 +206,7 @@ public class RecalculateRouteInDeviationBottomSheet extends BooleanPreferenceBot
 	}
 
 	private void getDefaultValue() {
-		currentValue = RoutingHelper.getDefaultAllowedDeviation(settings, appMode,
-				RoutingHelper.getPosTolerance(0));
+		currentValue = RoutingHelper.getDefaultAllowedDeviation(settings, appMode);
 	}
 
 	private int findIndexOfValue(float allowedValue) {

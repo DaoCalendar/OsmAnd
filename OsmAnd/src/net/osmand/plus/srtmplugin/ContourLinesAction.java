@@ -8,7 +8,7 @@ import android.widget.TextView;
 
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.OsmandPlugin;
-import net.osmand.plus.settings.backend.OsmandSettings;
+import net.osmand.plus.settings.backend.CommonPreference;
 import net.osmand.plus.R;
 import net.osmand.plus.activities.MapActivity;
 import net.osmand.plus.quickaction.QuickAction;
@@ -21,11 +21,10 @@ import static net.osmand.plus.srtmplugin.SRTMPlugin.CONTOUR_LINES_DISABLED_VALUE
 public class ContourLinesAction extends QuickAction {
 
 	public static final QuickActionType TYPE = new QuickActionType(29,
-			"contourlines.showhide", ContourLinesAction.class).
-			nameRes(R.string.quick_action_show_hide_contour_lines).iconRes(R.drawable.ic_plugin_srtm).nonEditable().
-			category(QuickActionType.CONFIGURE_MAP);
-
-
+			"contourlines.showhide", ContourLinesAction.class)
+			.nameActionRes(R.string.quick_action_show_hide_title)
+			.nameRes(R.string.srtm_plugin_name).iconRes(R.drawable.ic_plugin_srtm).nonEditable()
+			.category(QuickActionType.CONFIGURE_MAP);
 
 	public ContourLinesAction() {
 		super(TYPE);
@@ -46,14 +45,13 @@ public class ContourLinesAction extends QuickAction {
 					OsmandApplication app = activity.getMyApplication();
 					RenderingRuleProperty contourLinesProp = app.getRendererRegistry().getCustomRenderingRuleProperty(CONTOUR_LINES_ATTR);
 					if (contourLinesProp != null) {
-						final OsmandSettings.CommonPreference<String> pref = app.getSettings().getCustomRenderProperty(contourLinesProp.getAttrName());
+						final CommonPreference<String> pref = app.getSettings().getCustomRenderProperty(contourLinesProp.getAttrName());
 						boolean selected = !pref.get().equals(CONTOUR_LINES_DISABLED_VALUE);
 
 						if (selected && !plugin.isActive() && !plugin.needsInstallation()) {
 							OsmandPlugin.enablePlugin(activity, app, plugin, true);
 						}
-
-						SRTMPlugin.refreshMapComplete(activity);
+						activity.refreshMapComplete();
 					}
 				}
 			});
@@ -75,8 +73,14 @@ public class ContourLinesAction extends QuickAction {
 	}
 
 	@Override
-	public String getActionText(OsmandApplication app) {
-		return SRTMPlugin.isContourLinesLayerEnabled(app) ? app.getString(R.string.quick_action_contour_lines_hide)
-				: app.getString(R.string.quick_action_contour_lines_show);
+	public String getActionText(OsmandApplication application) {
+		String nameRes = application.getString(getNameRes());
+		String actionName = isActionWithSlash(application) ? application.getString(R.string.shared_string_hide) : application.getString(R.string.shared_string_show);
+		return application.getString(R.string.ltr_or_rtl_combine_via_dash, actionName, nameRes);
+	}
+
+	@Override
+	public boolean isActionWithSlash(OsmandApplication application) {
+		return SRTMPlugin.isContourLinesLayerEnabled(application);
 	}
 }

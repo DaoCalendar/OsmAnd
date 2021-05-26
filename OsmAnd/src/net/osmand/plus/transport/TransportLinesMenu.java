@@ -16,15 +16,15 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.content.ContextCompat;
 
+import net.osmand.AndroidUtils;
 import net.osmand.CallbackWithObject;
 import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.settings.backend.OsmandSettings;
-import net.osmand.plus.settings.backend.OsmandSettings.CommonPreference;
+import net.osmand.plus.settings.backend.CommonPreference;
 import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.activities.MapActivity;
-import net.osmand.plus.activities.SettingsActivity;
 import net.osmand.plus.dialogs.ConfigureMapMenu;
 import net.osmand.render.RenderingRuleProperty;
 
@@ -80,8 +80,7 @@ public class TransportLinesMenu {
 
 		final boolean nightMode = app.getDaynightHelper().isNightModeForMapControls();
 		final Context themedCtx = UiUtilities.getThemedContext(mapActivity, nightMode);
-		final int profileColorResId = appMode.getIconColorInfo().getColor(nightMode);
-		final int profileColor = ContextCompat.getColor(themedCtx, profileColorResId);
+		final int profileColor = appMode.getProfileColor(nightMode);
 
 		final AlertDialog.Builder b = new AlertDialog.Builder(themedCtx);
 		b.setTitle(themedCtx.getString(R.string.rendering_category_transport));
@@ -105,8 +104,7 @@ public class TransportLinesMenu {
 		for (int i = 0; i < transportRules.size(); i++) {
 			RenderingRuleProperty p = transportRules.get(i);
 			String attrName = p.getAttrName();
-			String propertyName = SettingsActivity
-					.getStringPropertyName(themedCtx, attrName, p.getName());
+			String propertyName = AndroidUtils.getRenderingStringPropertyName(themedCtx, attrName, p.getName());
 			vals[i] = propertyName;
 			Integer iconId = transportIcons.get(attrName);
 			if (iconId != null) {
@@ -124,7 +122,7 @@ public class TransportLinesMenu {
 				View v = super.getView(position, convertView, parent);
 				final ImageView icon = (ImageView) v.findViewById(R.id.icon);
 				if (checkedItems[position]) {
-					icon.setImageDrawable(app.getUIUtilities().getIcon(iconIds[position], profileColorResId));
+					icon.setImageDrawable(app.getUIUtilities().getPaintedIcon(iconIds[position], profileColor));
 				} else {
 					icon.setImageDrawable(app.getUIUtilities().getThemedIcon(iconIds[position]));
 				}
@@ -139,7 +137,7 @@ public class TransportLinesMenu {
 					public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
 						checkedItems[position] = isChecked;
 						if (checkedItems[position]) {
-							icon.setImageDrawable(app.getUIUtilities().getIcon(iconIds[position], profileColorResId));
+							icon.setImageDrawable(app.getUIUtilities().getPaintedIcon(iconIds[position], profileColor));
 						} else {
 							icon.setImageDrawable(app.getUIUtilities().getThemedIcon(iconIds[position]));
 						}
@@ -220,9 +218,8 @@ public class TransportLinesMenu {
 		return transportPrefs;
 	}
 
-
 	private static void refreshMap(MapActivity mapActivity) {
-		ConfigureMapMenu.refreshMapComplete(mapActivity);
+		mapActivity.refreshMapComplete();
 		mapActivity.getMapLayers().updateLayers(mapActivity.getMapView());
 	}
 

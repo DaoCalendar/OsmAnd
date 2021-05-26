@@ -35,9 +35,12 @@ import net.osmand.plus.dialogs.PluginInstalledBottomSheetDialog;
 import net.osmand.plus.download.IndexItem;
 import net.osmand.plus.mapcontextmenu.MenuBuilder;
 import net.osmand.plus.mapcontextmenu.MenuController;
+import net.osmand.plus.mapcontextmenu.builders.cards.ImageCard;
+import net.osmand.plus.mapcontextmenu.builders.cards.ImageCard.GetImageCardsTask.GetImageCardsListener;
 import net.osmand.plus.mapillary.MapillaryPlugin;
 import net.osmand.plus.monitoring.OsmandMonitoringPlugin;
 import net.osmand.plus.myplaces.FavoritesActivity;
+import net.osmand.plus.openplacereviews.OpenPlaceReviewsPlugin;
 import net.osmand.plus.openseamapsplugin.NauticalMapsPlugin;
 import net.osmand.plus.osmedit.OsmEditingPlugin;
 import net.osmand.plus.parkingpoint.ParkingPositionPlugin;
@@ -46,8 +49,9 @@ import net.osmand.plus.quickaction.QuickActionType;
 import net.osmand.plus.rastermaps.OsmandRasterMapsPlugin;
 import net.osmand.plus.search.QuickSearchDialogFragment;
 import net.osmand.plus.settings.backend.ApplicationMode;
-import net.osmand.plus.settings.backend.OsmandSettings;
-import net.osmand.plus.settings.fragments.BaseSettingsFragment;
+import net.osmand.plus.settings.backend.CommonPreference;
+import net.osmand.plus.settings.backend.OsmandPreference;
+import net.osmand.plus.settings.fragments.BaseSettingsFragment.SettingsScreenType;
 import net.osmand.plus.skimapsplugin.SkiMapsPlugin;
 import net.osmand.plus.srtmplugin.SRTMPlugin;
 import net.osmand.plus.views.OsmandMapTileView;
@@ -65,6 +69,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public abstract class OsmandPlugin {
@@ -80,7 +85,7 @@ public abstract class OsmandPlugin {
 
 	protected OsmandApplication app;
 
-	protected List<OsmandSettings.OsmandPreference> pluginPreferences = new ArrayList<>();
+	protected List<OsmandPreference> pluginPreferences = new ArrayList<>();
 
 	private boolean active;
 	private String installURL = null;
@@ -110,15 +115,11 @@ public abstract class OsmandPlugin {
 		return app.getUIUtilities().getIcon(getLogoResourceId());
 	}
 
-	public Class<? extends Activity> getSettingsActivity() {
+	public SettingsScreenType getSettingsScreenType() {
 		return null;
 	}
 
-	public Class<? extends BaseSettingsFragment> getSettingsFragment() {
-		return null;
-	}
-
-	public List<OsmandSettings.OsmandPreference> getPreferences() {
+	public List<OsmandPreference> getPreferences() {
 		return pluginPreferences;
 	}
 
@@ -126,8 +127,8 @@ public abstract class OsmandPlugin {
 		return null;
 	}
 
-	public String getVersion() {
-		return "";
+	public int getVersion() {
+		return -1;
 	}
 
 	/**
@@ -136,7 +137,7 @@ public abstract class OsmandPlugin {
 	public boolean init(@NonNull OsmandApplication app, @Nullable Activity activity) {
 		if (activity != null) {
 			// called from UI
-			for (ApplicationMode appMode: getAddedAppModes()) {
+			for (ApplicationMode appMode : getAddedAppModes()) {
 				ApplicationMode.changeProfileAvailability(appMode, true, app);
 			}
 		}
@@ -211,6 +212,16 @@ public abstract class OsmandPlugin {
 		return Collections.emptyList();
 	}
 
+	protected List<ImageCard> getContextMenuImageCards(@NonNull Map<String, String> params,
+											@Nullable Map<String, String> additionalParams,
+											@Nullable GetImageCardsListener listener) {
+		return Collections.emptyList();
+	}
+
+	protected ImageCard createContextMenuImageCard(@NonNull JSONObject imageObject) {
+		return null;
+	}
+
 	/**
 	 * Plugin was installed
 	 */
@@ -266,25 +277,19 @@ public abstract class OsmandPlugin {
 
 	public static void initPlugins(@NonNull OsmandApplication app) {
 		Set<String> enabledPlugins = app.getSettings().getEnabledPlugins();
-
 		allPlugins.clear();
-
-		enableHiddenPlugin(app, enabledPlugins, new MapillaryPlugin(app));
-		enableHiddenPlugin(app, enabledPlugins, new WikipediaPlugin(app));
-
+		enablePluginByDefault(app, enabledPlugins, new WikipediaPlugin(app));
 		allPlugins.add(new OsmandRasterMapsPlugin(app));
 		allPlugins.add(new OsmandMonitoringPlugin(app));
 		checkMarketPlugin(app, enabledPlugins, new SRTMPlugin(app));
-
-		// ? questionable - definitely not market plugin
-//		checkMarketPlugin(app, enabledPlugins, new TouringViewPlugin(app), false, TouringViewPlugin.COMPONENT, null);
 		checkMarketPlugin(app, enabledPlugins, new NauticalMapsPlugin(app));
 		checkMarketPlugin(app, enabledPlugins, new SkiMapsPlugin(app));
-
 		allPlugins.add(new AudioVideoNotesPlugin(app));
 		checkMarketPlugin(app, enabledPlugins, new ParkingPositionPlugin(app));
-		allPlugins.add(new AccessibilityPlugin(app));
 		allPlugins.add(new OsmEditingPlugin(app));
+		enablePluginByDefault(app, enabledPlugins, new OpenPlaceReviewsPlugin(app));
+		enablePluginByDefault(app, enabledPlugins, new MapillaryPlugin(app));
+		allPlugins.add(new AccessibilityPlugin(app));
 		allPlugins.add(new OsmandDevelopmentPlugin(app));
 
 		loadCustomPlugins(app);
@@ -343,6 +348,7 @@ public abstract class OsmandPlugin {
 			try {
 				JSONObject json = new JSONObject();
 				json.put("pluginId", plugin.getId());
+				json.put("version", plugin.getVersion());
 				plugin.writeAdditionalDataToJson(json);
 				plugin.writeDependentFilesJson(json);
 				itemsJson.put(json);
@@ -375,7 +381,7 @@ public abstract class OsmandPlugin {
 		}
 	}
 
-	private static void enableHiddenPlugin(@NonNull OsmandApplication app, @NonNull Set<String> enabledPlugins, @NonNull OsmandPlugin plugin) {
+	private static void enablePluginByDefault(@NonNull OsmandApplication app, @NonNull Set<String> enabledPlugins, @NonNull OsmandPlugin plugin) {
 		allPlugins.add(plugin);
 		if (!enabledPlugins.contains(plugin.getId()) && !app.getSettings().getPlugins().contains("-" + plugin.getId())) {
 			enabledPlugins.add(plugin.getId());
@@ -390,7 +396,7 @@ public abstract class OsmandPlugin {
 	}
 
 	private static boolean updateMarketPlugin(@NonNull OsmandApplication app, @NonNull Set<String> enabledPlugins, @NonNull OsmandPlugin plugin) {
-		boolean marketEnabled = Version.isMarketEnabled(app);
+		boolean marketEnabled = Version.isMarketEnabled();
 		boolean pckg = plugin.pluginAvailable(app);
 		boolean paid = plugin.isPaid();
 		if ((Version.isDeveloperVersion(app) || !Version.isProductionVersion(app)) && !paid) {
@@ -462,7 +468,7 @@ public abstract class OsmandPlugin {
 					FragmentManager fm = mapActivity.getSupportFragmentManager();
 					Fragment fragment = fm.findFragmentByTag(fragmentData.tag);
 					if (fragment != null) {
-						fm.beginTransaction().remove(fragment).commit();
+						fm.beginTransaction().remove(fragment).commitAllowingStateLoss();
 					}
 				}
 			}
@@ -497,6 +503,9 @@ public abstract class OsmandPlugin {
 	public void mapActivityResume(MapActivity activity) {
 	}
 
+	public void mapActivityResumeOnTop(MapActivity activity) {
+	}
+
 	public void mapActivityPause(MapActivity activity) {
 	}
 
@@ -518,10 +527,6 @@ public abstract class OsmandPlugin {
 		}
 	}
 
-	public boolean destinationReached() {
-		return true;
-	}
-
 	protected void registerLayerContextMenuActions(OsmandMapTileView mapView, ContextMenuAdapter adapter, MapActivity mapActivity) {
 	}
 
@@ -541,10 +546,10 @@ public abstract class OsmandPlugin {
 	protected void addMyPlacesTab(FavoritesActivity favoritesActivity, List<TabItem> mTabs, Intent intent) {
 	}
 
-	protected void contextMenuFragment(Activity activity, Fragment fragment, Object info, ContextMenuAdapter adapter) {
+	protected void contextMenuFragment(FragmentActivity activity, Fragment fragment, Object info, ContextMenuAdapter adapter) {
 	}
 
-	protected void optionsMenuFragment(Activity activity, Fragment fragment, ContextMenuAdapter optionsMenuAdapter) {
+	protected void optionsMenuFragment(FragmentActivity activity, Fragment fragment, ContextMenuAdapter optionsMenuAdapter) {
 	}
 
 	protected boolean searchFinished(QuickSearchDialogFragment searchFragment, SearchPhrase phrase, boolean isResultEmpty) {
@@ -685,6 +690,10 @@ public abstract class OsmandPlugin {
 		return null;
 	}
 
+	public static <T extends OsmandPlugin> boolean isPluginEnabled(Class<T> clz) {
+		return getEnabledPlugin(clz) != null;
+	}
+
 	public static List<WorldRegion> getCustomDownloadRegions() {
 		List<WorldRegion> l = new ArrayList<>();
 		for (OsmandPlugin plugin : getEnabledPlugins()) {
@@ -737,7 +746,6 @@ public abstract class OsmandPlugin {
 		return l;
 	}
 
-
 	public static void onMapActivityCreate(MapActivity activity) {
 		for (OsmandPlugin plugin : getEnabledPlugins()) {
 			plugin.mapActivityCreate(activity);
@@ -747,6 +755,12 @@ public abstract class OsmandPlugin {
 	public static void onMapActivityResume(MapActivity activity) {
 		for (OsmandPlugin plugin : getEnabledPlugins()) {
 			plugin.mapActivityResume(activity);
+		}
+	}
+
+	public static void onMapActivityResumeOnTop(MapActivity activity) {
+		for (OsmandPlugin plugin : getEnabledPlugins()) {
+			plugin.mapActivityResumeOnTop(activity);
 		}
 	}
 
@@ -774,17 +788,6 @@ public abstract class OsmandPlugin {
 		}
 	}
 
-	public static boolean onDestinationReached() {
-		boolean b = true;
-		for (OsmandPlugin plugin : getEnabledPlugins()) {
-			if (!plugin.destinationReached()) {
-				b = false;
-			}
-		}
-		return b;
-	}
-
-
 	public static void createLayers(OsmandMapTileView mapView, MapActivity activity) {
 		for (OsmandPlugin plugin : getEnabledPlugins()) {
 			plugin.registerLayers(activity);
@@ -809,14 +812,13 @@ public abstract class OsmandPlugin {
 		}
 	}
 
-	public static void onContextMenuActivity(Activity activity, Fragment fragment, Object info, ContextMenuAdapter adapter) {
+	public static void onContextMenuActivity(FragmentActivity activity, Fragment fragment, Object info, ContextMenuAdapter adapter) {
 		for (OsmandPlugin plugin : getEnabledPlugins()) {
 			plugin.contextMenuFragment(activity, fragment, info, adapter);
 		}
 	}
 
-
-	public static void onOptionsMenuActivity(Activity activity, Fragment fragment, ContextMenuAdapter optionsMenuAdapter) {
+	public static void onOptionsMenuActivity(FragmentActivity activity, Fragment fragment, ContextMenuAdapter optionsMenuAdapter) {
 		for (OsmandPlugin plugin : getEnabledPlugins()) {
 			plugin.optionsMenuFragment(activity, fragment, optionsMenuAdapter);
 		}
@@ -877,6 +879,23 @@ public abstract class OsmandPlugin {
 		return collection;
 	}
 
+	public static void populateContextMenuImageCards(@NonNull List<ImageCard> imageCards, @NonNull Map<String, String> params,
+										  @Nullable Map<String, String> additionalParams, @Nullable GetImageCardsListener listener) {
+		for (OsmandPlugin plugin : getEnabledPlugins()) {
+			imageCards.addAll(plugin.getContextMenuImageCards(params, additionalParams, listener));
+		}
+	}
+
+	public static ImageCard createImageCardForJson(@NonNull JSONObject imageObject) {
+		for (OsmandPlugin plugin : getEnabledPlugins()) {
+			ImageCard imageCard = plugin.createContextMenuImageCard(imageObject);
+			if (imageCard != null) {
+				return imageCard;
+			}
+		}
+		return null;
+	}
+
 	public static boolean isPackageInstalled(String packageInfo, Context ctx) {
 		if (packageInfo == null) {
 			return false;
@@ -919,44 +938,44 @@ public abstract class OsmandPlugin {
 		}
 	}
 
-	protected OsmandSettings.CommonPreference<Boolean> registerBooleanPreference(OsmandApplication app, String prefId, boolean defValue) {
-		OsmandSettings.CommonPreference<Boolean> preference = app.getSettings().registerBooleanPreference(prefId, defValue);
+	protected CommonPreference<Boolean> registerBooleanPreference(OsmandApplication app, String prefId, boolean defValue) {
+		CommonPreference<Boolean> preference = app.getSettings().registerBooleanPreference(prefId, defValue);
 		pluginPreferences.add(preference);
 		return preference;
 	}
 
-	private OsmandSettings.CommonPreference<Boolean> registerBooleanAccessibilityPreference(OsmandApplication app, String prefId, boolean defValue) {
-		OsmandSettings.CommonPreference<Boolean> preference = app.getSettings().registerBooleanAccessibilityPreference(prefId, defValue);
+	private CommonPreference<Boolean> registerBooleanAccessibilityPreference(OsmandApplication app, String prefId, boolean defValue) {
+		CommonPreference<Boolean> preference = app.getSettings().registerBooleanAccessibilityPreference(prefId, defValue);
 		pluginPreferences.add(preference);
 		return preference;
 	}
 
-	protected OsmandSettings.CommonPreference<String> registerStringPreference(OsmandApplication app, String prefId, String defValue) {
-		OsmandSettings.CommonPreference<String> preference = app.getSettings().registerStringPreference(prefId, defValue);
+	protected CommonPreference<String> registerStringPreference(OsmandApplication app, String prefId, String defValue) {
+		CommonPreference<String> preference = app.getSettings().registerStringPreference(prefId, defValue);
 		pluginPreferences.add(preference);
 		return preference;
 	}
 
-	protected OsmandSettings.CommonPreference<Integer> registerIntPreference(OsmandApplication app, String prefId, int defValue) {
-		OsmandSettings.CommonPreference<Integer> preference = app.getSettings().registerIntPreference(prefId, defValue);
+	protected CommonPreference<Integer> registerIntPreference(OsmandApplication app, String prefId, int defValue) {
+		CommonPreference<Integer> preference = app.getSettings().registerIntPreference(prefId, defValue);
 		pluginPreferences.add(preference);
 		return preference;
 	}
 
-	protected OsmandSettings.CommonPreference<Long> registerLongPreference(OsmandApplication app, String prefId, long defValue) {
-		OsmandSettings.CommonPreference<Long> preference = app.getSettings().registerLongPreference(prefId, defValue);
+	protected CommonPreference<Long> registerLongPreference(OsmandApplication app, String prefId, long defValue) {
+		CommonPreference<Long> preference = app.getSettings().registerLongPreference(prefId, defValue);
 		pluginPreferences.add(preference);
 		return preference;
 	}
 
-	protected OsmandSettings.CommonPreference<Float> registerFloatPreference(OsmandApplication app, String prefId, float defValue) {
-		OsmandSettings.CommonPreference<Float> preference = app.getSettings().registerFloatPreference(prefId, defValue);
+	protected CommonPreference<Float> registerFloatPreference(OsmandApplication app, String prefId, float defValue) {
+		CommonPreference<Float> preference = app.getSettings().registerFloatPreference(prefId, defValue);
 		pluginPreferences.add(preference);
 		return preference;
 	}
 
-	protected <T extends Enum> OsmandSettings.CommonPreference<T> registerEnumIntPreference(OsmandApplication app, String prefId, Enum defaultValue, Enum[] values, Class<T> clz) {
-		OsmandSettings.CommonPreference<T> preference = app.getSettings().registerEnumIntPreference(prefId, defaultValue, values, clz);
+	protected <T extends Enum> CommonPreference<T> registerEnumIntPreference(OsmandApplication app, String prefId, Enum defaultValue, Enum[] values, Class<T> clz) {
+		CommonPreference<T> preference = app.getSettings().registerEnumIntPreference(prefId, defaultValue, values, clz);
 		pluginPreferences.add(preference);
 		return preference;
 	}

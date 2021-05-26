@@ -14,12 +14,14 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
+import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
 
 import net.osmand.plus.OsmandPlugin;
 import net.osmand.plus.R;
-import net.osmand.plus.activities.PluginActivity;
+import net.osmand.plus.activities.PluginsFragment;
 import net.osmand.plus.chooseplan.ChoosePlanDialogFragment;
+import net.osmand.plus.chooseplan.ChoosePlanDialogFragment.ChoosePlanDialogType;
 import net.osmand.plus.dashboard.tools.DashFragmentData;
 import net.osmand.plus.development.OsmandDevelopmentPlugin;
 import net.osmand.plus.openseamapsplugin.NauticalMapsPlugin;
@@ -54,7 +56,7 @@ public class DashPluginsFragment extends DashBaseFragment {
 				if (plugin instanceof SRTMPlugin) {
 					FragmentManager fragmentManager = getFragmentManager();
 					if (fragmentManager != null) {
-						ChoosePlanDialogFragment.showHillshadeSrtmPluginInstance(fragmentManager);
+						ChoosePlanDialogFragment.showDialogInstance(getMyApplication(), fragmentManager, ChoosePlanDialogType.HILLSHADE_SRTM_PLUGIN);
 					}
 				} else {
 					startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(plugin.getInstallURL())));
@@ -68,9 +70,10 @@ public class DashPluginsFragment extends DashBaseFragment {
 		return new View.OnClickListener() {
 			@Override
 			public void onClick(View view) {
-				Intent intent = new Intent(getActivity(), PluginActivity.class);
-				intent.putExtra(PluginActivity.EXTRA_PLUGIN_ID, plugin.getId());
-				startActivity(intent);
+				FragmentActivity activity = getActivity();
+				if (activity != null) {
+					PluginsFragment.showInstance(activity.getSupportFragmentManager());
+				}
 				closeDashboard();
 			}
 		};
@@ -84,7 +87,10 @@ public class DashPluginsFragment extends DashBaseFragment {
 		view.findViewById(R.id.show_all).setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View view) {
-				startActivity(new Intent(getActivity(), getMyApplication().getAppCustomization().getPluginsActivity()));
+				FragmentActivity activity = getActivity();
+				if (activity != null) {
+					PluginsFragment.showInstance(activity.getSupportFragmentManager());
+				}
 				closeDashboard();
 			}
 		});

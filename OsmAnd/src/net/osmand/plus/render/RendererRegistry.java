@@ -46,10 +46,11 @@ public class RendererRegistry {
 	public final static String LIGHTRS_RENDER = "LightRS";  //$NON-NLS-1$
 	public final static String UNIRS_RENDER = "UniRS";  //$NON-NLS-1$
 	public final static String DESERT_RENDER = "Desert";  //$NON-NLS-1$
+	public final static String SNOWMOBILE_RENDER = "Snowmobile";  //$NON-NLS-1$
 
 	private RenderingRulesStorage defaultRender = null;
 	private RenderingRulesStorage currentSelectedRender = null;
-	
+
 	private Map<String, File> externalRenderers = new LinkedHashMap<String, File>();
 	private Map<String, String> internalRenderers = new LinkedHashMap<String, String>();
 	
@@ -75,6 +76,7 @@ public class RendererRegistry {
 		internalRenderers.put(WINTER_SKI_RENDER, "skimap" + ".render.xml");
 		internalRenderers.put(OFFROAD_RENDER, "offroad" + ".render.xml");
 		internalRenderers.put(DESERT_RENDER, "desert" + ".render.xml");
+		internalRenderers.put(SNOWMOBILE_RENDER, "snowmobile" + ".render.xml");
 	}
 	
 	public RenderingRulesStorage defaultRender() {
@@ -287,6 +289,20 @@ public class RendererRegistry {
 		return renderers;
 	}
 
+	public String getSelectedRendererName() {
+		RenderingRulesStorage storage = getCurrentSelectedRenderer();
+		if (storage == null) {
+			return "";
+		}
+		return RendererRegistry.getRendererName(app, storage.getName());
+	}
+
+	public static String getRendererName(@NonNull Context ctx, @NonNull String name) {
+		String translation = getTranslatedRendererName(ctx, name);
+		return translation != null ? translation :
+				name.replace('_', ' ').replace('-', ' ');
+	}
+
 	@Nullable
 	public static String getTranslatedRendererName(@NonNull Context ctx, @NonNull String key) {
 		switch (key) {
@@ -323,6 +339,8 @@ public class RendererRegistry {
 				return ctx.getString(R.string.off_road_render_descr);
 			case DESERT_RENDER:
 				return ctx.getString(R.string.desert_render_descr);
+			case SNOWMOBILE_RENDER:
+			return ctx.getString(R.string.snowmobile_render_descr);
 		}
 		return ""; 
 	}

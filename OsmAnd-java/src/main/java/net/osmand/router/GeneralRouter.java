@@ -1,12 +1,5 @@
 package net.osmand.router;
 
-import net.osmand.binary.BinaryMapRouteReaderAdapter.RouteRegion;
-import net.osmand.binary.BinaryMapRouteReaderAdapter.RouteTypeRule;
-import net.osmand.binary.RouteDataObject;
-import net.osmand.router.BinaryRoutePlanner.RouteSegment;
-import net.osmand.util.Algorithms;
-import net.osmand.util.MapUtils;
-
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -22,6 +15,12 @@ import java.util.Set;
 
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.set.hash.TLongHashSet;
+import net.osmand.binary.BinaryMapRouteReaderAdapter.RouteRegion;
+import net.osmand.binary.BinaryMapRouteReaderAdapter.RouteTypeRule;
+import net.osmand.binary.RouteDataObject;
+import net.osmand.router.BinaryRoutePlanner.RouteSegment;
+import net.osmand.util.Algorithms;
+import net.osmand.util.MapUtils;
 
 public class GeneralRouter implements VehicleRouter {
 	
@@ -42,6 +41,7 @@ public class GeneralRouter implements VehicleRouter {
 	public static final String VEHICLE_WEIGHT = "weight";
 	public static final String VEHICLE_WIDTH = "width";
 	public static final String VEHICLE_LENGTH = "length";
+	public static final String CHECK_ALLOW_PRIVATE_NEEDED = "check_allow_private_needed";
 
 	private static boolean USE_CACHE = true;
 	public static long TIMER = 0;
@@ -63,9 +63,9 @@ public class GeneralRouter implements VehicleRouter {
 	
 	// cached values
 	private boolean restrictionsAware = true;
-	private float leftTurn;
+	private float sharpTurn;
 	private float roundaboutTurn;
-	private float rightTurn;
+	private float slightTurn;
 	// speed in m/s
 	private float minSpeed = 0.28f;
 	// speed in m/s
@@ -76,6 +76,7 @@ public class GeneralRouter implements VehicleRouter {
 	private float maxVehicleSpeed;
 
 	private TLongHashSet impassableRoads;
+	
 	private GeneralRouterProfile profile;
 	
 	Map<RouteRegion, Map<IntHolder, Float>>[] evalCache;	
@@ -220,19 +221,19 @@ public class GeneralRouter implements VehicleRouter {
 
 	public void addAttribute(String k, String v) {
 		attributes.put(k, v);
-		if(k.equals("restrictionsAware")) {
+		if (k.equals("restrictionsAware")) {
 			restrictionsAware = parseSilentBoolean(v, restrictionsAware);
-		} else if(k.equals("leftTurn")) {
-			leftTurn = parseSilentFloat(v, leftTurn);
-		} else if(k.equals("rightTurn")) {
-			rightTurn = parseSilentFloat(v, rightTurn);
-		} else if(k.equals("roundaboutTurn")) {
+		} else if (k.equals("sharpTurn") || k.equals("leftTurn")) {
+			sharpTurn = parseSilentFloat(v, sharpTurn);
+		} else if (k.equals("slightTurn") || k.equals("rightTurn")) {
+			slightTurn = parseSilentFloat(v, slightTurn);
+		} else if (k.equals("roundaboutTurn")) {
 			roundaboutTurn = parseSilentFloat(v, roundaboutTurn);
-		} else if(k.equals("minDefaultSpeed") || k.equals("defaultSpeed")) {
+		} else if (k.equals("minDefaultSpeed") || k.equals("defaultSpeed")) {
 			defaultSpeed = parseSilentFloat(v, defaultSpeed * 3.6f) / 3.6f;
-		} else if( k.equals("minSpeed")) {
+		} else if (k.equals("minSpeed")) {
 			minSpeed = parseSilentFloat(v, minSpeed * 3.6f) / 3.6f;
-		} else if(k.equals("maxDefaultSpeed") || k.equals("maxSpeed")) {
+		} else if (k.equals("maxDefaultSpeed") || k.equals("maxSpeed")) {
 			maxSpeed = parseSilentFloat(v, maxSpeed * 3.6f) / 3.6f;
 		}
 	}
@@ -268,11 +269,11 @@ public class GeneralRouter implements VehicleRouter {
 	@Override
 	public boolean acceptLine(RouteDataObject way) {
 		Float res = getCache(RouteDataObjectAttribute.ACCESS, way);
-		if(res == null) {
+		if (res == null) {
 			res = (float) getObjContext(RouteDataObjectAttribute.ACCESS).evaluateInt(way, 0);
 			putCache(RouteDataObjectAttribute.ACCESS, way, res);
 		}
-		if(impassableRoads != null && impassableRoads.contains(way.id)) {
+		if (impassableRoads != null && impassableRoads.contains(way.id)) {
 			return false;
 		}
 		return res >= 0;
@@ -605,11 +606,11 @@ public class GeneralRouter implements VehicleRouter {
 	}
 
 	public double getLeftTurn() {
-		return leftTurn;
+		return sharpTurn;
 	}
 	
 	public double getRightTurn() {
-		return rightTurn;
+		return slightTurn;
 	}
 	
 	public double getRoundaboutTurn() {
@@ -620,9 +621,11 @@ public class GeneralRouter implements VehicleRouter {
 	public double calculateTurnTime(RouteSegment segment, int segmentEnd, RouteSegment prev, int prevSegmentEnd) {
 		float ts = getPenaltyTransition(segment.getRoad());
 		float prevTs = getPenaltyTransition(prev.getRoad());
-		if(prevTs != ts) {
-			return Math.abs(ts - prevTs) / 2;
+		float totalPenalty = 0;
+		if (prevTs != ts) {
+			totalPenalty += Math.abs(ts - prevTs) / 2;
 		}
+		
 //		int[] pt = prev.getRoad().getPointTypes(prevSegmentEnd);
 //		if(pt != null) {
 //			RouteRegion reg = prev.getRoad().region;
@@ -634,27 +637,28 @@ public class GeneralRouter implements VehicleRouter {
 //				}
 //			}
 //		}
-		
-		
+		if (shortestRoute) {
+			return totalPenalty;
+		}
 		if(segment.getRoad().roundabout() && !prev.getRoad().roundabout()) {
 			double rt = getRoundaboutTurn();
 			if(rt > 0) {
-				return rt;
+				totalPenalty += rt;
 			}
-		}
-		if (getLeftTurn() > 0 || getRightTurn() > 0) {
-			double a1 = segment.getRoad().directionRoute(segment.getSegmentStart(), segment.getSegmentStart() < segmentEnd);
+		} else if (getLeftTurn() > 0 || getRightTurn() > 0) {
+			double a1 = segment.getRoad().directionRoute(segment.getSegmentStart(),
+					segment.getSegmentStart() < segmentEnd);
 			double a2 = prev.getRoad().directionRoute(prevSegmentEnd, prevSegmentEnd < prev.getSegmentStart());
 			double diff = Math.abs(MapUtils.alignAngleDifference(a1 - a2 - Math.PI));
 			// more like UT
 			if (diff > 2 * Math.PI / 3) {
-				return getLeftTurn();
+				totalPenalty += getLeftTurn();
 			} else if (diff > Math.PI / 3) {
-				return getRightTurn();
+				totalPenalty += getRightTurn();
 			}
-			return 0;
 		}
-		return 0;
+		
+		return totalPenalty;
 	}
 	
 
@@ -754,21 +758,21 @@ public class GeneralRouter implements VehicleRouter {
 		}
 		
 		public RouteAttributeEvalRule[] getRules() {
-			return rules.toArray(new RouteAttributeEvalRule[rules.size()]);
+			return rules.toArray(new RouteAttributeEvalRule[0]);
 		}
 		
 		public String[] getParamKeys() {
 			if(paramContext == null) {
 				return new String[0];
 			}
-			return paramContext.vars.keySet().toArray(new String[paramContext.vars.size()]);
+			return paramContext.vars.keySet().toArray(new String[0]);
 		}
 		
 		public String[] getParamValues() {
 			if(paramContext == null) {
 				return new String[0];
 			}
-			return paramContext.vars.values().toArray(new String[paramContext.vars.size()]);
+			return paramContext.vars.values().toArray(new String[0]);
 		}
 		
 		private Object evaluate(RouteDataObject ro) {
@@ -879,7 +883,7 @@ public class GeneralRouter implements VehicleRouter {
 			}
 			for(int k = 0; k < types.length; k++) {
 				Integer nid = map.get(types[k]);
-				if(nid == null){
+				if (nid == null) {
 					RouteTypeRule r = reg.quickGetEncodingRule(types[k]);
 					nid = registerTagValueAttribute(r.getTag(), r.getValue());
 					map.put(types[k], nid);
@@ -988,19 +992,19 @@ public class GeneralRouter implements VehicleRouter {
 		
 		
 		public RouteAttributeExpression[] getExpressions() {
-			return expressions.toArray(new RouteAttributeExpression[expressions.size()]);
+			return expressions.toArray(new RouteAttributeExpression[0]);
 		}
 		
 		public String[] getParameters() {
-			return parameters.toArray(new String[parameters.size()]);
+			return parameters.toArray(new String[0]);
 		}
 		
 		public String[] getTagValueCondDefTag() {
-			return tagValueCondDefTag.toArray(new String[tagValueCondDefTag.size()]);
+			return tagValueCondDefTag.toArray(new String[0]);
 		}
 		
 		public String[] getTagValueCondDefValue() {
-			return tagValueCondDefValue.toArray(new String[tagValueCondDefValue.size()]);
+			return tagValueCondDefValue.toArray(new String[0]);
 		}
 		
 		public boolean[] getTagValueCondDefNot() {

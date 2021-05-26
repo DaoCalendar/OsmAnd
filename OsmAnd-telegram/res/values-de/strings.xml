@@ -4,7 +4,7 @@
     <string name="go_to_settings">Einstellungen öffnen</string>
     <string name="not_sent_yet">Noch nicht gesendet</string>
     <string name="not_found_yet">Noch nicht gefunden</string>
-    <string name="re_send_location">Position neu senden</string>
+    <string name="re_send_location">Standort erneut senden</string>
     <string name="sharing_status">Freigabestatus</string>
     <string name="location_sharing_status">Teilen: %1$s</string>
     <string name="shared_string_enabled">Aktiviert</string>
@@ -82,7 +82,7 @@
     <string name="no_location_permission">Der App fehlt die Berechtigung, auf Standortdaten zuzugreifen.</string>
     <string name="gps_not_available">Bitte schalten Sie \"Standort\" in den Systemeinstellungen ein</string>
     <string name="osmand_service">Hintergrundmodus</string>
-    <string name="osmand_service_descr">OsmAnd Tracker läuft im Hintergrund bei ausgeschaltetem Bildschirm.</string>
+    <string name="osmand_service_descr">OsmAnd Tracker läuft bei ausgeschaltetem Bildschirm im Hintergrund.</string>
     <string name="shared_string_distance">Distanz</string>
     <string name="share_location">Standort teilen</string>
     <string name="process_service">OsmAnd Tracker-Service</string>
@@ -255,7 +255,7 @@
     <string name="unit_of_speed_system_descr">Geschwindigkeitseinheit festlegen.</string>
     <string name="unit_of_speed_system">Geschwindigkeitseinheit</string>
     <string name="time_zone_descr">Wählen Sie die Zeitzone aus, die in Ihren Standortmeldungen angezeigt werden soll.</string>
-    <string name="unit_of_length_descr">Maß für Entfernungen ändern.</string>
+    <string name="unit_of_length_descr">Ändern Sie, in welcher Entfernung gemessen wird.</string>
     <string name="buffer_time_descr">Maximale Zeit zum Speichern von Punkten im Puffer</string>
     <string name="buffer_time">Verfallszeit des Puffers</string>
     <string name="shared_string_suggested">Empfohlen</string>
@@ -267,4 +267,8 @@
     <string name="last_response_duration">Letzte Antwort: vor %1$s</string>
     <string name="duration_ago">vor %1$s</string>
     <string name="shared_string_error_short">ERR</string>
+    <string name="shared_string_export">Export</string>
+    <string name="logcat_buffer">Logcat-Puffer</string>
+    <string name="logcat_buffer_descr">Protokolle der Anwendung einsehen und freigeben</string>
+    <string name="send_report">Bericht senden</string>
 </resources>

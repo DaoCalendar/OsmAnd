@@ -8,6 +8,8 @@ import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+
 import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.activities.MapActivity;
@@ -18,12 +20,14 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import static net.osmand.plus.routing.TransportRoutingHelper.PUBLIC_TRANSPORT_KEY;
+
 public class ProfileCard extends BaseCard {
 
 	private ApplicationMode selectedMode;
 	private ProfileCardListener listener;
 
-	public ProfileCard(MapActivity mapActivity, ApplicationMode selectedMode) {
+	public ProfileCard(@NonNull MapActivity mapActivity, @NonNull ApplicationMode selectedMode) {
 		super(mapActivity);
 		this.selectedMode = selectedMode;
 	}
@@ -40,14 +44,14 @@ public class ProfileCard extends BaseCard {
 		Iterator<ApplicationMode> iterator = modes.iterator();
 		while (iterator.hasNext()) {
 			ApplicationMode mode = iterator.next();
-			if ("public_transport".equals(mode.getRoutingProfile())) {
+			if (PUBLIC_TRANSPORT_KEY.equals(mode.getRoutingProfile())) {
 				iterator.remove();
 			}
 		}
 		for (int i = 0; i < modes.size(); i++) {
 			ApplicationMode mode = modes.get(i);
 			LinearLayout container = view.findViewById(R.id.content_container);
-			Drawable icon = app.getUIUtilities().getIcon(mode.getIconRes(), mode.getIconColorInfo().getColor(nightMode));
+			Drawable icon = app.getUIUtilities().getPaintedIcon(mode.getIconRes(), mode.getProfileColor(nightMode));
 			String title = mode.toHumanString();
 			View.OnClickListener onClickListener = new View.OnClickListener() {
 				@Override
@@ -75,7 +79,10 @@ public class ProfileCard extends BaseCard {
 	}
 
 	private void resetSelected(List<ApplicationMode> modes) {
-		((RadioButton) view.findViewWithTag(selectedMode.getStringKey()).findViewById(R.id.compound_button)).setChecked(true);
+		View profileView = view.findViewWithTag(selectedMode.getStringKey());
+		if (profileView != null) {
+			((RadioButton) profileView.findViewById(R.id.compound_button)).setChecked(true);
+		}
 	}
 
 	private void addProfileView(LinearLayout container, View.OnClickListener onClickListener, Object tag,

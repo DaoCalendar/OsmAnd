@@ -1,7 +1,6 @@
 package net.osmand.plus.settings.bottomsheets;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
@@ -28,7 +27,6 @@ import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.base.bottomsheetmenu.BaseBottomSheetItem;
-import net.osmand.plus.helpers.AndroidUiHelper;
 import net.osmand.plus.mapcontextmenu.other.HorizontalSelectionAdapter;
 import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.plus.settings.fragments.ApplyQueryType;
@@ -51,6 +49,9 @@ public class VehicleParametersBottomSheet extends BasePreferenceBottomSheet {
 	private float currentValue;
 	private int contentHeightPrevious = 0;
 	private EditText text;
+	private int buttonsHeight;
+	private int shadowHeight;
+	private ScrollView scrollView;
 
 	@Override
 	public void createMenuItems(Bundle savedInstanceState) {
@@ -120,19 +121,19 @@ public class VehicleParametersBottomSheet extends BasePreferenceBottomSheet {
 					currentValue = 0.0f;
 				}
 				selectedItem = preference.getEntryFromValue(String.valueOf(currentValue));
-				adapter.setSelectedItem(selectedItem);
-				int itemPosition = adapter.getItemPosition(selectedItem);
+				adapter.setSelectedItemByTitle(selectedItem);
+				int itemPosition = adapter.getItemPositionByTitle(selectedItem);
 				if (itemPosition >= 0) {
 					recyclerView.smoothScrollToPosition(itemPosition);
 				}
 			}
 		});
 
-		adapter.setItems(Arrays.asList(preference.getEntries()));
+		adapter.setTitledItems(Arrays.asList(preference.getEntries()));
 		adapter.setListener(new HorizontalSelectionAdapter.HorizontalSelectionAdapterListener() {
 			@Override
-			public void onItemSelected(String item) {
-				selectedItem = item;
+			public void onItemSelected(HorizontalSelectionAdapter.HorizontalSelectionItem item) {
+				selectedItem = item.getTitle();
 				currentValue = preference.getValueFromEntries(selectedItem);
 				String currentValueStr = currentValue == 0.0f
 						? "" : df.format(currentValue + 0.01f);
@@ -144,7 +145,7 @@ public class VehicleParametersBottomSheet extends BasePreferenceBottomSheet {
 			}
 		});
 		recyclerView.setAdapter(adapter);
-		adapter.setSelectedItem(selectedItem);
+		adapter.setSelectedItemByTitle(selectedItem);
 		return new BaseBottomSheetItem.Builder()
 				.setCustomView(mainView)
 				.create();
@@ -163,13 +164,13 @@ public class VehicleParametersBottomSheet extends BasePreferenceBottomSheet {
 			@Override
 			public void onGlobalLayout() {
 				Rect visibleDisplayFrame = new Rect();
-				int buttonsHeight = getResources().getDimensionPixelSize(R.dimen.dialog_button_ex_height);
-				int shadowHeight = getResources().getDimensionPixelSize(R.dimen.bottom_sheet_top_shadow_height);
-				final ScrollView scrollView = getView().findViewById(R.id.scroll_view);
+				buttonsHeight = getResources().getDimensionPixelSize(R.dimen.dialog_button_ex_height);
+				shadowHeight = getResources().getDimensionPixelSize(R.dimen.bottom_sheet_top_shadow_height);
+				scrollView = getView().findViewById(R.id.scroll_view);
 				scrollView.getWindowVisibleDisplayFrame(visibleDisplayFrame);
-				boolean showTopShadow;
 				int contentHeight = visibleDisplayFrame.bottom - visibleDisplayFrame.top - buttonsHeight;
 				if (contentHeightPrevious != contentHeight) {
+					boolean showTopShadow;
 					if (scrollView.getHeight() + shadowHeight > contentHeight) {
 						scrollView.getLayoutParams().height = contentHeight;
 						showTopShadow = false;
@@ -186,23 +187,6 @@ public class VehicleParametersBottomSheet extends BasePreferenceBottomSheet {
 					}, delay);
 					contentHeightPrevious = contentHeight;
 					drawTopShadow(showTopShadow);
-				}
-			}
-
-			private void drawTopShadow(boolean showTopShadow) {
-				final Activity activity = getActivity();
-				View mainView = getView();
-				if (activity == null || mainView == null) {
-					return;
-				}
-				if (AndroidUiHelper.isOrientationPortrait(activity)) {
-					mainView.setBackgroundResource(showTopShadow ? getPortraitBgResId() : getBgColorId());
-					if (!showTopShadow) {
-						mainView.setPadding(0, 0, 0, 0);
-					}
-				} else {
-					mainView.setBackgroundResource(showTopShadow
-							? getLandscapeTopsidesBgResId() : getLandscapeSidesBgResId());
 				}
 			}
 		};
@@ -225,7 +209,7 @@ public class VehicleParametersBottomSheet extends BasePreferenceBottomSheet {
 	}
 
 	public static void showInstance(@NonNull FragmentManager fm, String key, Fragment target,
-	                                boolean usedOnMap, @Nullable ApplicationMode appMode) {
+									boolean usedOnMap, @Nullable ApplicationMode appMode) {
 		try {
 			if (!fm.isStateSaved()) {
 				Bundle args = new Bundle();

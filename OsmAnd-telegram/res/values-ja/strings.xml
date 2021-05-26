@@ -22,7 +22,7 @@
     <string name="proxy_port">ポート</string>
     <string name="proxy_server">サーバー</string>
     <string name="shared_string_connection">接続</string>
-    <string name="shared_string_enable">有効</string>
+    <string name="shared_string_enable">有効化</string>
     <string name="proxy_type">プロキシタイプ</string>
     <string name="proxy_connected">接続しました</string>
     <string name="proxy_disconnected">切断しました</string>
@@ -219,8 +219,8 @@
     <string name="shared_string_authorization_descr">国際形式でTelegramを利用する端末の電話番号を入力してください(日本の場合+81を先頭につけて電話番号最初の0を除いた番号を入力)</string>
     <string name="shared_string_welcome">ようこそ</string>
     <string name="yard">ヤード</string>
-    <string name="foot">フィート</string>
-    <string name="mile">マイル</string>
+    <string name="foot">ft</string>
+    <string name="mile">mi</string>
     <string name="km">km</string>
     <string name="m">m</string>
     <string name="nm">海里</string>

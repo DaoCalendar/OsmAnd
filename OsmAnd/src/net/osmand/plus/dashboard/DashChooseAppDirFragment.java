@@ -11,7 +11,6 @@ import android.content.DialogInterface;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.StatFs;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -30,13 +29,17 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 
 import net.osmand.AndroidUtils;
+import net.osmand.FileUtils;
+import net.osmand.PlatformUtil;
 import net.osmand.ValueHolder;
 import net.osmand.plus.OsmandApplication;
-import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.plus.ProgressImplementation;
 import net.osmand.plus.R;
 import net.osmand.plus.download.DownloadActivity;
+import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.util.Algorithms;
+
+import org.apache.commons.logging.Log;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -51,7 +54,7 @@ import java.util.Locale;
 import gnu.trove.list.array.TIntArrayList;
 
 public class DashChooseAppDirFragment {
-
+	private static final Log LOG = PlatformUtil.getLog(DashChooseAppDirFragment.class);
 	
 	public static class ChooseAppDirFragment {
 		public static final int VERSION_DEFAULTLOCATION_CHANGED = 19;
@@ -89,14 +92,6 @@ public class DashChooseAppDirFragment {
 			selectePathTemp = null;
 		}
 
-		private String getFreeSpace(File dir) {
-			if (dir.canRead()) {
-				StatFs fs = new StatFs(dir.getAbsolutePath());
-				return AndroidUtils.formatSize(activity, (long) fs.getAvailableBlocks() * fs.getBlockSize() );
-			}
-			return "";
-		}
-
 		public void updateView() {
 			if (type == OsmandSettings.EXTERNAL_STORAGE_TYPE_INTERNAL_FILE) {
 				locationPath.setText(R.string.storage_directory_internal_app);
@@ -109,11 +104,11 @@ public class DashChooseAppDirFragment {
 			} else if (type == OsmandSettings.EXTERNAL_STORAGE_TYPE_SPECIFIED) {
 				locationPath.setText(R.string.storage_directory_manual);
 			}
-			locationDesc.setText(selectedFile.getAbsolutePath() + " \u2022 " + getFreeSpace(selectedFile));
+			locationDesc.setText(selectedFile.getAbsolutePath() + " \u2022 " + AndroidUtils.getFreeSpace(activity, selectedFile));
 			boolean copyFiles = !currentAppFile.getAbsolutePath().equals(selectedFile.getAbsolutePath()) && !mapsCopied;
 			warningReadonly.setVisibility(copyFiles ? View.VISIBLE : View.GONE);
 			if (copyFiles) {
-				if (!OsmandSettings.isWritable(currentAppFile)) {
+				if (!FileUtils.isWritable(currentAppFile)) {
 					warningReadonly.setText(activity.getString(R.string.android_19_location_disabled,
 							currentAppFile.getAbsolutePath()));
 				} else {
@@ -222,7 +217,7 @@ public class DashChooseAppDirFragment {
 			paths.add("");
 			types.add(OsmandSettings.EXTERNAL_STORAGE_TYPE_SPECIFIED);
 
-			editalert.setSingleChoiceItems(items.toArray(new String[items.size()]), selected,
+			editalert.setSingleChoiceItems(items.toArray(new String[0]), selected,
 					new DialogInterface.OnClickListener() {
 
 						@Override
@@ -385,7 +380,7 @@ public class DashChooseAppDirFragment {
 
 				@Override
 				public void onClick(View v) {
-					boolean wr = OsmandSettings.isWritable(selectedFile);
+					boolean wr = FileUtils.isWritable(selectedFile);
 					if (wr) {
 						boolean changed = !currentAppFile.getAbsolutePath().equals(selectedFile.getAbsolutePath());
 						getMyApplication().setExternalStorageDirectory(type, selectedFile.getAbsolutePath());

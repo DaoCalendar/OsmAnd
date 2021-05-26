@@ -6,6 +6,7 @@ import android.view.View;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
 
 import net.osmand.plus.R;
@@ -15,7 +16,11 @@ import net.osmand.plus.base.MenuBottomSheetDialogFragment;
 import net.osmand.plus.base.bottomsheetmenu.BottomSheetItemButton;
 import net.osmand.plus.base.bottomsheetmenu.SimpleBottomSheetItem;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.DividerItem;
-import net.osmand.plus.base.bottomsheetmenu.simpleitems.DividerSpaceItem;
+import net.osmand.plus.helpers.GpxUiHelper;
+import net.osmand.plus.track.TrackMenuFragment;
+import net.osmand.util.Algorithms;
+
+import java.io.File;
 
 public class SavedTrackBottomSheetDialogFragment extends MenuBottomSheetDialogFragment {
 
@@ -34,7 +39,7 @@ public class SavedTrackBottomSheetDialogFragment extends MenuBottomSheetDialogFr
 		View mainView = View.inflate(UiUtilities.getThemedContext(getMyApplication(), nightMode),
 				R.layout.measure_track_is_saved, null);
 		TextView fileNameView = mainView.findViewById(R.id.file_name);
-		fileNameView.setText(fileName);
+		fileNameView.setText(Algorithms.getFileWithoutDirs(fileName));
 		items.add(new SimpleBottomSheetItem.Builder()
 				.setCustomView(mainView)
 				.create());
@@ -51,36 +56,63 @@ public class SavedTrackBottomSheetDialogFragment extends MenuBottomSheetDialogFr
 				.setOnClickListener(new View.OnClickListener() {
 					@Override
 					public void onClick(View v) {
-						Activity activity = getActivity();
-						if (activity instanceof MapActivity) {
-							MeasurementToolFragment.showInstance(((MapActivity) activity).getSupportFragmentManager(),
-									fileName);
+						FragmentActivity activity = getActivity();
+						if (activity != null && !Algorithms.isEmpty(fileName)) {
+							TrackMenuFragment.openTrack(activity, new File(fileName), null);
 						}
 						dismiss();
 					}
 				})
 				.create());
+	}
 
-		items.add(new DividerSpaceItem(getContext(), contextPaddingSmall));
+	@Override
+	protected int getThirdBottomButtonTextId() {
+		return R.string.shared_string_share;
+	}
 
-		items.add(new BottomSheetItemButton.Builder()
-				.setButtonType(UiUtilities.DialogButtonType.SECONDARY)
-				.setTitle(getString(R.string.plan_route_create_new_route))
-				.setLayoutId(R.layout.bottom_sheet_button)
-				.setOnClickListener(new View.OnClickListener() {
-					@Override
-					public void onClick(View v) {
-						Activity activity = getActivity();
-						if (activity instanceof MapActivity) {
-							MeasurementToolFragment.showInstance(((MapActivity) activity).getSupportFragmentManager(),
-									((MapActivity) activity).getMapLocation());
-						}
-						dismiss();
-					}
-				})
-				.create());
+	@Override
+	protected void onThirdBottomButtonClick() {
+		FragmentActivity activity = getActivity();
+		if (activity != null) {
+			GpxUiHelper.shareGpx(activity, new File(fileName));
+		}
+		dismiss();
+	}
 
-		items.add(new DividerSpaceItem(getContext(), contextPaddingSmall));
+	@Override
+	protected UiUtilities.DialogButtonType getThirdBottomButtonType() {
+		return UiUtilities.DialogButtonType.SECONDARY;
+	}
+
+	@Override
+	protected int getSecondDividerHeight() {
+		return getResources().getDimensionPixelSize(R.dimen.content_padding_small);
+	}
+
+	@Override
+	protected int getRightBottomButtonTextId() {
+		return R.string.plan_route_create_new_route;
+	}
+
+	@Override
+	protected UiUtilities.DialogButtonType getRightBottomButtonType() {
+		return UiUtilities.DialogButtonType.SECONDARY;
+	}
+
+	@Override
+	protected void onRightBottomButtonClick() {
+		Activity activity = getActivity();
+		if (activity instanceof MapActivity) {
+			MeasurementToolFragment.showInstance(((MapActivity) activity).getSupportFragmentManager(),
+					((MapActivity) activity).getMapLocation());
+		}
+		dismiss();
+	}
+
+	@Override
+	protected int getFirstDividerHeight() {
+		return getResources().getDimensionPixelSize(R.dimen.context_menu_sub_info_height);
 	}
 
 	@Override

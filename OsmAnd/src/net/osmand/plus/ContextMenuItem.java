@@ -9,6 +9,7 @@ import androidx.annotation.LayoutRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.core.content.ContextCompat;
+
 import net.osmand.plus.ContextMenuAdapter.OnItemDeleteAction;
 
 public class ContextMenuItem {
@@ -19,8 +20,8 @@ public class ContextMenuItem {
 	private String title;
 	@DrawableRes
 	private int mIcon;
-	@ColorRes
-	private int colorRes;
+	@ColorInt
+	private Integer color;
 	@DrawableRes
 	private int secondaryIcon;
 	private Boolean selected;
@@ -34,6 +35,7 @@ public class ContextMenuItem {
 	private boolean hidden;
 	private int order;
 	private String description;
+	private final OnUpdateCallback onUpdateCallback;
 	private final ContextMenuAdapter.ItemClickListener itemClickListener;
 	private final ContextMenuAdapter.OnIntegerValueChangedListener integerListener;
 	private final ContextMenuAdapter.ProgressListener progressListener;
@@ -47,7 +49,7 @@ public class ContextMenuItem {
 	private ContextMenuItem(@StringRes int titleId,
 							String title,
 							@DrawableRes int icon,
-							@ColorRes int colorRes,
+							@ColorInt Integer color,
 							@DrawableRes int secondaryIcon,
 							Boolean selected,
 							int progress,
@@ -58,6 +60,7 @@ public class ContextMenuItem {
 							boolean skipPaintingWithoutColor,
 							int order,
 							String description,
+							OnUpdateCallback onUpdateCallback,
 							ContextMenuAdapter.ItemClickListener itemClickListener,
 							ContextMenuAdapter.OnIntegerValueChangedListener integerListener,
 							ContextMenuAdapter.ProgressListener progressListener,
@@ -70,7 +73,7 @@ public class ContextMenuItem {
 		this.titleId = titleId;
 		this.title = title;
 		this.mIcon = icon;
-		this.colorRes = colorRes;
+		this.color = color;
 		this.secondaryIcon = secondaryIcon;
 		this.selected = selected;
 		this.progress = progress;
@@ -81,6 +84,7 @@ public class ContextMenuItem {
 		this.skipPaintingWithoutColor = skipPaintingWithoutColor;
 		this.order = order;
 		this.description = description;
+		this.onUpdateCallback = onUpdateCallback;
 		this.itemClickListener = itemClickListener;
 		this.integerListener = integerListener;
 		this.progressListener = progressListener;
@@ -106,23 +110,17 @@ public class ContextMenuItem {
 		return mIcon;
 	}
 
-	@ColorRes
-	public int getColorRes() {
-		return colorRes;
-	}
-
-	@ColorRes
-	public int getThemedColorRes(Context context) {
-		if (skipPaintingWithoutColor || getColorRes() != INVALID_ID) {
-			return getColorRes();
-		} else {
-			return UiUtilities.getDefaultColorRes(context);
-		}
+	@ColorInt
+	public Integer getColor() {
+		return color;
 	}
 
 	@ColorInt
 	public int getThemedColor(Context context) {
-		return ContextCompat.getColor(context, getThemedColorRes(context));
+		if (skipPaintingWithoutColor || color != null) {
+			return color;
+		}
+		return ContextCompat.getColor(context, UiUtilities.getDefaultColorRes(context));
 	}
 
 	@DrawableRes
@@ -167,7 +165,9 @@ public class ContextMenuItem {
 		return description;
 	}
 
-	public OnItemDeleteAction getItemDeleteAction() { return itemDeleteAction; }
+	public OnItemDeleteAction getItemDeleteAction() {
+		return itemDeleteAction;
+	}
 
 	public ContextMenuAdapter.ItemClickListener getItemClickListener() {
 		return itemClickListener;
@@ -209,8 +209,8 @@ public class ContextMenuItem {
 		this.secondaryIcon = secondaryIcon;
 	}
 
-	public void setColorRes(int colorRes) {
-		this.colorRes = colorRes;
+	public void setColor(Context context, @ColorRes int colorRes) {
+		color = colorRes != INVALID_ID ? ContextCompat.getColor(context, colorRes) : null;
 	}
 
 	public void setSelected(boolean selected) {
@@ -245,6 +245,16 @@ public class ContextMenuItem {
 		return id;
 	}
 
+	public void update() {
+		if (onUpdateCallback != null) {
+			onUpdateCallback.onUpdateMenuItem(this);
+		}
+	}
+
+	public interface OnUpdateCallback {
+		void onUpdateMenuItem(ContextMenuItem item);
+	}
+
 	public static ItemBuilder createBuilder(String title) {
 		return new ItemBuilder().setTitle(title);
 	}
@@ -255,8 +265,8 @@ public class ContextMenuItem {
 		private String mTitle;
 		@DrawableRes
 		private int mIcon = INVALID_ID;
-		@ColorRes
-		private int mColorRes = INVALID_ID;
+		@ColorInt
+		private Integer mColor = null;
 		@DrawableRes
 		private int mSecondaryIcon = INVALID_ID;
 		private Boolean mSelected = null;
@@ -268,6 +278,7 @@ public class ContextMenuItem {
 		private boolean mIsClickable = true;
 		private int mOrder = 0;
 		private String mDescription = null;
+		private OnUpdateCallback mOnUpdateCallback = null;
 		private ContextMenuAdapter.ItemClickListener mItemClickListener = null;
 		private ContextMenuAdapter.OnIntegerValueChangedListener mIntegerListener = null;
 		private ContextMenuAdapter.ProgressListener mProgressListener = null;
@@ -293,8 +304,15 @@ public class ContextMenuItem {
 			return this;
 		}
 
-		public ItemBuilder setColor(@ColorRes int colorRes) {
-			mColorRes = colorRes;
+		public ItemBuilder setColor(@ColorInt Integer color) {
+			mColor = color;
+			return this;
+		}
+
+		public ItemBuilder setColor(Context context, @ColorRes int colorRes) {
+			if (colorRes != INVALID_ID) {
+				mColor = ContextCompat.getColor(context, colorRes);
+			}
 			return this;
 		}
 
@@ -345,6 +363,11 @@ public class ContextMenuItem {
 
 		public ItemBuilder setDescription(String description) {
 			mDescription = description;
+			return this;
+		}
+
+		public ItemBuilder setOnUpdateCallback(OnUpdateCallback onUpdateCallback) {
+			mOnUpdateCallback = onUpdateCallback;
 			return this;
 		}
 
@@ -403,10 +426,12 @@ public class ContextMenuItem {
 		}
 
 		public ContextMenuItem createItem() {
-			return new ContextMenuItem(mTitleId, mTitle, mIcon, mColorRes, mSecondaryIcon,
+			ContextMenuItem item = new ContextMenuItem(mTitleId, mTitle, mIcon, mColor, mSecondaryIcon,
 					mSelected, mProgress, mLayout, mLoading, mIsCategory, mIsClickable, mSkipPaintingWithoutColor,
-					mOrder, mDescription, mItemClickListener, mIntegerListener, mProgressListener, mItemDeleteAction,
-					mHideDivider, mHideCompoundButton, mMinHeight, mTag, mId);
+					mOrder, mDescription, mOnUpdateCallback, mItemClickListener, mIntegerListener, mProgressListener,
+					mItemDeleteAction, mHideDivider, mHideCompoundButton, mMinHeight, mTag, mId);
+			item.update();
+			return item;
 		}
 	}
 }

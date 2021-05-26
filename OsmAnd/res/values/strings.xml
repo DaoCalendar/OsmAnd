@@ -7,15 +7,325 @@
 	   1. To not produce duplicate strings (check by name if a string already exists)
 	   2. Every apostrophe (quote) is preceded by a backslash.
 	   3. If you modify the English strings file, please add new strings at the top of the file, this makes periodic reviews before releases easier.
-	- For wording and consistency, please note https://osmand.net/help-online?id=technical-articles#Creating_a_Consistent_User_Experience
+	- For wording and consistency, please note https://docs.osmand.net/en/main@latest/development/contributing-to-osmand/translating-osmand
 	Thx - Hardy
 
 -->
+
+    <string name="select_nav_profile_dialog_message">The \'Navigation type\' governs how routes are calculated. You can select between offline and online routing engines.</string>
+    <string name="verification_code_missing_description">Waiting time for code can be 10 minutes, also you can check your spam folder. If it doesn\'t help, use button below.</string>
+    <string name="verification_code_missing">I didn\'t receive verification code</string>
+    <string name="resend_verification_code">Resend code</string>
+    <string name="cloud_email_already_registered">Account with this email is already registered.</string>
+    <string name="cloud_email_not_registered">This email has not been registered for OsmAnd Cloud</string>
+    <string name="enter_verification_code">Enter 4 digit code</string>
+    <string name="verify_email_address_descr">We sent a verification code to %1$s, please enter it in the field below.</string>
+    <string name="verify_email_address">Verify email address</string>
+    <string name="osmand_cloud_login_descr">Please enter the email address, you used for registration. We will send you a one-time password needed on the next step.</string>
+    <string name="osmand_cloud_create_account_descr">Please enter your email address, all your data will be linked to it.\nWe will send you a verification code to this email address.</string>
+    <string name="osmand_cloud_help_descr">Need help? Please contact us at %1$s</string>
+    <string name="restore_from_file">Restore from file</string>
+    <string name="backup_into_file">Backup into file</string>
+    <string name="local_backup_descr">Backup or restore data from a local file.</string>
+    <string name="local_backup">Local backup</string>
+    <string name="osmand_cloud_authorize_descr">Never lose your data, backup and restore all information without a problem.</string>
+    <string name="osmand_cloud">OsmAnd Cloud</string>
+    <string name="duration_ago">%1$s ago</string>
+    <string name="last_backup">Last backup</string>
+    <string name="backup_and_restore">Backup &amp; Restore</string>
+    <string name="ltr_or_rtl_triple_combine_via_space">%1$s %2$s %3$s</string>
+    <string name="search_more">Search more…</string>
+    <string name="routing_attr_avoid_low_emission_zone_name">Avoid low emission zones</string>
+    <string name="routing_attr_avoid_low_emission_zone_description">Avoid low emission zones</string>
+    <string name="poi_routes">Routes</string>
+    <string name="route_line_use_map_style_color">Use map style (%1$s) default color.</string>
+    <string name="route_line_use_map_style_width">Use map style (%1$s) default width.</string>
+    <string name="shared_string_itinerary">Itinerary</string>
+    <string name="use_system_language">Use system language</string>
+    <string name="recorded_description">Recorded voice sounds better, but can pronounce only prerecorded phrases: turn instructions. Can\'t announce street names or POI names.</string>
+    <string name="tts_title">TTS</string>
+    <string name="tts_description">Text-to-speech (TTS) can pronounce all types of instructions: street names, turn instruction, POI names etc.</string>
+    <string name="language_description">Select preferred language and type of voice guidance.</string>
+    <string name="shared_string_max_height">Max. height</string>
+    <string name="shared_string_min_height">Min. height</string>
+    <string name="route_line_use_gradient_coloring">Route line is colored by elevation slope.</string>
+    <string name="output">Output</string>
+    <string name="user_points">User points</string>
+    <string name="announce_when_exceeded">Announce when exceeded</string>
+    <string name="exit_number">Exit number</string>
+    <string name="srtm_download_single_help_message">Please select the variant. You will need to re-download the file to change the format.</string>
+    <string name="srtm_download_list_help_message">OsmAnd provides contour lines data in meters and feet. You will need to re-download the file to change the format.</string>
+    <string name="srtm_unit_format">Contour lines unit variant</string>
+    <string name="shared_string_feet">feet</string>
+    <string name="update_all_maps_added">Update all maps added to %1$s?</string>
+    <string name="release_4_0_beta">
+    • Added option to download Contour lines in feet\n\n
+    • Plan Route landscape: added tabs to switch between points or graphs\n\n
+    • OsmAnd Live updates moved to \"Downloads > Updates\"\n\n
+    • Tracks can now be colored by altitude, speed, or slope.\n\n
+    • Added option to change the route line appearance.\n\n
+    • Updated \"Trip recording\" dialog\n\n
+    </string>
+    <string name="expired">Expired</string>
+    <string name="on_hold">On hold</string>
+    <string name="in_grace_period">In grace period</string>
+    <string name="renew_subscription">Renew subscription</string>
+    <string name="osmand_live_cancelled">Canceled</string>
+    <string name="next_billing_date">Next billing date: %1$s</string>
+    <string name="three_months_subscription">Three months subscription</string>
+    <string name="monthly_subscription">Monthly subscription</string>
+    <string name="annual_subscription">Annual subscription</string>
+    <string name="osmand_live">OsmAnd Live</string>
+    <string name="troubleshooting_description">Please follow this link if you have any issues with purchases.</string>
+    <string name="troubleshooting">Troubleshooting</string>
+    <string name="contact_support">Contact support</string>
+    <string name="empty_purchases_description">If your purchases don\'t show up here, tap on “%1$s”, or contact our support team.</string>
+    <string name="contact_support_description">If you have any questions, please contact us at %1$s.</string>
+    <string name="new_device_account">New device / new account</string>
+    <string name="no_purchases">You don\'t have any purchases</string>
+    <string name="specify_color_for_map_mode">Specify color for map mode %1$s.</string>
+    <string name="shared_string_route_line">Route line</string>
+    <string name="customize_route_line">Customize route line</string>
+    <string name="trip_recording_show_start_dialog_setting">If disabled, recording will start immediately after tapping the widget or menu item, skipping the confirmation dialog.</string>
+    <string name="show_start_dialog">Show start dialog</string>
+    <string name="lost_data_warning">All unsaved data will be lost.</string>
+    <string name="trip_recording_save_and_continue">Save and continue</string>
+    <string name="trip_recording_logging_interval_info">The logging interval sets the time period in which OsmAnd will request the current position data.</string>
+    <string name="select_another_colorization">Please select another type of coloring.</string>
+    <string name="track_has_no_speed">The track does not contain speed data.</string>
+    <string name="track_has_no_altitude">The track does not contain altitude data.</string>
+    <string name="rendering_attr_noNatureReserveBoundaries_name">Nature boundaries</string>
+    <string name="rendering_attr_noNatureReserveBoundaries_description">Hide nature reserve, protected areas, and national park boundaries.</string>
+    <string name="shared_string_interval">Interval</string>
+    <string name="quick_action_show_hide_title">Show/hide</string>
+    <string name="copy_poi_name">Copy POI name</string>
+    <string name="track_recording_will_be_continued">The recording will be continued.</string>
+    <string name="select_category_descr">Select category or add a new one</string>
+    <string name="purchases">Purchases</string>
+    <string name="live_update_delete_updates_msg">Are you sure you want to delete all %s live updates?</string>
+    <string name="delete_updates">Delete updates</string>
+    <string name="live_update_frequency_hour_variant">Map updates will be checked every hour. Next time %1$s in %2$s.</string>
+    <string name="live_update_frequency_day_variant">Map updates will be checked every day. Next time %1$s in %2$s.</string>
+    <string name="live_update_frequency_week_variant">Map updates will be checked every week. Next time %1$s in %2$s.</string>
+    <string name="update_frequency">Update frequency</string>
+    <string name="last_time_checked">Last time checked: %s</string>
+    <string name="updated">Updated: %s</string>
+    <string name="latest_openstreetmap_update">Latest OpenStreetMap update available:</string>
+    <string name="map_widget_distance_by_tap">Distance by tap</string>
+    <string name="quick_action_coordinates_widget_descr">A toggle to show or hide the Coordinates widget on the map.</string>
+    <string name="routing_attr_height_obstacles_description">Routing could avoid strong uphills.</string>
+    <string name="app_restart_required">Application restart required to apply some settings.</string>
+    <string name="on_pause">On pause</string>
+    <string name="track_recording_description">Are you sure you want to stop recording?\nAll unsaved data will be lost.</string>
+    <string name="track_recording_title">Track recording stopped</string>
+    <string name="track_recording_save_and_stop">Save and stop recording</string>
+    <string name="track_recording_stop_without_saving">Stop without saving</string>
+    <string name="delete_number_files_question">Delete %1$d files?</string>
+    <string name="shared_strings_all_regions">All regions</string>
+    <string name="restart">Restart</string>
+    <string name="map_orientation_threshold_descr">Don\'t rotate map view if speed is less than a threshold</string>
+    <string name="snap_to_road_descr">Current position icon will snap to the current navigation route</string>
+    <string name="routing_attr_driving_style_description">Select driving purpose to get shorter, faster or safer route</string>
+    <string name="routing_attr_short_way_description">Optimized shorter route (energy saving)</string>
+    <string name="temporary_conditional_routing_descr">Use road restrictions that are active now on the map</string>
+    <string name="activity_type_car_name">Car</string>
+    <string name="activity_type_motorbike_name">Motorbike</string>
+    <string name="activity_type_offroad_name">Off-road</string>
+    <string name="activity_type_walking_name">Walking</string>
+    <string name="activity_type_running_name">Running</string>
+    <string name="activity_type_hiking_name">Hiking</string>
+    <string name="activity_type_cycling_name">Cycling</string>
+    <string name="activity_type_mountainbike_name">Mountain bike</string>
+    <string name="activity_type_racing_name">Racing</string>
+    <string name="activity_type_riding_name">Riding</string>
+    <string name="activity_type_snowmobile_name">Snowmobile</string>
+    <string name="activity_type_winter_name">Winter</string>
+    <string name="activity_type_water_name">Water</string>
+    <string name="login_open_place_reviews">Login to OpenPlaceReviews</string>
+    <string name="opr_use_dev_url">Use test.openplacereviews.org</string>
+    <string name="open_place_reviews">OpenPlaceReviews</string>
+    <string name="open_place_reviews_plugin_description">OpenPlaceReviews is a community-driven project about public places such as restaurants, hotels, museums, waypoints. It collects all public information about them such as photos, reviews, links to other systems link OpenStreetMap, Wikipedia.\n\nAll OpenPlaceReview data is open and available to everyone: http://openplacereviews.org/data.\n\nYou can read more at: http://openplacereviews.org</string>
+    <string name="hillshade_slope_contour_lines">Hillshade / Slope / Contour lines</string>
+    <string name="toast_select_edits_for_upload">Select edits for upload</string>
+    <string name="uploaded_count">Uploaded %1$d of %2$d</string>
+    <string name="segments_count">Segment %1$d</string>
+    <string name="select_segments_description">%1$s contains more than one segment, you need to specify the portion for the navigation.</string>
+    <string name="select_segments">Select segments</string>
+    <string name="uploading_count">Uploading %1$d of %2$d</string>
+    <string name="upload_photo_completed">Upload completed</string>
+    <string name="upload_photo">Uploading</string>
+    <string name="copy_to_map_favorites">Copy to favorites</string>
+    <string name="copy_to_map_markers">Copy to map markers</string>
+    <string name="delete_waypoints">Delete waypoints</string>
+    <string name="context_menu_edit_descr">Edit description</string>
+    <string name="context_menu_read_full">Read full</string>
+    <string name="delete_online_routing_engine">Remove this online routing engine?</string>
+    <string name="message_name_is_already_exists">Name already exists</string>
+    <string name="message_server_error">Server error: %1$s</string>
+    <string name="routing_engine_vehicle_type_mtb">MTB</string>
+    <string name="routing_engine_vehicle_type_racingbike">Racing bike</string>
+    <string name="routing_engine_vehicle_type_scooter">Scooter</string>
+    <string name="routing_engine_vehicle_type_truck">Truck</string>
+    <string name="routing_engine_vehicle_type_small_truck">Small truck</string>
+    <string name="routing_engine_vehicle_type_hgv">HGV</string>
+    <string name="routing_engine_vehicle_type_cycling_regular">Regular cycling</string>
+    <string name="routing_engine_vehicle_type_cycling_road">Road cycling</string>
+    <string name="routing_engine_vehicle_type_cycling_mountain">Mountain cycling</string>
+    <string name="routing_engine_vehicle_type_cycling_electric">Electric cycling</string>
+    <string name="routing_engine_vehicle_type_walking">Walking</string>
+    <string name="routing_engine_vehicle_type_hiking">Hiking</string>
+    <string name="routing_engine_vehicle_type_wheelchair">Wheelchair</string>
+    <string name="show_track_on_map">Show track on map</string>
+    <string name="start_recording">Start recording</string>
+    <string name="announcement_time_title">Announcement time</string>
+    <string name="announcement_time_descr">The anouncement timing of different voice prompts depends on prompt type, current navigation speed, and default navigation speed.</string>
+    <string name="announcement_time_intervals">Time and distance intervals</string>
+    <string name="shared_string_turn">Turn</string>
+    <string name="announcement_time_arrive">Arrive at destination</string>
+    <string name="announcement_time_off_route">Off route</string>
+    <string name="announcement_time_prepare">Prepare</string>
+    <string name="announcement_time_prepare_long">Long prepare</string>
+    <string name="announcement_time_approach">Approach</string>
+    <string name="announcement_time_passing">Passing</string>
+    <string name="shared_string_sec">sec</string>
+    <string name="change_folder">Change folder</string>
+    <string name="rename_track">Rename track</string>
+    <string name="edit_track">Edit track</string>
+    <string name="upload_to_openstreetmap">Upload to OpenStreetMap</string>
+    <string name="analyze_by_intervals">Analyze split intervals</string>
+    <string name="shared_string_empty">Empty</string>
+    <string name="select_folder_descr">Select folder or add new one</string>
+    <string name="select_folder">Select folder</string>
+    <string name="shared_string_folders">Folders</string>
+    <string name="online_routing_engines">Online routing engines</string>
+    <string name="online_routing_engine">Online routing engine</string>
+    <string name="copy_address">Copy address</string>
+    <string name="routing_engine_vehicle_type_car">Car</string>
+    <string name="routing_engine_vehicle_type_bike">Bike</string>
+    <string name="routing_engine_vehicle_type_foot">Foot</string>
+    <string name="routing_engine_vehicle_type_driving">Driving</string>
+    <string name="test_route_calculation">Test route calculation</string>
+    <string name="online_routing_example_hint">URL with all parameters will look like this:</string>
+    <string name="keep_it_empty_if_not">Keep it empty if not</string>
+    <string name="shared_string_enter_param">Enter param</string>
+    <string name="shared_string_server_url">Server URL</string>
+    <string name="shared_string_api_key">API key</string>
+    <string name="shared_string_vehicle">Vehicle</string>
+    <string name="shared_string_subtype">Subtype</string>
+    <string name="edit_online_routing_engine">Edit online routing engine</string>
+    <string name="add_online_routing_engine">Add online routing engine</string>
+    <string name="routing_attr_allow_intermittent_name">Allow intermittent water ways</string>
+    <string name="routing_attr_allow_intermittent_description">Allow intermittent water ways</string>
+    <string name="routing_attr_allow_streams_name">Allow streams and drains</string>
+    <string name="routing_attr_allow_streams_description">Allow streams and drains</string>
+    <string name="routing_attr_prefer_hiking_routes_name">Prefer hiking routes</string>
+    <string name="routing_attr_prefer_hiking_routes_description">Prefer hiking routes</string>
+    <string name="shared_string_last_used">Last used</string>
+    <string name="profile_by_default_description">Select the profile, that will be used on application start.</string>
+    <string name="reverse_all_points">Reverse all points</string>
+    <string name="release_3_9">
+    • Added option to export and import all data including settings, resources, my places\n\n
+    • Plan Route: graphs for track segments with route, and added the ability to create and edit multiple track segments\n\n
+    • Added OAuth authentication method for OpenStreetMap, improved UI of OSM dialogs\n\n
+    • Support custom colors for favorites and track waypoints\n\n
+    </string>
+    <string name="profile_type_user_string">User profile</string>
+    <string name="profile_type_osmand_string">OsmAnd profile</string>
+    <string name="plan_route_add_new_segment">Add a new segment</string>
+    <string name="plan_route_split_after">Split after</string>
+    <string name="plan_route_split_before">Split before</string>
+    <string name="plan_route_join_segments">Join segments</string>
+    <string name="app_mode_light_aircraft">Light aircraft</string>
+    <string name="ltr_or_rtl_combine_via_star">%1$s * %2$s</string>
+    <string name="add_photos_descr">OsmAnd shows photos from several sources:\nOpenPlaceReviews - POI photos;\nMapillary - street-level imagery;\nWeb / Wikimedia - POI photos as per OpenStreetMap data.</string>
+    <string name="use_dev_url">Use dev.openstreetmap.org</string>
+    <string name="use_dev_url_descr">Switch to use "dev.openstreetmap.org" instead of "openstreetmap.org" to testing uploading OSM Note / POI / GPX.</string>
+    <string name="add_to_opr">Add to OpenPlaceReviews</string>
+    <string name="add_to_mapillary">Add to Mapillary</string>
+    <string name="select_items_for_import">Select items that will be imported.</string>
+    <string name="select_groups_for_import">Select groups that will be imported.</string>
+    <string name="export_not_enough_space">There is not enough space</string>
+    <string name="export_not_enough_space_descr">Your device only has %1$s free. Please free up some space or deselect some items to export.</string>
+    <string name="file_size_needed_for_import">Needed for import</string>
+    <string name="select_data_to_export">Select the data to be exported to the file.</string>
+    <string name="approximate_file_size">Approximate file size</string>
+    <string name="shared_string_resources">Resources</string>
+    <string name="select_picture">Select picture</string>
+    <string name="cannot_upload_image">Cannot upload image, please, try again later</string>
+    <string name="app_mode_motorboat">Motorboat</string>
+    <string name="app_mode_kayak">Kayak</string>
+    <string name="shared_string_search_history">Search history</string>
+    <string name="register_opr_have_account">I already have an account</string>
+    <string name="register_opr_create_new_account">Create new account</string>
+    <string name="register_on_openplacereviews_desc">Photos are provided by the OpenPlaceReviews.org open data project. In order to upload your photos you need to sign up on their website.</string>
+    <string name="register_on_openplacereviews">Register on\nOpenPlaceReviews.org</string>
+    <string name="shared_string_add_photo">Add photo</string>
+    <string name="osm_login_descr">You can log in using the safe OAuth method or use your login and password.</string>
+    <string name="osm_edit_comment_note">Comment OSM Note</string>
+    <string name="osm_edit_close_note">Close OSM Note</string>
+    <string name="gpx_upload_trackable_visibility_descr">\"Trackable\" means the trace does not show up in any public listings, but processed trackpoints with timestamps from it (that can\'t be associated with you directly) do through downloads from the public GPS API.</string>
+    <string name="gpx_upload_identifiable_visibility_descr">\"Identifiable\" means that the trace will be shown publicly in your GPS traces and in public GPS trace listings, i.e. other users will be able to download the raw trace and associate it with your username. Public timestamped tracepoint data from the GPS API served via the trackpoints API will reference your original trace page.</string>
+    <string name="gpx_upload_private_visibility_descr">\"Private\" means the trace does not show up in any public listings, but trackpoints from it in unchronological order are available through the public GPS API without timestamps.</string>
+    <string name="gpx_upload_public_visibility_descr">\"Public\" means the trace is shown publicly in your GPS traces and in public GPS trace listings, and in the public trace list with timestamps in raw form. Data served via the API does not reference your trace page. Tracepoint timestamps are not available through the public GPS API, and tracepoints are not chronologically ordered.</string>
+    <string name="enter_text_separated">Enter tags separated by comma.</string>
+    <string name="send_files_to_openstreetmap">Send GPX file to OpenStreetMap</string>
+    <string name="markers_history">Markers history</string>
+    <string name="subscription_on_hold_title">OsmAnd Live subscription is on hold</string>
+    <string name="subscription_paused_title">OsmAnd Live subscription has been paused</string>
+    <string name="subscription_expired_title">OsmAnd Live subscription has been expired</string>
+    <string name="subscription_payment_issue_title">Tap the button to set up a payment method on Google Play to fix your subscription.</string>
+    <string name="manage_subscription">Manage subscription</string>
+    <string name="user_login">Login</string>
+    <string name="user_password">Password</string>
+    <string name="login_account">Account</string>
+    <string name="use_login_password">Use login and password</string>
+    <string name="open_street_map_login_mode">You need to login to upload new or modified changes. \n\nYou can log in using the safe OAuth method or use your login and password.</string>
+    <string name="osm_edits_view_descr">View all your not yet uploaded edits or OSM bugs in %1$s. Already uploaded changes will not show up any more.</string>
+    <string name="sign_in_with_open_street_map">Sign in with OpenStreetMap</string>
+    <string name="login_open_street_map_org">Login to OpenStreetMap.org</string>
+    <string name="login_open_street_map">Login to OpenStreetMap</string>
+    <string name="plugin_global_prefs_info">These plugin settings are global, and apply to all profiles</string>
+    <string name="message_you_need_add_two_points_to_show_graphs">Add at least two points</string>
+    <string name="icon_group_travel">Travel</string>
+    <string name="icon_group_emergency">Emergency</string>
+    <string name="icon_group_sport">Sport</string>
+    <string name="icon_group_symbols">Symbols</string>
+    <string name="icon_group_service">Service</string>
+    <string name="icon_group_transport">Transport</string>
+    <string name="icon_group_special">Special</string>
+    <string name="icon_group_amenity">Amenity</string>
+    <string name="ltr_or_rtl_combine_via_dash">%1$s — %2$s</string>
+    <string name="shared_string_local_maps">Local maps</string>
+    <string name="message_graph_will_be_available_after_recalculation">Please wait.\nGraph will be available after route recalculation.</string>
+    <string name="message_need_calculate_route_before_show_graph">%1$s data available only on roads, calculate a route using “Route between points” to see graphs.</string>
+    <string name="shared_string_graph">Graph</string>
+    <string name="use_two_phase_routing">Use 2-phase A* routing algorithm</string>
+    <string name="file_already_imported">File is already imported in OsmAnd</string>
+    <string name="osm_edit_logout_success">Logged out</string>
+    <string name="clear_osm_token">Clear OpenStreetMap OAuth token</string>
+    <string name="perform_oauth_authorization">Log in via OAuth</string>
+    <string name="perform_oauth_authorization_description">Log in with OAuth to use osmedit features</string>
+    <string name="use_native_pt_desc">Switch to Java (safe) Public Transport route calculation</string>
+    <string name="use_native_pt">Native Public Transport development</string>
+    <string name="use_fast_recalculation_desc">Recalculates only the initial part of the route, useful for long trips.</string>
+    <string name="complex_routing_descr">Two-phase routing for car navigation.</string>
+    <string name="use_live_routing">OsmAnd Live data</string>
+    <string name="use_live_public_transport">OsmAnd Live data</string>
+    <string name="development">Development</string>
+    <string name="routing_attr_avoid_footways_name">Avoid footways</string>
+    <string name="routing_attr_avoid_footways_description">Avoid footways</string>
+    <string name="osm_live_payment_subscription_management_hw">Your AppGallery account is charged upon purchase confirmation.\n\nThe subscription prolongates automatically unless canceled before the renewal date. Your account will be charged for the renewal period (month/three months/year) only on the renewal date.\n\nYou can manage and cancel your subscriptions in your AppGallery settings.</string>
+    <string name="osm_live_payment_desc_hw">The subscription is charged per the period selected. Cancel it in your AppGallery at any time.</string>
+    <string name="contour_lines_thanks">Thank you for purchasing \'Contour lines\'</string>
+    <string name="start_finish_icons">Start and finish icons</string>
+    <string name="sort_name_ascending">Name: A – Z</string>
+    <string name="sort_name_descending">Name: Z – A</string>
+    <string name="sort_last_modified">Last modified</string>
     <string name="release_3_8">
-    • Updated "Plan Route" mode allows using different navigation types for each segment and attaches any track to the roads\n\n
-    • New "Appearance" options for tracks: select color, thickness turn on the direction arrows and start/finish marks\n\n
-    • Improved bicycle nodes visibility\n\n
-    • Context menu for tracks with basic info\n\n
+    • Updated "Plan a route" function: allows using different navigation types per segment and the inclusion of tracks\n\n
+    • New "Appearance" menu for tracks: select color, thickness, display direction arrows, start and finish icons\n\n
+    • Improved visibility of bicycle nodes.\n\n
+    • Tracks are now tappable, have context menu with basic info.\n\n
     • Improved "Search" algorithms\n\n
     • Improved "Follow track" options in Navigation\n\n
     • Fixed issues with import/export of profile settings\n\n
@@ -33,11 +343,11 @@
     <string name="system_default_theme">System default</string>
     <string name="gpx_monitoring_start">Resume trip recording</string>
     <string name="gpx_monitoring_stop">Pause trip recording</string>
-    <string name="save_global_track_interval_descr">Specify the logging interval for the general track recording (enabled via the Trip recording widget on the map).</string>
-    <string name="disable_recording_once_app_killed_descrp">Will pause track logging when the app is killed (via recent apps). (OsmAnd background indication disappears from the Android notification bar.)</string>
+    <string name="save_global_track_interval_descr">Specify the logging interval for the general track recording (turned on via the \'Trip recording\' widget on the map).</string>
+    <string name="disable_recording_once_app_killed_descrp">Track logging will pause when the app is killed (via recent apps). (The OsmAnd background indication disappears from the Android notification bar.)</string>
     <string name="monitoring_control_start">REC</string>
     <string name="number_of_gpx_files_selected_pattern">%s track files selected</string>
-    <string name="shared_string_file_name">File name</string>
+    <string name="shared_string_file_name">Filename</string>
     <string name="simplified_track_description">Only the route line will be saved, the waypoints will be deleted.</string>
     <string name="simplified_track">Simplified track</string>
     <string name="plan_route_change_route_type_after">Change route type after</string>
@@ -51,7 +361,7 @@
     <string name="nearest_point">Nearest point</string>
     <string name="start_of_the_track">Start of the track</string>
     <string name="pass_whole_track_descr">Point of the track to navigate</string>
-    <string name="navigate_to_track_descr">Navigate from my location to the track</string>
+    <string name="navigate_to_track_descr">Navigate from my position to the track</string>
     <string name="select_another_track">Select another track</string>
     <string name="import_track_descr">Choose track file to follow or import it from your device.</string>
     <string name="follow_track_descr">Choose track file to follow</string>
@@ -70,7 +380,7 @@
     <string name="add_segment_to_the_track">Add to a track file</string>
     <string name="shared_string_save_as_gpx">Save as new track file</string>
     <string name="in_case_of_reverse_direction">In case of reverse direction</string>
-    <string name="plan_route_exit_dialog_descr">Are you sure you want discard all changes in the planned route by closing it?</string>
+    <string name="plan_route_exit_dialog_descr">Are you sure you want to discard all changes in the planned route?</string>
     <string name="street_level_imagery">Street-level imagery</string>
     <string name="route_between_points_add_track_desc">Select a track file to add the new segment to.</string>
     <string name="navigation_profile">Navigation profile</string>
@@ -78,8 +388,8 @@
     <string name="route_between_points_warning_desc">Next, snap your track to the nearest allowed road with one of your navigation profiles to use this option.</string>
     <string name="next_segment">Next segment</string>
     <string name="whole_track">Whole track</string>
-    <string name="route_between_points_desc">Select how to connect points, with a straight line, or calculate a route between them with selected profile.</string>
-    <string name="route_between_points_next_segment_button_desc">Only the next segment will be recalculated using selected profile.</string>
+    <string name="route_between_points_desc">Choose how to connect the points, by a straight line, or calculate a route between them as specified below.</string>
+    <string name="route_between_points_next_segment_button_desc">Only the next segment will be recalculated using the selected profile.</string>
     <string name="route_between_points_whole_track_button_desc">The whole track will be recalculated using the selected profile.</string>
     <string name="reverse_route">Reverse route</string>
     <string name="save_as_new_track">Save as new track</string>
@@ -108,9 +418,9 @@
     <string name="app_mode_motor_scooter">Motor scooter</string>
     <string name="app_mode_enduro_motorcycle">Enduro motorcycle</string>
     <string name="add_hidden_group_info">The added point will not be visible on the map, since the selected group is hidden, you can find it in \"%s\".</string>
-    <string name="plugin_wikipedia_description">Get info about points of interest from Wikipedia. It is your pocket offline guide - just turn on the Wikipedia plugin and enjoy articles about objects around you.</string>
+    <string name="plugin_wikipedia_description">Get info about points of interest from Wikipedia, a pocket offline guide featuring articles about places and destinations.</string>
     <string name="search_download_wikipedia_maps">Download Wikipedia maps</string>
-    <string name="quick_action_remove_next_destination_descr">The current destination point on the route will be deleted. If it will be the Destination, navigation will stop.</string>
+    <string name="quick_action_remove_next_destination_descr">Deletes the next destination on your route. If that is the final destination, the navigation will stop.</string>
     <string name="please_provide_point_name_error">Please provide a name for the point</string>
     <string name="use_volume_buttons_as_zoom">Volume buttons as zoom</string>
     <string name="use_volume_buttons_as_zoom_descr">Control the map-zoom level using the volume buttons on the device.</string>
@@ -124,9 +434,6 @@
     <string name="routing_attr_length_name">Length limit</string>
     <string name="routing_attr_length_description">Specify vehicle length to be permitted on routes.</string>
     <string name="quick_action_showhide_mapillary_descr">A toggle to show or hide the Mapillary layer on the map.</string>
-    <string name="quick_action_mapillary_show">Show Mapillary</string>
-    <string name="quick_action_mapillary_hide">Hide Mapillary</string>
-    <string name="quick_action_showhide_mapillary_title">Show/hide Mapillary</string>
     <string name="vessel_width_limit_description">Set vessel width to avoid narrow bridges</string>
     <string name="vessel_height_limit_description">Set vessel height to avoid low bridges. Keep in mind, if the bridge is movable, we will use its height in the open state.</string>
     <string name="vessel_height_warning">You can set vessel height to avoid low bridges. Keep in mind, if the bridge is movable, we will use its height in the open state.</string>
@@ -199,13 +506,10 @@
     <string name="quick_action_switch_profile_descr">The action button switches between selected profiles.</string>
     <string name="back_to_editing">Back to editing</string>
     <string name="reset_deafult_order">Restore default items order</string>
-    <string name="add_edit_favorite">Add / Edit Favorite</string>
+    <string name="add_edit_favorite">Add or edit favorite</string>
     <string name="parking_positions">Parking positions</string>
-    <string name="create_edit_poi">Create / Edit POI</string>
+    <string name="create_edit_poi">Create or edit POI</string>
     <string name="quick_action_transport_descr">Button showing or hiding public transport on the map.</string>
-    <string name="quick_action_show_hide_transport">Show/hide public transport</string>
-    <string name="quick_action_transport_show">Show public transport</string>
-    <string name="quick_action_transport_hide">Hide public transport</string>
     <string name="release_3_7">
     • New offline Slope maps\n\n
     • Full customization of Favorites and GPX Waypoints – custom colors, icons, shapes\n\n
@@ -232,7 +536,7 @@
     <string name="extra_maps_menu_group">Extra maps</string>
     <string name="search_poi_types_descr">Combine POI types from different categories. Tap switch to select all, tap left side to category selection.</string>
     <string name="search_poi_types">Search for POI types</string>
-    <string name="osm_live_payment_subscription_management">Payment will be charged to your Google Play account at the confirmation of purchase.\n\n Subscription automatically renews unless it is canceled before the renewal date. Your account will be charged for renewal period(month/three month/year) only on the renewal date.\n\n You can manage and cancel your subscriptions by going to your Google Play settings.</string>
+    <string name="osm_live_payment_subscription_management">Payment will be charged to your Google Play account at the confirmation of purchase.\n\n Subscription automatically renews unless it is canceled before the renewal date. Your account will be charged for renewal period (month/three month/year) only on the renewal date.\n\n You can manage and cancel your subscriptions by going to your Google Play settings.</string>
     <string name="ltr_or_rtl_combine_via_slash_with_space">%1$s / %2$s</string>
     <string name="custom_color">Custom color</string>
     <string name="lang_lmo">Lombard</string>
@@ -303,9 +607,6 @@
     <string name="add_description">Add description</string>
     <string name="delete_description">Delete description</string>
     <string name="quick_action_terrain_descr">A button to show or hide terrain layer on the map.</string>
-    <string name="quick_action_terrain_show">Show terrain</string>
-    <string name="quick_action_terrain_hide">Hide terrain</string>
-    <string name="quick_action_show_hide_terrain">Show / hide terrain</string>
     <string name="download_slope_maps">Slopes</string>
     <string name="n_items_of_z">%1$s of %2$s</string>
     <string name="recalculate_route_distance_promo">The route will be recalculated if the distance from the route to the current location is more than selected value.</string>
@@ -329,7 +630,7 @@
     <string name="shared_string_transparency">Transparency</string>
     <string name="slope_read_more">You can read more about Slopes in %1$s.</string>
     <string name="slope_download_description">Additional maps are needed to view Slopes on the map.</string>
-    <string name="hillshade_download_description">Additional maps are needed to view Hillshade on the map.</string>
+    <string name="hillshade_download_description">Additional maps are needed to view hillshade on the map.</string>
     <string name="terrain_slider_description">Set the minimum and maximum zoom levels at which the layer will be displayed.</string>
     <string name="slope_description">Slope uses colors to visualize terrain steepness.</string>
     <string name="hillshade_description">Hillshade map using dark shades to show slopes, peaks and lowlands.</string>
@@ -445,9 +746,7 @@
     <string name="route_recalculation">Route recalculation</string>
     <string name="accessibility_announce">Announce</string>
     <string name="login_and_pass">Username and password</string>
-    <string name="plugin_global_prefs_info">These settings apply to all profiles.</string>
     <string name="osm_editing">OSM editing</string>
-    <string name="osm_edits_view_descr">View your edits or OSM bugs not yet uploaded in %1$s. Uploaded points will not show any more.</string>
     <string name="app_mode_osm">OSM</string>
     <string name="select_nav_icon_descr">Icon shown while navigating or moving.</string>
     <string name="select_map_icon_descr">Icon shown at rest.</string>
@@ -466,7 +765,6 @@
     <string name="shared_string_downloading_formatted">Downloading %s</string>
     <string name="edit_profiles_descr">OsmAnd default profiles cannot be deleted, but disabled (on the previous screen), or be sorted to the bottom.</string>
     <string name="edit_profiles">Edit profiles</string>
-    <string name="select_nav_profile_dialog_message">The \'Navigation type\' governs how routes are calculated.</string>
     <string name="ltr_or_rtl_combine_via_bold_point">%1$s • %2$s</string>
     <string name="ltr_or_rtl_combine_via_comma">%1$s, %2$s</string>
     <string name="personal_category_name">Personal</string>
@@ -492,7 +790,7 @@
     <string name="clear_confirmation_msg">Clear %1$s?</string>
     <string name="shared_string_revert">Revert</string>
     <string name="track_saved">Track saved</string>
-    <string name="empty_filename">File name is empty</string>
+    <string name="empty_filename">Empty filename</string>
     <string name="default_speed_dialog_msg">Estimates arrival time for unknown road types, and limits speed for all roads (may affect routing)</string>
     <string name="rendering_value_white_name">White</string>
     <string name="swap_two_places">Swap %1$s and %2$s</string>
@@ -508,13 +806,7 @@
     <string name="tts_initialization_error">Cannot start text-to-speech engine.</string>
     <string name="layer_osm_edits">OSM edits</string>
     <string name="quick_action_contour_lines_descr">Button showing or hiding contour lines on the map.</string>
-    <string name="quick_action_contour_lines_show">Show contour lines</string>
-    <string name="quick_action_contour_lines_hide">Hide contour lines</string>
-    <string name="quick_action_show_hide_contour_lines">Show/hide contour lines</string>
     <string name="quick_action_hillshade_descr">A button to show or hide hillshades on the map.</string>
-    <string name="quick_action_hillshade_show">Show hillshade</string>
-    <string name="quick_action_hillshade_hide">Hide hillshade</string>
-    <string name="quick_action_show_hide_hillshade">Show/hide hillshade</string>
     <string name="apply_preference_to_all_profiles">You can apply this change to all or only the selected profile.</string>
     <string name="shared_preference">Shared</string>
     <string name="routing_attr_driving_style_prefer_unpaved_name">Prefer unpaved roads</string>
@@ -592,8 +884,10 @@
     <string name="configure_profile">Configure profile</string>
     <string name="configure_profile_info">Settings for profile:</string>
     <string name="utm_format_descr">OsmAnd uses the UTM Standard, which is similar but not identical to the UTM NATO format.</string>
+    <string name="mgrs_format_descr">OsmAnd uses MGRS, which is similar to the UTM NATO format.</string>
     <string name="shared_string_example">Example</string>
     <string name="navigate_point_format_utm">UTM Standard</string>
+    <string name="navigate_point_format_mgrs">MGRS</string>
     <string name="navigate_point_format_olc">Open Location Code</string>
     <string name="coordinates_format_info">The selected format will be applied throughout the app.</string>
     <string name="pref_selected_by_default_for_profiles">This setting is selected by default for profiles: %s</string>
@@ -899,10 +1193,7 @@
     <string name="shared_string_swap">Swap</string>
     <string name="show_more">Show more</string>
     <string name="tracks_on_map">Displayed tracks</string>
-    <string name="quick_action_show_hide_gpx_tracks">Show/hide tracks</string>
     <string name="quick_action_show_hide_gpx_tracks_descr">A button to show or hide selected tracks on the map.</string>
-    <string name="quick_action_gpx_tracks_hide">Hide Tracks</string>
-    <string name="quick_action_gpx_tracks_show">Show Tracks</string>
     <string name="add_destination_query">Please set the destination first</string>
     <string name="previous_route">Previous route</string>
     <string name="add_home">Add home</string>
@@ -961,7 +1252,7 @@
     <string name="search_no_results_feedback">No search results?\nProvide feedback</string>
     <!-- string name="release_3_2_pre">
     • Fixed crash on startup that occurred on some devices\n\n
-    • New Markers feature: Display already traversed markers\n\n 
+    • New Markers feature: Display already traversed markers\n\n
     • Search history now shows previously searched categories\n\n
     • Fixed crash on startup that occurred with non-latin maps\n\n
     • Improved rendering speed issues on Android 8.0 devices\n\n
@@ -994,6 +1285,7 @@
     <string name="shared_string_bookmark">Bookmark</string>
     <string name="hide_full_description">Hide full description</string>
     <string name="show_full_description">Show full description</string>
+    <string name="snowmobile_render_descr">For snowmobile driving with dedicated roads and tracks.</string>
     <string name="off_road_render_descr">For off-road driving based on \'Topo\' style and for use with green satellite images as an underlay. Reduced main road thickness, increased thickness of tracks, paths, bicycle and other routes.</string>
     <string name="nautical_render_descr">For nautical navigation. Features buoys, lighthouses, riverways, sea lanes and marks, harbors, seamark services, and depth contours.</string>
     <string name="ski_map_render_descr">For skiing. Features pistes, ski-lifts, cross country tracks, etc. Dims secondary map objects.</string>
@@ -1023,7 +1315,7 @@
 	<string name="update_is_available">Update available</string>
 	<string name="download_file">Download file</string>
     <string name="start_editing_card_image_text">The free worldwide travel guide anyone can edit.</string>
-    <string name="welcome_to_open_beta_description">Travel guides are currently based on Wikivoyage. Test all features during open beta testing for free. Afterwards, travel guides will be available to subscribers of OsmAnd Unlimited and owners of OsmAnd+.</string>
+    <string name="welcome_to_open_beta_description">Travel guides are currently based on Wikivoyage. Test all features during open beta testing for free.</string>
     <string name="start_editing_card_description">You can and should edit any article on Wikivoyage. Share knowledge, experience, talent, and your attention.</string>
     <string name="start_editing">Start editing</string>
     <string name="get_unlimited_access">Get unlimited access</string>
@@ -1039,7 +1331,7 @@
     <string name="wikivoyage_offline">Wikivoyage offline</string>
     <string name="unlimited_downloads">Unlimited downloads</string>
     <string name="wikipedia_offline">Wikipedia offline</string>
-    <string name="contour_lines_hillshade_maps">Contour lines &amp; Hillshade maps</string>
+    <string name="contour_lines_hillshade_maps">Contour lines &amp; hillshade maps</string>
     <string name="unlock_all_features">Unlock all OsmAnd features</string>
     <string name="purchase_dialog_title">Choose plan</string>
     <string name="purchase_dialog_travel_description">Purchase one of the following to receive the offline travel guide functionality:</string>
@@ -1101,7 +1393,7 @@
     <string name="first_intermediate_dest_description">Adds initial stop</string>
     <string name="subsequent_dest_description">Move destination up, and create it</string>
     <string name="show_closed_notes">Show closed notes</string>
-    <string name="switch_osm_notes_visibility_desc">Show/hide OSM notes on the map.</string>
+    <string name="switch_osm_notes_visibility_desc">Show or hide OSM notes on the map.</string>
     <string name="gpx_file_desc">GPX - suitable for export to JOSM or other OSM editors.</string>
     <string name="osc_file_desc">OSC - suitable for export to OSM.</string>
     <string name="shared_string_gpx_file">GPX file</string>
@@ -1263,7 +1555,7 @@
     <string name="measurement_tool_save_as_new_track_descr">Save the points either as route points or as a line.</string>
     <string name="choose_navigation_type">Select navigation profile</string>
     <string name="none_point_error">Please add at least one point.</string>
-    <string name="enter_gpx_name">GPX file name:</string>
+    <string name="enter_gpx_name">GPX filename:</string>
     <string name="show_on_map_after_saving">Show on map after saving</string>
     <string name="measurement_tool_action_bar">Browse the map and add points</string>
     <string name="measurement_tool">Measure distance</string>
@@ -1311,13 +1603,10 @@
     <string name="increase_search_radius">Increase search radius</string>
     <string name="nothing_found">Nothing found</string>
     <string name="nothing_found_descr">Change the search or increase its radius.</string>
-    <string name="quick_action_showhide_osmbugs_title">Show or hide OSM notes</string>
-    <string name="quick_action_osmbugs_show">Show OSM notes</string>
-    <string name="quick_action_osmbugs_hide">Hide OSM notes</string>
     <string name="quick_action_showhide_osmbugs_descr">Button to show or hide OSM notes on the map.</string>
     <string name="sorted_by_distance">Sorted by distance</string>
     <string name="search_favorites">Search in Favorites</string>
-    <string name="hillshade_menu_download_descr">Download the \'Hillshade Overlay\' map to show vertical shading.</string>
+    <string name="hillshade_menu_download_descr">Download the \'Hillshade\' overlay map to show vertical shading.</string>
     <string name="hillshade_purchase_header">Install the \'Contour lines\' plugin to show graded vertical areas.</string>
     <string name="hide_from_zoom_level">Hide starting from zoom level</string>
     <string name="srtm_menu_download_descr">Download the \'Contour line\' map for use in this region.</string>
@@ -1360,7 +1649,6 @@
     <string name="depth_contour_descr">Sea depth contour lines and seamarks.</string>
     <string name="sea_depth_thanks">Thank you for purchasing \'Nautical depth contours\'</string>
     <string name="index_item_depth_contours_osmand_ext">Nautical depth contours</string>
-
     <string name="index_item_world_wikivoyage">Worldwide Wikivoyage articles</string>
     <string name="index_item_depth_points_southern_hemisphere">Southern hemisphere nautical depth points</string>
     <string name="index_item_depth_points_northern_hemisphere">Northern hemisphere nautical depth points</string>
@@ -1414,7 +1702,6 @@
     <string name="total_distance">Total distance</string>
     <string name="routing_attr_relief_smoothness_factor_name">Select elevation fluctuation</string>
     <string name="routing_attr_height_obstacles_name">Use elevation data</string>
-    <string name="routing_attr_height_obstacles_description">Factor in terrain elevation (via SRTM, ASTER, and EU-DEM data).</string>
     <string name="rendering_attr_depthContours_description">Show depth contours and points.</string>
     <string name="rendering_attr_depthContours_name">Nautical depth contours</string>
     <!-- string name="release_2_6">
@@ -1551,7 +1838,6 @@
     <string name="update_all_maps_now">Update all maps now?</string>
     <string name="clear_tile_data">Clear all tiles</string>
     <string name="routing_attr_short_way_name">Fuel-efficient way</string>
-    <string name="routing_attr_short_way_description">Use fuel-efficient way (usually shorter).</string>
     <string name="replace_favorite_confirmation">Are you sure you want to replace Favorite %1$s?</string>
     <string name="rendering_attr_hideOverground_name">Overground objects</string>
     <string name="shared_string_change">Change</string>
@@ -1597,7 +1883,7 @@
     <string name="access_direction_haptic_feedback_descr">Indicate target point direction by vibration.</string>
     <string name="use_osm_live_routing_description">Enable navigation for OsmAnd Live changes.</string>
     <string name="use_osm_live_routing">OsmAnd Live navigation</string>
-    <string name="access_no_destination">Destination not set</string>
+    <string name="access_no_destination">Accessibility plugin: No destination set</string>
     <string name="map_widget_magnetic_bearing">Magnetic bearing</string>
     <string name="map_widget_bearing">Relative bearing</string>
     <string name="access_disable_offroute_recalc">No route recalculation after leaving it</string>
@@ -1803,6 +2089,7 @@
     <string name="lang_als">Albanian (Tosk)</string>
     <string name="read_more">Read more</string>
     <string name="whats_new">What\'s new in</string>
+    <string name="what_is_new">What\'s new</string>
     <string name="rendering_attr_hideProposed_name">Proposed objects</string>
     <string name="shared_string_update">Update</string>
     <string name="shared_string_upload">Upload</string>
@@ -2171,6 +2458,7 @@
     <string name="map_locale">Map language</string>
     <string name="rendering_attr_transportStops_name">Transport stops</string>
     <string name="navigate_point_zone">Zone</string>
+    <string name="navigate_point_mgrs">MGRS</string>
     <!-- (OLC) is a geocode system -->
     <string name="navigate_point_olc">Open Location Code</string>
     <string name="navigate_point_olc_info_invalid">Invalid OLC\n</string>
@@ -2232,7 +2520,7 @@
     <string name="traffic_warning_calming">Traffic calming</string>
     <string name="traffic_warning_speed_camera">Speed camera</string>
     <string name="traffic_warning">Traffic warning</string>
-    <string name="speak_favorites">Favorites nearby</string>
+    <string name="speak_favorites">Nearby favorites</string>
     <string name="speak_poi">Nearby POI</string>
     <string name="way_alarms">Traffic warnings</string>
     <string name="background_service_is_enabled_question">OsmAnd background service still running. Stop it, too?</string>
@@ -2267,7 +2555,7 @@
     <string name="average">Average</string>
     <string name="of">%1$d of %2$d</string>
     <string name="ascent_descent">Ascent/Descent</string>
-    <string name="moving_time">Moving time</string>
+    <string name="moving_time">Time in motion</string>
     <string name="max_min">Max/Min</string>
     <string name="min_max">Min/Max</string>
     <string name="index_tours">Tours</string>
@@ -2379,6 +2667,7 @@
     <string name="lang_fr">French</string>
     <string name="lang_ka">Georgian</string>
     <string name="lang_de">German</string>
+    <string name="lang_de_casual">German (casual)</string>
     <string name="lang_el">Greek</string>
     <string name="lang_he">Hebrew</string>
     <string name="lang_iw">Hebrew</string>
@@ -2563,7 +2852,7 @@
     <string name="files_limit">%1$d files left</string>
     <string name="available_downloads_left">%1$d files left to download</string>
     <string name="install_paid">Full version</string>
-    <string name="cancel_route">Dismiss route</string>
+    <string name="cancel_route">Dismiss route?</string>
     <string name="cancel_navigation">Stop navigation</string>
     <string name="clear_destination">Clear destination</string>
     <string name="download_using_mobile_internet">Not connected to Wi-Fi. Use current connection to the Internet to download?</string>
@@ -2712,7 +3001,6 @@
     <string name="avoid_motorway">No motorways</string>
     <string name="auto_zoom_map_descr">Zoom level according to your speed (while map is synchronized with current position).</string>
     <string name="auto_zoom_map">Auto zoom map</string>
-    <string name="snap_to_road_descr">Snap position to roads during navigation.</string>
     <string name="snap_to_road">Snap to road</string>
     <string name="interrupt_music_descr">Voice prompts pause music playback.</string>
     <string name="interrupt_music">Pause music</string>
@@ -3103,7 +3391,7 @@
     <string name="use_fluorescent_overlays">Fluorescent overlays</string>
     <string name="use_fluorescent_overlays_descr">Use fluorescent colors to display tracks and routes.</string>
     <string name="offline_edition">Offline editing</string>
-    <string name="offline_edition_descr">Always use offline editing.</string>
+    <string name="offline_edition_descr">If offline editing is enabled, then changes will be saved locally first and uploaded by request, otherwise changes will be uploaded immediately.</string>
     <string name="update_poi_does_not_change_indexes">POI changes inside app do not affect downloaded map files, changes are saved as a file on your device instead.</string>
     <string name="local_openstreetmap_uploading">Uploading…</string>
     <string name="local_openstreetmap_were_uploaded">{0} POI/notes were uploaded</string>
@@ -3154,7 +3442,6 @@
     <string name="global_app_settings">Global app settings</string>
     <string name="user_name">Your OSM username</string>
     <string name="open_street_map_login_descr">Needed for openstreetmap.org submissions.</string>
-    <string name="user_password">Your OSM password</string>
     <string name="osmand_service">Background mode</string>
     <string name="osmand_service_descr">OsmAnd runs in the background with the screen off.</string>
     <string name="download_files_not_enough_space">There is not enough free space to download %1$s MB (free: %2$s).</string>
@@ -3251,7 +3538,7 @@
     <string name="tts_language_not_supported">The selected language is not supported by the Android TTS (text-to-speech) engine installed, its preset TTS language will be used instead. Look for another TTS engine in the market?</string>
     <string name="tts_missing_language_data_title">Missing data</string>
     <string name="tts_missing_language_data">Go to the market to download selected language?</string>
-    <string name="gpx_option_reverse_route">Reverse GPX direction</string>
+    <string name="gpx_option_reverse_route">Reverse track direction</string>
     <string name="gpx_option_destination_point">Use current destination</string>
     <string name="gpx_option_from_start_point">Pass along entire track</string>
     <!-- Use ← for RTL languages -->
@@ -3536,7 +3823,7 @@
     <string name="error_calculating_route">Could not calculate route.</string>
     <string name="error_calculating_route_occured">Could not calculate route.</string>
     <string name="empty_route_calculated">The calculated route is empty.</string>
-    <string name="new_route_calculated_dist_dbg">Route: distance %s, router time %s \nCalculation: %.1f sec, %d roads, %d tiles)</string>
+    <string name="new_route_calculated_dist_dbg">Route: distance %1$s, router time %2$s \nCalculation: %3$.1f sec, %4$d roads, %5$d tiles)</string>
     <string name="arrived_at_destination">You have arrived.</string>
     <string name="invalid_locations">Invalid coordinates</string>
     <string name="go_back_to_osmand">Go back to map</string>
@@ -3653,7 +3940,6 @@
     <string name="plugin_install_needs_network">You need to be online to install this plugin.</string>
     <string name="get_plugin">Get</string>
     <string name="use_fast_recalculation">Smart route recalculation</string>
-    <string name="use_fast_recalculation_desc">For long trips, only recalculate the initial part of the route.</string>
     <string name="do_you_like_osmand">Do you like OsmAnd?</string>
     <string name="we_really_care_about_your_opinion">Your opinion and feedback is valued.</string>
     <string name="rate_this_app">Rate this app</string>
@@ -3754,7 +4040,7 @@
     <string name="number_of_contributors">Number of contributors</string>
     <string name="number_of_edits">Number of edits</string>
     <string name="reports_for">Report for</string>
-    <string name="file_name_containes_illegal_char">File name contains illegal character</string>
+    <string name="file_name_containes_illegal_char">Illegal character in filename</string>
     <string name="configure_screen_quick_action">Quick action</string>
     <string name="quick_action_item_action">Action %d</string>
     <string name="quick_action_item_screen">Screen %d</string>
@@ -3798,10 +4084,6 @@
     <string name="quick_action_duplicate">Quick action name duplicate</string>
     <string name="quick_action_showhide_favorites_descr">A toggle to show or hide the Favorite points on the map.</string>
     <string name="quick_action_showhide_poi_descr">A toggle to show or hide POIs on the map.</string>
-    <string name="quick_action_showhide_favorites_title">Show/hide Favorites</string>
-    <string name="quick_action_favorites_show">Show Favorites</string>
-    <string name="quick_action_favorites_hide">Hide Favorites</string>
-    <string name="quick_action_showhide_poi_title">Show/hide POI</string>
     <string name="quick_action_poi_show">Show %1$s</string>
     <string name="quick_action_poi_hide">Hide %1$s</string>
     <string name="quick_action_add_category">Add a category</string>
@@ -3876,9 +4158,9 @@
     <string name="routing_attr_avoid_sett_name">No cobblestone or sett</string>
     <string name="routing_attr_avoid_sett_description">Avoids cobblestone and sett</string>
     <string name="quick_action_need_to_add_item_to_list">Add at least one item to the list in the \'Quick action\' settings</string>
-    <string name="routing_attr_piste_type_downhill_name">Alpine/downhill ski</string>
+    <string name="routing_attr_piste_type_downhill_name">Alpine and downhill skiing</string>
     <string name="routing_attr_piste_type_downhill_description">Slopes for alpine or downhill skiing and access to ski lifts.</string>
-    <string name="routing_attr_piste_type_nordic_name">Cross country/nordic ski</string>
+    <string name="routing_attr_piste_type_nordic_name">Cross country and nordic skiing</string>
     <string name="routing_attr_piste_type_nordic_description">Trails for nordic or cross-country skiing.</string>
     <string name="routing_attr_piste_type_skitour_name">Ski touring</string>
     <string name="routing_attr_piste_type_skitour_description">Routes for ski touring.</string>
@@ -3898,6 +4180,6 @@
     <string name="routing_attr_difficulty_preference_description">Prefer routes of this difficulty, although routing over harder or easier pistes is still possible if shorter.</string>
     <string name="routing_attr_freeride_policy_name">Off-piste</string>
     <string name="routing_attr_freeride_policy_description">\'Freeride\' and \'Off-piste\' are unofficial routes and passages. Typically ungroomed, unmaintained and not checked in the evening. Enter at your own risk.</string>
-
+    <string name="voice_prompts_timetable">Voice prompts times</string>
 
 </resources>

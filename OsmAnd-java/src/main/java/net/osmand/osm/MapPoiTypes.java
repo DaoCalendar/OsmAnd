@@ -658,6 +658,8 @@ public class MapPoiTypes {
 		tp.setOsmValue(parser.getAttributeValue("", "value"));
 		tp.setOsmEditTagValue(parser.getAttributeValue("", "edit_tag"),
 				parser.getAttributeValue("", "edit_value"));
+		tp.setOsmEditTagValue2(parser.getAttributeValue("", "edit_tag2"),
+				parser.getAttributeValue("", "edit_value2"));
 
 		tp.setOsmTag2(parser.getAttributeValue("", "tag2"));
 		tp.setOsmValue2(parser.getAttributeValue("", "value2"));
@@ -823,7 +825,7 @@ public class MapPoiTypes {
 		}
 		String name = keyName;
 		name = name.replace('_', ' ');
-		return Algorithms.capitalizeFirstLetterAndLowercase(name);
+		return Algorithms.capitalizeFirstLetter(name);
 	}
 
 	public boolean isRegisteredType(PoiCategory t) {

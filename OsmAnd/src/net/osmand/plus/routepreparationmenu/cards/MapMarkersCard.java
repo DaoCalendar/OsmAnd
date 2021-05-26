@@ -14,7 +14,7 @@ import androidx.appcompat.view.ContextThemeWrapper;
 
 import net.osmand.AndroidUtils;
 import net.osmand.data.LatLon;
-import net.osmand.plus.MapMarkersHelper.MapMarker;
+import net.osmand.plus.mapmarkers.MapMarker;
 import net.osmand.plus.R;
 import net.osmand.plus.activities.MapActivity;
 import net.osmand.plus.base.MapViewTrackingUtilities;
@@ -108,7 +108,7 @@ public class MapMarkersCard extends BaseCard {
 				public void onClick(View v) {
 					LatLon point = new LatLon(marker.getLatitude(), marker.getLongitude());
 					app.getTargetPointsHelper().navigateToPoint(point, true, -1, marker.getPointDescription(mapActivity));
-					app.getRoutingHelper().recalculateRouteDueToSettingsChange();
+					app.getRoutingHelper().onSettingsChanged(true);
 				}
 			});
 			if (i > 0) {

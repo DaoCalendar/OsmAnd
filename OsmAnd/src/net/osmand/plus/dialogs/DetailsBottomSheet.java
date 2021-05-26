@@ -15,19 +15,19 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentManager;
 
+import net.osmand.AndroidUtils;
 import net.osmand.plus.ContextMenuAdapter;
 import net.osmand.plus.ContextMenuItem;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
 import net.osmand.plus.activities.MapActivity;
-import net.osmand.plus.activities.SettingsActivity;
 import net.osmand.plus.base.bottomsheetmenu.BaseBottomSheetItem;
 import net.osmand.plus.base.bottomsheetmenu.BottomSheetItemTwoChoicesButton;
 import net.osmand.plus.base.bottomsheetmenu.BottomSheetItemTwoChoicesButton.OnBottomBtnClickListener;
 import net.osmand.plus.base.bottomsheetmenu.BottomSheetItemWithCompoundButton;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.DividerItem;
 import net.osmand.plus.helpers.FontCache;
-import net.osmand.plus.settings.backend.OsmandSettings.CommonPreference;
+import net.osmand.plus.settings.backend.CommonPreference;
 import net.osmand.plus.settings.bottomsheets.BasePreferenceBottomSheet;
 import net.osmand.render.RenderingRuleProperty;
 import net.osmand.render.RenderingRuleStorageProperties;
@@ -98,7 +98,7 @@ public class DetailsBottomSheet extends BasePreferenceBottomSheet {
 
 	@Override
 	public void createMenuItems(Bundle savedInstanceState) {
-		int selectedProfileColorRes = app.getSettings().APPLICATION_MODE.get().getIconColorInfo().getColor(nightMode);
+		int selectedProfileColor = app.getSettings().APPLICATION_MODE.get().getProfileColor(nightMode);
 		float spacing = getResources().getDimension(R.dimen.line_spacing_extra_description);
 		LinearLayout linearLayout = new LinearLayout(app);
 		linearLayout.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -125,7 +125,7 @@ public class DetailsBottomSheet extends BasePreferenceBottomSheet {
 			for (int i = 0; i < properties.size(); i++) {
 				RenderingRuleProperty property = properties.get(i);
 				final CommonPreference<Boolean> pref = preferences.get(i);
-				final String propertyName = SettingsActivity.getStringPropertyName(app, property.getAttrName(), property.getName());
+				final String propertyName = AndroidUtils.getRenderingStringPropertyName(app, property.getAttrName(), property.getName());
 				if (STREET_LIGHTING.equals(property.getAttrName()) && streetLightNightProp != null) {
 					final CommonPreference<Boolean> streetLightsNightPref = preferences.get(properties.indexOf(streetLightNightProp));
 					final BottomSheetItemTwoChoicesButton[] item = new BottomSheetItemTwoChoicesButton[1];
@@ -139,7 +139,7 @@ public class DetailsBottomSheet extends BasePreferenceBottomSheet {
 									streetLightsNightPref.set(!onLeftClick);
 								}
 							})
-							.setCompoundButtonColorId(selectedProfileColorRes)
+							.setCompoundButtonColor(selectedProfileColor)
 							.setChecked(pref.get())
 							.setTitle(propertyName)
 							.setIconHidden(true)
@@ -160,7 +160,7 @@ public class DetailsBottomSheet extends BasePreferenceBottomSheet {
 				} else if (!STREET_LIGHTING_NIGHT.equals(property.getAttrName())) {
 					final BottomSheetItemWithCompoundButton[] item = new BottomSheetItemWithCompoundButton[1];
 					item[0] = (BottomSheetItemWithCompoundButton) new BottomSheetItemWithCompoundButton.Builder()
-							.setCompoundButtonColorId(selectedProfileColorRes)
+							.setCompoundButtonColor(selectedProfileColor)
 							.setChecked(pref.get())
 							.setTitle(propertyName)
 							.setIconHidden(true)
@@ -217,7 +217,7 @@ public class DetailsBottomSheet extends BasePreferenceBottomSheet {
 		}
 		if (adapter != null) {
 			adapter.getItem(position).setSelected(checked);
-			adapter.getItem(position).setColorRes(checked ? R.color.osmand_orange : ContextMenuItem.INVALID_ID);
+			adapter.getItem(position).setColor(app, checked ? R.color.osmand_orange : ContextMenuItem.INVALID_ID);
 			adapter.getItem(position).setDescription(getString(
 					R.string.ltr_or_rtl_combine_via_slash,
 					String.valueOf(selected),
@@ -228,9 +228,9 @@ public class DetailsBottomSheet extends BasePreferenceBottomSheet {
 		}
 		Activity activity = getActivity();
 		if (activity instanceof MapActivity) {
-			MapActivity a = (MapActivity) activity;
-			ConfigureMapMenu.refreshMapComplete(a);
-			a.getMapLayers().updateLayers(a.getMapView());
+			MapActivity mapActivity = (MapActivity) activity;
+			mapActivity.refreshMapComplete();
+			mapActivity.getMapLayers().updateLayers(mapActivity.getMapView());
 		}
 		super.onDismiss(dialog);
 	}

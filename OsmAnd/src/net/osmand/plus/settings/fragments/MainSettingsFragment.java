@@ -1,5 +1,6 @@
 package net.osmand.plus.settings.fragments;
 
+import android.content.Intent;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -14,16 +15,20 @@ import androidx.preference.PreferenceViewHolder;
 
 import net.osmand.AndroidUtils;
 import net.osmand.CallbackWithObject;
-import net.osmand.plus.settings.backend.ApplicationMode;
+import net.osmand.plus.OsmAndFormatter;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
-import net.osmand.plus.settings.backend.SettingsHelper.SettingsItem;
-import net.osmand.plus.settings.backend.SettingsHelper.SettingsItemType;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.activities.MapActivity;
+import net.osmand.plus.development.TestBackupActivity;
 import net.osmand.plus.helpers.AndroidUiHelper;
-import net.osmand.plus.profiles.SelectProfileBottomSheetDialogFragment;
-import net.osmand.plus.profiles.SelectProfileBottomSheetDialogFragment.SelectProfileListener;
+import net.osmand.plus.profiles.ProfileDataUtils;
+import net.osmand.plus.profiles.SelectProfileBottomSheet;
+import net.osmand.plus.profiles.SelectProfileBottomSheet.DialogMode;
+import net.osmand.plus.profiles.SelectProfileBottomSheet.OnSelectProfileCallback;
+import net.osmand.plus.settings.backend.ApplicationMode;
+import net.osmand.plus.settings.backend.backup.SettingsItem;
+import net.osmand.plus.settings.backend.backup.SettingsItemType;
 import net.osmand.plus.settings.preferences.SwitchPreferenceEx;
 
 import java.util.ArrayList;
@@ -31,18 +36,20 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-import static net.osmand.plus.helpers.ImportHelper.ImportType.SETTINGS;
-import static net.osmand.plus.profiles.SelectProfileBottomSheetDialogFragment.DIALOG_TYPE;
-import static net.osmand.plus.profiles.SelectProfileBottomSheetDialogFragment.IS_PROFILE_IMPORTED_ARG;
-import static net.osmand.plus.profiles.SelectProfileBottomSheetDialogFragment.PROFILE_KEY_ARG;
-import static net.osmand.plus.profiles.SelectProfileBottomSheetDialogFragment.TYPE_BASE_APP_PROFILE;
+import static net.osmand.plus.importfiles.ImportHelper.ImportType.SETTINGS;
+import static net.osmand.plus.profiles.SelectProfileBottomSheet.PROFILES_LIST_UPDATED_ARG;
+import static net.osmand.plus.profiles.SelectProfileBottomSheet.PROFILE_KEY_ARG;
 
-public class MainSettingsFragment extends BaseSettingsFragment {
+public class MainSettingsFragment extends BaseSettingsFragment implements OnSelectProfileCallback {
 
 	public static final String TAG = MainSettingsFragment.class.getName();
 
+	private static final int MIN_DURATION_FOR_DATE_FORMAT = 48 * 60 * 60;
+
+	private static final String BACKUP_AND_RESTORE = "backup_and_restore";
 	private static final String CONFIGURE_PROFILE = "configure_profile";
 	private static final String APP_PROFILES = "app_profiles";
+	private static final String PURCHASES_SETTINGS = "purchases_settings";
 	private static final String SELECTED_PROFILE = "selected_profile";
 	private static final String CREATE_PROFILE = "create_profile";
 	private static final String IMPORT_PROFILE = "import_profile";
@@ -50,7 +57,6 @@ public class MainSettingsFragment extends BaseSettingsFragment {
 
 	private List<ApplicationMode> allAppModes;
 	private Set<ApplicationMode> availableAppModes;
-	private SelectProfileListener selectProfileListener = null;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -69,10 +75,13 @@ public class MainSettingsFragment extends BaseSettingsFragment {
 		availableAppModes = new LinkedHashSet<>(ApplicationMode.values(getMyApplication()));
 		Preference globalSettings = findPreference("global_settings");
 		globalSettings.setIcon(getContentIcon(R.drawable.ic_action_settings));
-		PreferenceCategory selectedProfile = (PreferenceCategory) findPreference(SELECTED_PROFILE);
+		setupBackupAndRestorePref();
+		Preference purchasesSettings = findPreference(PURCHASES_SETTINGS);
+		purchasesSettings.setIcon(getContentIcon(R.drawable.ic_action_purchases));
+		PreferenceCategory selectedProfile = findPreference(SELECTED_PROFILE);
 		selectedProfile.setIconSpaceReserved(false);
 		setupConfigureProfilePref();
-		PreferenceCategory appProfiles = (PreferenceCategory) findPreference(APP_PROFILES);
+		PreferenceCategory appProfiles = findPreference(APP_PROFILES);
 		appProfiles.setIconSpaceReserved(false);
 		setupAppProfiles(appProfiles);
 		profileManagementPref();
@@ -86,7 +95,7 @@ public class MainSettingsFragment extends BaseSettingsFragment {
 		if (CONFIGURE_PROFILE.equals(key)) {
 			View selectedProfile = holder.itemView.findViewById(R.id.selectable_list_item);
 			if (selectedProfile != null) {
-				int activeProfileColor = getActiveProfileColor();
+				int activeProfileColor = getSelectedAppMode().getProfileColor(isNightMode());
 				Drawable backgroundDrawable = new ColorDrawable(UiUtilities.getColorWithAlpha(activeProfileColor, 0.15f));
 				AndroidUtils.setBackground(selectedProfile, backgroundDrawable);
 			}
@@ -116,15 +125,10 @@ public class MainSettingsFragment extends BaseSettingsFragment {
 					ApplicationMode.valueOfStringKey(prefId, null));
 			return true;
 		} else if (CREATE_PROFILE.equals(prefId)) {
-			final SelectProfileBottomSheetDialogFragment dialog = new SelectProfileBottomSheetDialogFragment();
-			Bundle bundle = new Bundle();
-			bundle.putString(DIALOG_TYPE, TYPE_BASE_APP_PROFILE);
-			dialog.setArguments(bundle);
-			dialog.setUsedOnMap(false);
-			dialog.setAppMode(getSelectedAppMode());
 			if (getActivity() != null) {
-				getActivity().getSupportFragmentManager().beginTransaction()
-						.add(dialog, "select_base_profile").commitAllowingStateLoss();
+				SelectProfileBottomSheet.showInstance(
+						getActivity(), DialogMode.BASE_PROFILE, this,
+						getSelectedAppMode(), null, false);
 			}
 		} else if (IMPORT_PROFILE.equals(prefId)) {
 			final MapActivity mapActivity = getMapActivity();
@@ -145,31 +149,65 @@ public class MainSettingsFragment extends BaseSettingsFragment {
 
 				});
 			}
+		} else if (PURCHASES_SETTINGS.equals(prefId)) {
+			MapActivity mapActivity = getMapActivity();
+			if (mapActivity != null) {
+				FragmentManager fragmentManager = mapActivity.getSupportFragmentManager();
+				PurchasesFragment.showInstance(fragmentManager);
+			}
+		} else if (BACKUP_AND_RESTORE.equals(prefId)) {
+			MapActivity mapActivity = getMapActivity();
+			if (mapActivity != null) {
+				if (app.getBackupHelper().isRegistered()) {
+					Intent intent = new Intent(mapActivity, TestBackupActivity.class);
+					mapActivity.startActivity(intent);
+				} else {
+					BackupAndRestoreFragment.showInstance(mapActivity.getSupportFragmentManager());
+				}
+			}
 		}
+
 		return super.onPreferenceClick(preference);
 	}
 
 	private void setupConfigureProfilePref() {
 		ApplicationMode selectedMode = app.getSettings().APPLICATION_MODE.get();
 		String title = selectedMode.toHumanString();
-		String profileType = getAppModeDescription(getContext(), selectedMode);
-		int iconRes = selectedMode.getIconRes();
+		String profileType = ProfileDataUtils.getAppModeDescription(getContext(), selectedMode);
 		Preference configureProfile = findPreference(CONFIGURE_PROFILE);
-		configureProfile.setIcon(getPaintedIcon(iconRes, getActiveProfileColor()));
+		configureProfile.setIcon(getAppProfilesIcon(selectedMode, true));
 		configureProfile.setTitle(title);
 		configureProfile.setSummary(profileType);
 	}
 
+	private void setupBackupAndRestorePref() {
+		Preference backupSettings = findPreference(BACKUP_AND_RESTORE);
+		backupSettings.setIcon(getContentIcon(R.drawable.ic_action_cloud_upload));
+
+		long lastUploadedTime = settings.BACKUP_LAST_UPLOADED_TIME.get();
+		if (lastUploadedTime > 0) {
+			String time;
+			long duration = (System.currentTimeMillis() - lastUploadedTime) / 1000;
+			if (duration > MIN_DURATION_FOR_DATE_FORMAT) {
+				time = OsmAndFormatter.getFormattedDate(app, lastUploadedTime);
+			} else {
+				time = getString(R.string.duration_ago, OsmAndFormatter.getFormattedDuration((int) duration, app));
+			}
+			String summary = getString(R.string.last_backup);
+			backupSettings.setSummary(getString(R.string.ltr_or_rtl_combine_via_colon, summary, time));
+		}
+	}
+
 	private void profileManagementPref() {
-		int activeColorPrimaryResId = isNightMode() ? R.color.active_color_primary_dark 
+		int activeColorPrimaryResId = isNightMode() ? R.color.active_color_primary_dark
 				: R.color.active_color_primary_light;
-		
+
 		Preference createProfile = findPreference(CREATE_PROFILE);
 		createProfile.setIcon(app.getUIUtilities().getIcon(R.drawable.ic_action_plus, activeColorPrimaryResId));
-		
+
 		Preference importProfile = findPreference(IMPORT_PROFILE);
 		importProfile.setIcon(app.getUIUtilities().getIcon(R.drawable.ic_action_import, activeColorPrimaryResId));
-		
+
 		Preference reorderProfiles = findPreference(REORDER_PROFILES);
 		reorderProfiles.setIcon(app.getUIUtilities().getIcon(R.drawable.ic_action_edit_dark, activeColorPrimaryResId));
 	}
@@ -188,7 +226,7 @@ public class MainSettingsFragment extends BaseSettingsFragment {
 
 			pref.setIcon(getAppProfilesIcon(applicationMode, isAppProfileEnabled));
 			pref.setTitle(applicationMode.toHumanString());
-			pref.setSummary(getAppModeDescription(getContext(), applicationMode));
+			pref.setSummary(ProfileDataUtils.getAppModeDescription(getContext(), applicationMode));
 			pref.setChecked(isAppProfileEnabled);
 			pref.setLayoutResource(R.layout.preference_with_descr_dialog_and_switch);
 			pref.setFragment(ConfigureProfileFragment.class.getName());
@@ -206,34 +244,24 @@ public class MainSettingsFragment extends BaseSettingsFragment {
 
 	private Drawable getAppProfilesIcon(ApplicationMode applicationMode, boolean appProfileEnabled) {
 		int iconResId = applicationMode.getIconRes();
-		return appProfileEnabled ? app.getUIUtilities().getIcon(applicationMode.getIconRes(), applicationMode.getIconColorInfo().getColor(isNightMode()))
+		return appProfileEnabled ? app.getUIUtilities().getPaintedIcon(applicationMode.getIconRes(), applicationMode.getProfileColor(isNightMode()))
 				: getIcon(iconResId, isNightMode() ? R.color.icon_color_secondary_dark : R.color.icon_color_secondary_light);
-	}
-
-	public SelectProfileListener getParentProfileListener() {
-		if (selectProfileListener == null) {
-			selectProfileListener = new SelectProfileListener() {
-				@Override
-				public void onSelectedType(Bundle args) {
-					FragmentActivity activity = getActivity();
-					if (activity != null) {
-						FragmentManager fragmentManager = activity.getSupportFragmentManager();
-						if (fragmentManager != null) {
-							String profileKey = args.getString(PROFILE_KEY_ARG);
-							boolean imported = args.getBoolean(IS_PROFILE_IMPORTED_ARG);
-							ProfileAppearanceFragment.showInstance(activity, SettingsScreenType.PROFILE_APPEARANCE,
-									profileKey, imported);
-						}
-					}
-				}
-			};
-		}
-		return selectProfileListener;
 	}
 
 	@Override
 	public void onPause() {
 		updateRouteInfoMenu();
 		super.onPause();
+	}
+
+	@Override
+	public void onProfileSelected(Bundle args) {
+		FragmentActivity activity = getActivity();
+		if (activity != null) {
+			String profileKey = args.getString(PROFILE_KEY_ARG);
+			boolean imported = args.getBoolean(PROFILES_LIST_UPDATED_ARG);
+			ProfileAppearanceFragment.showInstance(activity, SettingsScreenType.PROFILE_APPEARANCE,
+					profileKey, imported);
+		}
 	}
 }

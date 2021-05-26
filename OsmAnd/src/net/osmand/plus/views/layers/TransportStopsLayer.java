@@ -8,6 +8,7 @@ import android.util.DisplayMetrics;
 import android.view.WindowManager;
 
 import androidx.annotation.DrawableRes;
+import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
 import net.osmand.ResultMatcher;
@@ -20,15 +21,18 @@ import net.osmand.data.RotatedTileBox;
 import net.osmand.data.TransportStop;
 import net.osmand.osm.edit.Node;
 import net.osmand.osm.edit.Way;
-import net.osmand.plus.base.PointImageDrawable;
-import net.osmand.plus.settings.backend.OsmandSettings;
+import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
 import net.osmand.plus.activities.MapActivity;
+import net.osmand.plus.base.PointImageDrawable;
 import net.osmand.plus.render.RenderingIcons;
+import net.osmand.plus.settings.backend.CommonPreference;
+import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.plus.transport.TransportStopRoute;
 import net.osmand.plus.transport.TransportStopType;
 import net.osmand.plus.views.OsmandMapLayer;
 import net.osmand.plus.views.OsmandMapTileView;
+import net.osmand.plus.views.layers.ContextMenuLayer.IContextMenuProvider;
 import net.osmand.plus.views.layers.geometry.GeometryWay;
 
 import java.io.IOException;
@@ -38,7 +42,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.TreeSet;
 
-public class TransportStopsLayer extends OsmandMapLayer implements ContextMenuLayer.IContextMenuProvider {
+public class TransportStopsLayer extends OsmandMapLayer implements IContextMenuProvider {
 
 	public static final String TRANSPORT_STOPS_OVER_MAP = "transportStops";
 
@@ -53,7 +57,7 @@ public class TransportStopsLayer extends OsmandMapLayer implements ContextMenuLa
 	private MapLayerData<List<TransportStop>> data;
 	private TransportStopRoute stopRoute = null;
 
-	private OsmandSettings.CommonPreference<Boolean> showTransportStops;
+	private CommonPreference<Boolean> showTransportStops;
 
 	private Path path;
 
@@ -180,10 +184,11 @@ public class TransportStopsLayer extends OsmandMapLayer implements ContextMenuLa
 	public void onPrepareBufferImage(Canvas canvas, RotatedTileBox tb, DrawSettings settings) {
 		List<TransportStop> objects = null;
 		boolean nightMode = settings.isNightMode();
+		OsmandApplication app = mapActivity.getMyApplication();
 		if (tb.getZoom() >= startZoomRoute) {
 			if (stopRoute != null) {
 				objects = stopRoute.route.getForwardStops();
-				int color = stopRoute.getColor(mapActivity.getMyApplication(), nightMode);
+				int color = stopRoute.getColor(app, nightMode);
 				attrs.paint.setColor(color);
 				attrs.updatePaints(view.getApplication(), settings, tb);
 				try {
@@ -216,8 +221,8 @@ public class TransportStopsLayer extends OsmandMapLayer implements ContextMenuLa
 		}
 
 		if (objects != null) {
-			float textScale = mapActivity.getMyApplication().getSettings().TEXT_SCALE.get();
-			float iconSize = getIconSize(mapActivity) * 3 / 2.5f * textScale;
+			float textScale = app.getSettings().TEXT_SCALE.get();
+			float iconSize = getIconSize(app);
 			QuadTree<QuadRect> boundIntersections = initBoundIntersections(tb);
 			List<TransportStop> fullObjects = new ArrayList<>();
 			for (TransportStop o : objects) {
@@ -227,7 +232,7 @@ public class TransportStopsLayer extends OsmandMapLayer implements ContextMenuLa
 				if (intersects(boundIntersections, x, y, iconSize, iconSize)) {
 					PointImageDrawable pointImageDrawable = PointImageDrawable.getOrCreate(mapActivity,
 							ContextCompat.getColor(mapActivity, R.color.transport_stop_icon_background),
-					true,false ,0, BackgroundType.SQUARE);
+							true, false, 0, BackgroundType.SQUARE);
 					pointImageDrawable.setAlpha(0.9f);
 					pointImageDrawable.drawSmallPoint(canvas, x, y, textScale);
 				} else {
@@ -291,7 +296,7 @@ public class TransportStopsLayer extends OsmandMapLayer implements ContextMenuLa
 	}
 
 	@Override
-	public boolean disableLongPressOnMap() {
+	public boolean disableLongPressOnMap(PointF point, RotatedTileBox tileBox) {
 		return false;
 	}
 
@@ -302,6 +307,11 @@ public class TransportStopsLayer extends OsmandMapLayer implements ContextMenuLa
 
 	@Override
 	public boolean runExclusiveAction(Object o, boolean unknownLocation) {
+		return false;
+	}
+
+	@Override
+	public boolean showMenuAction(@Nullable Object o) {
 		return false;
 	}
 

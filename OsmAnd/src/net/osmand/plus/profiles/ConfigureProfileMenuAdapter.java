@@ -6,17 +6,18 @@ import android.view.ViewGroup;
 import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.ColorRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.view.ContextThemeWrapper;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import net.osmand.PlatformUtil;
 import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
-import net.osmand.plus.settings.fragments.BaseSettingsFragment;
 import net.osmand.util.Algorithms;
 
 import org.apache.commons.logging.Log;
@@ -36,8 +37,8 @@ public class ConfigureProfileMenuAdapter extends AbstractProfileMenuAdapter<Conf
 	@Nullable
 	private ProfileSelectedListener profileSelectedListener;
 	private final OsmandApplication app;
-	@ColorRes
-	private int selectedIconColorRes;
+	@ColorInt
+	private int selectedIconColor;
 	private boolean bottomButton;
 	private String bottomButtonText;
 	private static final String BUTTON_ITEM = "button_item";
@@ -55,9 +56,10 @@ public class ConfigureProfileMenuAdapter extends AbstractProfileMenuAdapter<Conf
 		this.bottomButton = !Algorithms.isEmpty(bottomButtonText);
 		this.bottomButtonText = bottomButtonText;
 		this.nightMode = nightMode;
-		selectedIconColorRes = nightMode
+		int selectedIconColorRes = nightMode
 				? R.color.active_color_primary_dark
 				: R.color.active_color_primary_light;
+		selectedIconColor = ContextCompat.getColor(app, selectedIconColorRes);
 	}
 
 	public List<Object> getItems() {
@@ -105,7 +107,7 @@ public class ConfigureProfileMenuAdapter extends AbstractProfileMenuAdapter<Conf
 			holder.menuIcon.setVisibility(View.VISIBLE);
 			final ApplicationMode item = (ApplicationMode) obj;
 			holder.title.setText(item.toHumanString());
-			holder.descr.setText(BaseSettingsFragment.getAppModeDescription(app, item));
+			holder.descr.setText(ProfileDataUtils.getAppModeDescription(app, item));
 
 			holder.initSwitcher = true;
 			holder.compoundButton.setChecked(selectedItems.contains(item));
@@ -138,9 +140,9 @@ public class ConfigureProfileMenuAdapter extends AbstractProfileMenuAdapter<Conf
 		if (iconRes == 0 || iconRes == -1) {
 			iconRes = R.drawable.ic_action_world_globe;
 		}
-		selectedIconColorRes = mode.getIconColorInfo().getColor(nightMode);
+		selectedIconColor = mode.getProfileColor(nightMode);
 		if (selectedItems.contains(mode)) {
-			holder.icon.setImageDrawable(app.getUIUtilities().getIcon(iconRes, selectedIconColorRes));
+			holder.icon.setImageDrawable(app.getUIUtilities().getPaintedIcon(iconRes, selectedIconColor));
 		} else {
 			holder.icon.setImageDrawable(app.getUIUtilities().getIcon(iconRes, R.color.profile_icon_color_inactive));
 		}

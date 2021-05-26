@@ -6,6 +6,7 @@ import net.osmand.binary.StringBundle;
 import net.osmand.binary.StringBundleWriter;
 import net.osmand.binary.StringBundleXmlWriter;
 import net.osmand.data.QuadRect;
+import net.osmand.router.RouteColorize.ColorizationType;
 import net.osmand.util.Algorithms;
 
 import org.apache.commons.logging.Log;
@@ -52,14 +53,16 @@ public class GPXUtilities {
 	private static final String DEFAULT_ICON_NAME = "special_star";
 	private static final String BACKGROUND_TYPE_EXTENSION = "background";
 	private static final String PROFILE_TYPE_EXTENSION = "profile";
+	private static final String GAP_PROFILE_TYPE = "gap";
 	private static final String TRKPT_INDEX_EXTENSION = "trkpt_idx";
 
-	private final static String GPX_TIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss'Z'"; //$NON-NLS-1$
+	public final static String GPX_TIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss'Z'"; //$NON-NLS-1$
 	private final static String GPX_TIME_FORMAT_MILLIS = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"; //$NON-NLS-1$
 
 	private final static NumberFormat latLonFormat = new DecimalFormat("0.00#####", new DecimalFormatSymbols(
 			new Locale("EN", "US")));
-	private final static NumberFormat decimalFormat = new DecimalFormat("#.###", new DecimalFormatSymbols(
+	// speed, ele, hdop
+	private final static NumberFormat decimalFormat = new DecimalFormat("#.#", new DecimalFormatSymbols(
 			new Locale("EN", "US")));
 
 	public enum GPXColor {
@@ -70,6 +73,7 @@ public class GPXUtilities {
 		WHITE(0xFFFFFFFF),
 		RED(0xFFFF0000),
 		GREEN(0xFF00FF00),
+		DARKGREEN(0xFF006400),
 		BLUE(0xFF0000FF),
 		YELLOW(0xFFFFFF00),
 		CYAN(0xFF00FFFF),
@@ -104,11 +108,11 @@ public class GPXUtilities {
 	}
 
 	public interface GPXExtensionsWriter {
-		public void writeExtensions(XmlSerializer serializer);
+		void writeExtensions(XmlSerializer serializer);
 	}
 
 	public interface GPXExtensionsReader {
-		public boolean readExtensions(GPXFile res, XmlPullParser parser) throws Exception;
+		boolean readExtensions(GPXFile res, XmlPullParser parser) throws IOException, XmlPullParserException;
 	}
 
 	public static class GPXExtensions {
@@ -224,6 +228,9 @@ public class GPXUtilities {
 		public double hdop = Double.NaN;
 		public float heading = Float.NaN;
 		public boolean deleted = false;
+		public int speedColor = 0;
+		public int altitudeColor = 0;
+		public int slopeColor = 0;
 		public int colourARGB = 0;                    // point colour (used for altitude/speed colouring)
 		public double distance = 0.0;                // cumulative distance, if in a track
 
@@ -246,6 +253,9 @@ public class GPXUtilities {
 			this.hdop = wptPt.hdop;
 			this.heading = wptPt.heading;
 			this.deleted = wptPt.deleted;
+			this.speedColor = wptPt.speedColor;
+			this.altitudeColor = wptPt.altitudeColor;
+			this.slopeColor = wptPt.slopeColor;
 			this.colourARGB = wptPt.colourARGB;
 			this.distance = wptPt.distance;
 		}
@@ -308,6 +318,26 @@ public class GPXUtilities {
 			getExtensionsToWrite().put(ICON_NAME_EXTENSION, iconName);
 		}
 
+		public int getColor(ColorizationType type) {
+			if (type == ColorizationType.SPEED) {
+				return speedColor;
+			} else if (type == ColorizationType.ELEVATION) {
+				return altitudeColor;
+			} else {
+				return slopeColor;
+			}
+		}
+
+		public void setColor(ColorizationType type, int color) {
+			if (type == ColorizationType.SPEED) {
+				speedColor = color;
+			} else if (type == ColorizationType.ELEVATION) {
+				altitudeColor = color;
+			} else if (type == ColorizationType.SLOPE) {
+				slopeColor = color;
+			}
+		}
+
 		public String getBackgroundType() {
 			return getExtensionsToRead().get(BACKGROUND_TYPE_EXTENSION);
 		}
@@ -322,6 +352,20 @@ public class GPXUtilities {
 
 		public void setProfileType(String profileType) {
 			getExtensionsToWrite().put(PROFILE_TYPE_EXTENSION, profileType);
+		}
+
+		public boolean hasProfile() {
+			String profileType = getProfileType();
+			return profileType != null && !GAP_PROFILE_TYPE.equals(profileType);
+		}
+
+		public boolean isGap() {
+			String profileType = getProfileType();
+			return GAP_PROFILE_TYPE.equals(profileType);
+		}
+
+		public void setGap() {
+			setProfileType(GAP_PROFILE_TYPE);
 		}
 
 		public void removeProfileType() {
@@ -374,11 +418,16 @@ public class GPXUtilities {
 
 	public static class TrkSegment extends GPXExtensions {
 		public boolean generalSegment = false;
-
 		public List<WptPt> points = new ArrayList<>();
 
 		public Object renderer;
 
+		public List<RouteSegment> routeSegments = new ArrayList<>();
+		public List<RouteType> routeTypes = new ArrayList<>();
+
+		public boolean hasRoute() {
+			return !routeSegments.isEmpty() && !routeTypes.isEmpty();
+		}
 
 		public List<GPXTrackAnalysis> splitByDistance(double meters, boolean joinSegments) {
 			return split(getDistanceMetric(), getTimeSplit(), meters, joinSegments);
@@ -393,7 +442,6 @@ public class GPXUtilities {
 			splitSegment(metric, secondaryMetric, metricLimit, splitSegments, this, joinSegments);
 			return convert(splitSegments);
 		}
-
 	}
 
 	public static class Track extends GPXExtensions {
@@ -428,6 +476,10 @@ public class GPXUtilities {
 
 		public String getArticleLang() {
 			return getExtensionsToRead().get("article_lang");
+		}
+
+		public String getDescription() {
+			return getExtensionsToRead().get("desc");
 		}
 	}
 
@@ -581,6 +633,23 @@ public class GPXUtilities {
 			return avgSpeed > 0;
 		}
 
+		public boolean isColorizationTypeAvailable(ColorizationType colorizationType) {
+			if (colorizationType == ColorizationType.SPEED) {
+				return isSpeedSpecified();
+			} else if (colorizationType == ColorizationType.ELEVATION || colorizationType == ColorizationType.SLOPE) {
+				if (!isElevationSpecified()) {
+					return false;
+				}
+				for (Elevation elevation : elevationData) {
+					if (Float.isNaN(elevation.elevation)) {
+						return false;
+					}
+				}
+				return true;
+			} else {
+				return true;
+			}
+		}
 
 		public static GPXTrackAnalysis segment(long filetimestamp, TrkSegment segment) {
 			return new GPXTrackAnalysis().prepareInformation(filetimestamp, new SplitSegment(segment));
@@ -1061,6 +1130,15 @@ public class GPXUtilities {
 		return trackBounds;
 	}
 
+	public static QuadRect calculateTrackBounds(List<TrkSegment> segments) {
+		QuadRect trackBounds = new QuadRect(Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY,
+				Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
+		for (TrkSegment segment : segments) {
+			updateBounds(trackBounds, segment.points, 0);
+		}
+		return trackBounds;
+	}
+
 	public static void updateBounds(QuadRect trackBounds, List<WptPt> pts, int startIndex) {
 		for (int i = startIndex; i < pts.size(); i++) {
 			WptPt pt = pts.get(i);
@@ -1077,9 +1155,6 @@ public class GPXUtilities {
 		public List<Track> tracks = new ArrayList<>();
 		private List<WptPt> points = new ArrayList<>();
 		public List<Route> routes = new ArrayList<>();
-
-		public List<RouteSegment> routeSegments = new ArrayList<>();
-		public List<RouteType> routeTypes = new ArrayList<>();
 
 		public Exception error = null;
 		public String path = "";
@@ -1108,7 +1183,7 @@ public class GPXUtilities {
 		}
 
 		public boolean hasRoute() {
-			return !routeSegments.isEmpty() && !routeTypes.isEmpty();
+			return getNonEmptyTrkSegments(true).size() > 0;
 		}
 
 		public List<WptPt> getPoints() {
@@ -1218,7 +1293,7 @@ public class GPXUtilities {
 			GPXTrackAnalysis g = new GPXTrackAnalysis();
 			g.wptPoints = points.size();
 			g.wptCategoryNames = getWaypointCategories(true);
-			List<SplitSegment> splitSegments = new ArrayList<GPXUtilities.SplitSegment>();
+			List<SplitSegment> splitSegments = new ArrayList<>();
 			for (int i = 0; i < tracks.size(); i++) {
 				Track subtrack = tracks.get(i);
 				for (TrkSegment segment : subtrack.segments) {
@@ -1230,14 +1305,27 @@ public class GPXUtilities {
 					}
 				}
 			}
-			g.prepareInformation(fileTimestamp, splitSegments.toArray(new SplitSegment[splitSegments.size()]));
+			g.prepareInformation(fileTimestamp, splitSegments.toArray(new SplitSegment[0]));
 			return g;
+		}
+
+		public boolean containsRoutePoint(WptPt point) {
+			return getRoutePoints().contains(point);
 		}
 
 		public List<WptPt> getRoutePoints() {
 			List<WptPt> points = new ArrayList<>();
 			for (int i = 0; i < routes.size(); i++) {
 				Route rt = routes.get(i);
+				points.addAll(rt.points);
+			}
+			return points;
+		}
+
+		public List<WptPt> getRoutePoints(int routeIndex) {
+			List<WptPt> points = new ArrayList<>();
+			if (routes.size() > routeIndex) {
+				Route rt = routes.get(routeIndex);
 				points.addAll(rt.points);
 			}
 			return points;
@@ -1318,15 +1406,16 @@ public class GPXUtilities {
 			return pt;
 		}
 
-		public TrkSegment getNonEmptyTrkSegment() {
-			for (GPXUtilities.Track t : tracks) {
+		public List<TrkSegment> getNonEmptyTrkSegments(boolean routesOnly) {
+			List<TrkSegment> segments = new ArrayList<>();
+			for (Track t : tracks) {
 				for (TrkSegment s : t.segments) {
-					if (s.points.size() > 0) {
-						return s;
+					if (!s.generalSegment && s.points.size() > 0 && (!routesOnly || s.hasRoute())) {
+						segments.add(s);
 					}
 				}
 			}
-			return null;
+			return segments;
 		}
 
 		public void addTrkSegment(List<WptPt> points) {
@@ -1365,8 +1454,8 @@ public class GPXUtilities {
 			return false;
 		}
 
-		public void addRoutePoints(List<WptPt> points) {
-			if (routes.size() == 0) {
+		public void addRoutePoints(List<WptPt> points, boolean addRoute) {
+			if (routes.size() == 0 || addRoute) {
 				Route route = new Route();
 				routes.add(route);
 			}
@@ -1608,7 +1697,7 @@ public class GPXUtilities {
 					bottom = Math.min(bottom, p.getLatitude());
 				}
 			}
-			for (GPXUtilities.Route route : routes) {
+			for (Route route : routes) {
 				for (WptPt p : route.points) {
 					if (left == 0 && right == 0) {
 						left = p.getLongitude();
@@ -1626,16 +1715,16 @@ public class GPXUtilities {
 			return new QuadRect(left, top, right, bottom);
 		}
 
-		public int getGradientScaleColor(String gradientScaleType, int defColor) {
+		public int[] getGradientScaleColor(String gradientScaleType) {
 			String clrValue = null;
 			if (extensions != null) {
 				clrValue = extensions.get(gradientScaleType);
 			}
-			return parseColor(clrValue, defColor);
+			return Algorithms.stringToGradientPalette(clrValue);
 		}
 
-		public void setGradientScaleColor(String gradientScaleType, int gradientScaleColor) {
-			getExtensionsToWrite().put(gradientScaleType, Algorithms.colorToString(gradientScaleColor));
+		public void setGradientScaleColor(String gradientScaleType, int[] gradientScalePalette) {
+			getExtensionsToWrite().put(gradientScaleType, Algorithms.gradientPaletteToString(gradientScalePalette));
 		}
 
 		public String getGradientScaleType() {
@@ -1720,7 +1809,7 @@ public class GPXUtilities {
 
 	public static String asString(GPXFile file) {
 		final Writer writer = new StringWriter();
-		GPXUtilities.writeGpx(writer, file);
+		writeGpx(writer, file);
 		return writer.toString();
 	}
 
@@ -1763,6 +1852,7 @@ public class GPXUtilities {
 				serializer.attribute(null, "creator", file.author); //$NON-NLS-1$
 			}
 			serializer.attribute(null, "xmlns", "http://www.topografix.com/GPX/1/1"); //$NON-NLS-1$ //$NON-NLS-2$
+			serializer.attribute(null, "xmlns:osmand", "https://osmand.net");
 			serializer.attribute(null, "xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
 			serializer.attribute(null, "xsi:schemaLocation",
 					"http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd");
@@ -1794,24 +1884,10 @@ public class GPXUtilities {
 			}
 			serializer.endTag(null, "metadata");
 
-
-			for (Track track : file.tracks) {
-				if (!track.generalTrack) {
-					serializer.startTag(null, "trk"); //$NON-NLS-1$
-					writeNotNullText(serializer, "name", track.name);
-					writeNotNullText(serializer, "desc", track.desc);
-					for (TrkSegment segment : track.segments) {
-						serializer.startTag(null, "trkseg"); //$NON-NLS-1$
-						for (WptPt p : segment.points) {
-							serializer.startTag(null, "trkpt"); //$NON-NLS-1$
-							writeWpt(format, serializer, p);
-							serializer.endTag(null, "trkpt"); //$NON-NLS-1$
-						}
-						serializer.endTag(null, "trkseg"); //$NON-NLS-1$
-					}
-					writeExtensions(serializer, track);
-					serializer.endTag(null, "trk"); //$NON-NLS-1$
-				}
+			for (WptPt l : file.points) {
+				serializer.startTag(null, "wpt"); //$NON-NLS-1$
+				writeWpt(format, serializer, l);
+				serializer.endTag(null, "wpt"); //$NON-NLS-1$
 			}
 
 			for (Route track : file.routes) {
@@ -1828,13 +1904,27 @@ public class GPXUtilities {
 				serializer.endTag(null, "rte"); //$NON-NLS-1$
 			}
 
-			for (WptPt l : file.points) {
-				serializer.startTag(null, "wpt"); //$NON-NLS-1$
-				writeWpt(format, serializer, l);
-				serializer.endTag(null, "wpt"); //$NON-NLS-1$
+			for (Track track : file.tracks) {
+				if (!track.generalTrack) {
+					serializer.startTag(null, "trk"); //$NON-NLS-1$
+					writeNotNullText(serializer, "name", track.name);
+					writeNotNullText(serializer, "desc", track.desc);
+					for (TrkSegment segment : track.segments) {
+						serializer.startTag(null, "trkseg"); //$NON-NLS-1$
+						for (WptPt p : segment.points) {
+							serializer.startTag(null, "trkpt"); //$NON-NLS-1$
+							writeWpt(format, serializer, p);
+							serializer.endTag(null, "trkpt"); //$NON-NLS-1$
+						}
+						assignRouteExtensionWriter(segment);
+						writeExtensions(serializer, segment);
+						serializer.endTag(null, "trkseg"); //$NON-NLS-1$
+					}
+					writeExtensions(serializer, track);
+					serializer.endTag(null, "trk"); //$NON-NLS-1$
+				}
 			}
 
-			assignRouteExtensionWriter(file);
 			writeExtensions(serializer, file);
 
 			serializer.endTag(null, "gpx"); //$NON-NLS-1$
@@ -1847,19 +1937,19 @@ public class GPXUtilities {
 		return null;
 	}
 
-	private static void assignRouteExtensionWriter(final GPXFile gpxFile) {
-		if (gpxFile.hasRoute() && gpxFile.getExtensionsWriter() == null) {
-			gpxFile.setExtensionsWriter(new GPXExtensionsWriter() {
+	private static void assignRouteExtensionWriter(final TrkSegment segment) {
+		if (segment.hasRoute() && segment.getExtensionsWriter() == null) {
+			segment.setExtensionsWriter(new GPXExtensionsWriter() {
 				@Override
 				public void writeExtensions(XmlSerializer serializer) {
 					StringBundle bundle = new StringBundle();
 					List<StringBundle> segmentsBundle = new ArrayList<>();
-					for (RouteSegment segment : gpxFile.routeSegments) {
+					for (RouteSegment segment : segment.routeSegments) {
 						segmentsBundle.add(segment.toStringBundle());
 					}
 					bundle.putBundleList("route", "segment", segmentsBundle);
 					List<StringBundle> typesBundle = new ArrayList<>();
-					for (RouteType routeType : gpxFile.routeTypes) {
+					for (RouteType routeType : segment.routeTypes) {
 						typesBundle.add(routeType.toStringBundle());
 					}
 					bundle.putBundleList("types", "type", typesBundle);
@@ -1892,7 +1982,7 @@ public class GPXUtilities {
 		}
 	}
 
-	private static void writeNotNullText(XmlSerializer serializer, String tag, String value) throws IOException {
+	public static void writeNotNullText(XmlSerializer serializer, String tag, String value) throws IOException {
 		if (value != null) {
 			serializer.startTag(null, tag);
 			serializer.text(value);
@@ -1901,13 +1991,16 @@ public class GPXUtilities {
 	}
 
 	private static void writeExtensions(XmlSerializer serializer, GPXExtensions p) throws IOException {
-		Map<String, String> extensionsToRead = p.getExtensionsToRead();
+		writeExtensions(serializer, p.getExtensionsToRead(), p);
+	}
+
+	private static void writeExtensions(XmlSerializer serializer, Map<String, String> extensions, GPXExtensions p) throws IOException {
 		GPXExtensionsWriter extensionsWriter = p.getExtensionsWriter();
-		if (!extensionsToRead.isEmpty() || extensionsWriter != null) {
+		if (!extensions.isEmpty() || extensionsWriter != null) {
 			serializer.startTag(null, "extensions");
-			if (!extensionsToRead.isEmpty()) {
-				for (Entry<String, String> s : extensionsToRead.entrySet()) {
-					writeNotNullText(serializer, s.getKey(), s.getValue());
+			if (!extensions.isEmpty()) {
+				for (Entry<String, String> s : extensions.entrySet()) {
+					writeNotNullText(serializer,"osmand:" + s.getKey(), s.getValue());
 				}
 			}
 			if (extensionsWriter != null) {
@@ -1943,7 +2036,20 @@ public class GPXUtilities {
 		if (!Float.isNaN(p.heading)) {
 			p.getExtensionsToWrite().put("heading", String.valueOf(Math.round(p.heading)));
 		}
-		writeExtensions(serializer, p);
+		Map<String, String> extensions = p.getExtensionsToRead();
+		if (!"rtept".equals(serializer.getName())) {
+			// Leave "profile" and "trkpt" tags for rtept only
+			extensions.remove(PROFILE_TYPE_EXTENSION);
+			extensions.remove(TRKPT_INDEX_EXTENSION);
+			writeExtensions(serializer, extensions, p);
+		} else {
+			// Remove "gap" profile
+			String profile = extensions.get(PROFILE_TYPE_EXTENSION);
+			if (GAP_PROFILE_TYPE.equals(profile)) {
+				extensions.remove(PROFILE_TYPE_EXTENSION);
+			}
+			writeExtensions(serializer, p);
+		}
 	}
 
 	private static void writeAuthor(XmlSerializer serializer, Author author) throws IOException {
@@ -1996,7 +2102,7 @@ public class GPXUtilities {
 		}
 	}
 
-	private static String readText(XmlPullParser parser, String key) throws XmlPullParserException, IOException {
+	public static String readText(XmlPullParser parser, String key) throws XmlPullParserException, IOException {
 		int tok;
 		StringBuilder text = null;
 		while ((tok = parser.next()) != XmlPullParser.END_DOCUMENT) {
@@ -2057,36 +2163,36 @@ public class GPXUtilities {
 		return time;
 	}
 
-	public static GPXFile loadGPXFile(File f) {
+	public static GPXFile loadGPXFile(File file) {
+		return loadGPXFile(file, null);
+	}
+
+	public static GPXFile loadGPXFile(File file, GPXExtensionsReader extensionsReader) {
 		FileInputStream fis = null;
 		try {
-			fis = new FileInputStream(f);
-			GPXFile file = loadGPXFile(fis);
-			file.path = f.getAbsolutePath();
-			file.modifiedTime = f.lastModified();
+			fis = new FileInputStream(file);
+			GPXFile gpxFile = loadGPXFile(fis, extensionsReader);
+			gpxFile.path = file.getAbsolutePath();
+			gpxFile.modifiedTime = file.lastModified();
 
-			try {
-				fis.close();
-			} catch (IOException e) {
-			}
-			return file;
+			Algorithms.closeStream(fis);
+			return gpxFile;
 		} catch (IOException e) {
-			GPXFile res = new GPXFile(null);
-			res.path = f.getAbsolutePath();
-			log.error("Error reading gpx " + res.path, e); //$NON-NLS-1$
-			res.error = e;
-			return res;
+			GPXFile gpxFile = new GPXFile(null);
+			gpxFile.path = file.getAbsolutePath();
+			log.error("Error reading gpx " + gpxFile.path, e); //$NON-NLS-1$
+			gpxFile.error = e;
+			return gpxFile;
 		} finally {
-			try {
-				if (fis != null)
-					fis.close();
-			} catch (IOException ignore) {
-				// ignore
-			}
+			Algorithms.closeStream(fis);
 		}
 	}
 
-	public static GPXFile loadGPXFile(InputStream f) {
+	public static GPXFile loadGPXFile(InputStream stream) {
+		return loadGPXFile(stream, null);
+	}
+
+	public static GPXFile loadGPXFile(InputStream stream, GPXExtensionsReader extensionsReader) {
 		GPXFile gpxFile = new GPXFile(null);
 		SimpleDateFormat format = new SimpleDateFormat(GPX_TIME_FORMAT, Locale.US);
 		format.setTimeZone(TimeZone.getTimeZone("UTC"));
@@ -2094,15 +2200,16 @@ public class GPXUtilities {
 		formatMillis.setTimeZone(TimeZone.getTimeZone("UTC"));
 		try {
 			XmlPullParser parser = PlatformUtil.newXMLPullParser();
-			parser.setInput(getUTF8Reader(f));
+			parser.setInput(getUTF8Reader(stream));
 			Track routeTrack = new Track();
 			TrkSegment routeTrackSegment = new TrkSegment();
 			routeTrack.segments.add(routeTrackSegment);
 			Stack<GPXExtensions> parserState = new Stack<>();
+			TrkSegment firstSegment = null;
 			boolean extensionReadMode = false;
 			boolean routePointExtension = false;
-			List<RouteSegment> routeSegments = gpxFile.routeSegments;
-			List<RouteType> routeTypes = gpxFile.routeTypes;
+			List<RouteSegment> routeSegments = new ArrayList<>();
+			List<RouteType> routeTypes = new ArrayList<>();
 			boolean routeExtension = false;
 			boolean typesExtension = false;
 			parserState.push(gpxFile);
@@ -2141,17 +2248,19 @@ public class GPXUtilities {
 								break;
 
 							default:
-								Map<String, String> values = readTextMap(parser, tag);
-								if (values.size() > 0) {
-									for (Entry<String, String> entry : values.entrySet()) {
-										String t = entry.getKey().toLowerCase();
-										String value = entry.getValue();
-										parse.getExtensionsToWrite().put(t, value);
-										if (tag.equals("speed") && parse instanceof WptPt) {
-											try {
-												((WptPt) parse).speed = Float.parseFloat(value);
-											} catch (NumberFormatException e) {
-												log.debug(e.getMessage(), e);
+								if (extensionsReader == null || !extensionsReader.readExtensions(gpxFile, parser)) {
+									Map<String, String> values = readTextMap(parser, tag);
+									if (values.size() > 0) {
+										for (Entry<String, String> entry : values.entrySet()) {
+											String t = entry.getKey().toLowerCase();
+											String value = entry.getValue();
+											parse.getExtensionsToWrite().put(t, value);
+											if (tag.equals("speed") && parse instanceof WptPt) {
+												try {
+													((WptPt) parse).speed = Float.parseFloat(value);
+												} catch (NumberFormatException e) {
+													log.debug(e.getMessage(), e);
+												}
 											}
 										}
 									}
@@ -2403,6 +2512,16 @@ public class GPXUtilities {
 						assert pop instanceof Route;
 					} else if (tag.equals("trkseg")) {
 						Object pop = parserState.pop();
+						if (pop instanceof TrkSegment) {
+							TrkSegment segment = (TrkSegment) pop;
+							segment.routeSegments = routeSegments;
+							segment.routeTypes = routeTypes;
+							routeSegments = new ArrayList<>();
+							routeTypes = new ArrayList<>();
+							if (firstSegment == null) {
+								firstSegment = segment;
+							}
+						}
 						assert pop instanceof TrkSegment;
 					} else if (tag.equals("rpt")) {
 						Object pop = parserState.pop();
@@ -2413,6 +2532,11 @@ public class GPXUtilities {
 			if (!routeTrackSegment.points.isEmpty()) {
 				gpxFile.tracks.add(routeTrack);
 			}
+			if (!routeSegments.isEmpty() && !routeTypes.isEmpty() && firstSegment != null) {
+				firstSegment.routeSegments = routeSegments;
+				firstSegment.routeTypes = routeTypes;
+			}
+		gpxFile.addGeneralTrack();
 		} catch (Exception e) {
 			gpxFile.error = e;
 			log.error("Error reading gpx", e); //$NON-NLS-1$
@@ -2485,7 +2609,7 @@ public class GPXUtilities {
 			if (maxlat == null) {
 				maxlat = parser.getAttributeValue("", "maxLat");
 			}
-			if (maxlat == null) {
+			if (maxlon == null) {
 				maxlon = parser.getAttributeValue("", "maxLon");
 			}
 

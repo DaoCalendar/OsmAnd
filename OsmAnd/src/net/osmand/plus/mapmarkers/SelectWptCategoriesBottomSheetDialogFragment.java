@@ -13,8 +13,6 @@ import net.osmand.GPXUtilities.WptPt;
 import net.osmand.IndexConstants;
 import net.osmand.plus.GpxSelectionHelper;
 import net.osmand.plus.GpxSelectionHelper.SelectedGpxFile;
-import net.osmand.plus.MapMarkersHelper;
-import net.osmand.plus.MapMarkersHelper.MapMarkersGroup;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
 import net.osmand.plus.base.MenuBottomSheetDialogFragment;
@@ -22,6 +20,8 @@ import net.osmand.plus.base.bottomsheetmenu.BottomSheetItemWithCompoundButton;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.DividerItem;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.ShortDescriptionItem;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.TitleItem;
+import net.osmand.plus.mapmarkers.MapMarkersGroup;
+import net.osmand.plus.mapmarkers.MapMarkersHelper;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -83,7 +83,8 @@ public class SelectWptCategoriesBottomSheetDialogFragment extends MenuBottomShee
 
 		Map<String, List<WptPt>> pointsByCategories = gpxFile.getPointsByCategories();
 
-		for (String category : pointsByCategories.keySet()) {
+		for (Map.Entry<String, List<WptPt>> entry : pointsByCategories.entrySet()) {
+			String category = entry.getKey();
 			final BottomSheetItemWithCompoundButton[] categoryItem = new BottomSheetItemWithCompoundButton[1];
 			categoryItem[0] = (BottomSheetItemWithCompoundButton) new BottomSheetItemWithCompoundButton.Builder()
 					.setChecked(!isUpdateMode || (categories != null && categories.contains(category)))
@@ -98,9 +99,9 @@ public class SelectWptCategoriesBottomSheetDialogFragment extends MenuBottomShee
 						}
 					})
 					.setCompoundButtonColorId(activeColorResId)
-					.setDescription(String.valueOf(pointsByCategories.get(category).size()))
+					.setDescription(String.valueOf(entry.getValue().size()))
 					.setIcon(getContentIcon(R.drawable.ic_action_folder))
-					.setTitle(category.equals("") ? getString(R.string.shared_string_waypoints) : category)
+					.setTitle(category.isEmpty() ? getString(R.string.shared_string_waypoints) : category)
 					.setLayoutId(R.layout.bottom_sheet_item_with_descr_and_checkbox_56dp)
 					.setTag(category)
 					.setOnClickListener(new View.OnClickListener() {

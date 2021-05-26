@@ -7,15 +7,19 @@ import android.graphics.BitmapFactory;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 
 import net.osmand.GPXUtilities.WptPt;
+import net.osmand.Location;
+import net.osmand.ResultMatcher;
+import net.osmand.binary.RouteDataObject;
 import net.osmand.plus.FavouritesDbHelper;
 import net.osmand.plus.OsmandApplication;
-import net.osmand.plus.settings.backend.OsmandSettings.BooleanPreference;
-import net.osmand.plus.settings.backend.OsmandSettings.OsmandPreference;
 import net.osmand.plus.R;
 import net.osmand.plus.parkingpoint.ParkingPositionPlugin;
+import net.osmand.plus.settings.backend.BooleanPreference;
+import net.osmand.plus.settings.backend.OsmandPreference;
 import net.osmand.util.Algorithms;
 
 import java.io.Serializable;
@@ -24,6 +28,7 @@ import java.io.Serializable;
 public class FavouritePoint implements Serializable, LocationPoint {
 	private static final long serialVersionUID = 729654300829771466L;
 
+	public static final String PASSED_TIMESTAMP = "passed_timestamp";
 	private static final String HIDDEN = "hidden";
 	private static final String ADDRESS_EXTENSION = "address";
 	public static final BackgroundType DEFAULT_BACKGROUND_TYPE = BackgroundType.CIRCLE;
@@ -41,6 +46,9 @@ public class FavouritePoint implements Serializable, LocationPoint {
 	private boolean visible = true;
 	private SpecialPointType specialPointType = null;
 	private BackgroundType backgroundType = null;
+	private double altitude = Double.NaN;
+	private long timestamp;
+	private long passedTimestamp;
 
 	public FavouritePoint() {
 	}
@@ -49,10 +57,24 @@ public class FavouritePoint implements Serializable, LocationPoint {
 		this.latitude = latitude;
 		this.longitude = longitude;
 		this.category = category;
-		if(name == null) {
+		if (name == null) {
 			name = "";
 		}
 		this.name = name;
+		timestamp = System.currentTimeMillis();
+		initPersonalType();
+	}
+
+	public FavouritePoint(double latitude, double longitude, String name, String category, double altitude, long timestamp) {
+		this.latitude = latitude;
+		this.longitude = longitude;
+		this.category = category;
+		if (name == null) {
+			name = "";
+		}
+		this.name = name;
+		this.altitude = altitude;
+		this.timestamp = timestamp != 0 ? timestamp : System.currentTimeMillis();
 		initPersonalType();
 	}
 
@@ -68,17 +90,49 @@ public class FavouritePoint implements Serializable, LocationPoint {
 		this.address = favouritePoint.address;
 		this.iconId = favouritePoint.iconId;
 		this.backgroundType = favouritePoint.backgroundType;
+		this.altitude = favouritePoint.altitude;
+		this.timestamp = favouritePoint.timestamp;
+		this.passedTimestamp = favouritePoint.passedTimestamp;
 		initPersonalType();
 	}
 
 	private void initPersonalType() {
-		if(FavouritesDbHelper.FavoriteGroup.PERSONAL_CATEGORY.equals(category)) {
-			for(SpecialPointType p : SpecialPointType.values()) {
-				if(p.typeName.equals(this.name)) {
+		if (FavouritesDbHelper.FavoriteGroup.PERSONAL_CATEGORY.equals(category)) {
+			for (SpecialPointType p : SpecialPointType.values()) {
+				if (p.typeName.equals(this.name)) {
 					this.specialPointType = p;
 				}
 			}
 		}
+	}
+
+	public void initAltitude(OsmandApplication app) {
+		initAltitude(app, null);
+	}
+
+	public void initAltitude(OsmandApplication app, final Runnable callback) {
+		Location location = new Location("", latitude, longitude);
+		app.getLocationProvider().getRouteSegment(location, null, false,
+				new ResultMatcher<RouteDataObject>() {
+
+					@Override
+					public boolean publish(RouteDataObject routeDataObject) {
+						if (routeDataObject != null) {
+							LatLon latLon = new LatLon(latitude, longitude);
+							routeDataObject.calculateHeightArray(latLon);
+							altitude = routeDataObject.heightByCurrentLocation;
+						}
+						if (callback != null) {
+							callback.run();
+						}
+						return true;
+					}
+
+					@Override
+					public boolean isCancelled() {
+						return false;
+					}
+				});
 	}
 
 	public SpecialPointType getSpecialPointType() {
@@ -86,9 +140,10 @@ public class FavouritePoint implements Serializable, LocationPoint {
 	}
 
 	public int getColor() {
-			return color;
+		return color;
 	}
 
+	@Nullable
 	public String getAddress() {
 		return address;
 	}
@@ -169,6 +224,30 @@ public class FavouritePoint implements Serializable, LocationPoint {
 		this.longitude = longitude;
 	}
 
+	public double getAltitude() {
+		return altitude;
+	}
+
+	public void setAltitude(double altitude) {
+		this.altitude = altitude;
+	}
+
+	public long getTimestamp() {
+		return timestamp;
+	}
+
+	public void setTimestamp(long timestamp) {
+		this.timestamp = timestamp;
+	}
+
+	public long getPassedTimestamp() {
+		return passedTimestamp;
+	}
+
+	public void setPassedTimestamp(long passedTimestamp) {
+		this.passedTimestamp = passedTimestamp;
+	}
+
 	public String getCategory() {
 		return category;
 	}
@@ -198,7 +277,7 @@ public class FavouritePoint implements Serializable, LocationPoint {
 		initPersonalType();
 	}
 
-	public String getDescription () {
+	public String getDescription() {
 		return description;
 	}
 
@@ -254,7 +333,11 @@ public class FavouritePoint implements Serializable, LocationPoint {
 		} else if (!originObjectName.equals(fp.originObjectName))
 			return false;
 
-		return (this.latitude == fp.latitude) && (this.longitude == fp.longitude);
+		return (this.latitude == fp.latitude)
+				&& (this.longitude == fp.longitude)
+				&& (this.altitude == fp.altitude)
+				&& (this.timestamp == fp.timestamp)
+				&& (this.passedTimestamp == fp.passedTimestamp);
 	}
 
 	@Override
@@ -263,6 +346,9 @@ public class FavouritePoint implements Serializable, LocationPoint {
 		int result = 1;
 		result = prime * result + (int) Math.floor(latitude * 10000);
 		result = prime * result + (int) Math.floor(longitude * 10000);
+		result = prime * result + (int) Math.floor(altitude * 10000);
+		result = prime * result + (int) (timestamp ^ (timestamp >>> 32));
+		result = prime * result + (int) (passedTimestamp ^ (passedTimestamp >>> 32));
 		result = prime * result + ((name == null) ? 0 : name.hashCode());
 		result = prime * result + ((category == null) ? 0 : category.hashCode());
 		result = prime * result + ((description == null) ? 0 : description.hashCode());
@@ -287,7 +373,9 @@ public class FavouritePoint implements Serializable, LocationPoint {
 			this.iconId = iconId;
 		}
 
-		public String getCategory() { return FavouritesDbHelper.FavoriteGroup.PERSONAL_CATEGORY; }
+		public String getCategory() {
+			return FavouritesDbHelper.FavoriteGroup.PERSONAL_CATEGORY;
+		}
 
 		public String getName() {
 			return typeName;
@@ -381,11 +469,14 @@ public class FavouritePoint implements Serializable, LocationPoint {
 		if (name == null) {
 			name = "";
 		}
-		FavouritePoint fp;
-			fp = new FavouritePoint(pt.lat, pt.lon, name, categoryName);
+		FavouritePoint fp = new FavouritePoint(pt.lat, pt.lon, name, categoryName, pt.ele, pt.time);
 		fp.setDescription(pt.desc);
 		if (pt.comment != null) {
 			fp.setOriginObjectName(pt.comment);
+		}
+		if (pt.getExtensionsToWrite().containsKey(PASSED_TIMESTAMP)) {
+			String time = pt.getExtensionsToWrite().get(PASSED_TIMESTAMP);
+			fp.setPassedTimestamp(Algorithms.parseLongSilently(time, 0));
 		}
 		fp.setColor(pt.getColor(0));
 		fp.setVisible(!pt.getExtensionsToRead().containsKey(HIDDEN));
@@ -403,11 +494,16 @@ public class FavouritePoint implements Serializable, LocationPoint {
 		WptPt pt = new WptPt();
 		pt.lat = getLatitude();
 		pt.lon = getLongitude();
+		pt.ele = getAltitude();
+		pt.time = getTimestamp();
 		if (!isVisible()) {
 			pt.getExtensionsToWrite().put(HIDDEN, "true");
 		}
 		if (isAddressSpecified()) {
 			pt.getExtensionsToWrite().put(ADDRESS_EXTENSION, getAddress());
+		}
+		if (getPassedTimestamp() != 0) {
+			pt.getExtensionsToWrite().put(PASSED_TIMESTAMP, String.valueOf(getPassedTimestamp()));
 		}
 		if (iconId != 0) {
 			pt.setIconName(getIconEntryName(ctx).substring(3));

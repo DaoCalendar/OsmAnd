@@ -16,6 +16,8 @@ import android.os.Build;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.UiThread;
+import androidx.annotation.WorkerThread;
 import androidx.appcompat.app.AlertDialog;
 
 import net.osmand.AndroidUtils;
@@ -28,21 +30,26 @@ import net.osmand.map.OsmandRegions.RegionTranslation;
 import net.osmand.map.WorldRegion;
 import net.osmand.osm.AbstractPoiType;
 import net.osmand.osm.MapPoiTypes;
-import net.osmand.plus.activities.DayNightHelper;
 import net.osmand.plus.activities.LocalIndexHelper;
 import net.osmand.plus.activities.LocalIndexInfo;
 import net.osmand.plus.activities.SavingTrackHelper;
+import net.osmand.plus.backup.BackupHelper;
 import net.osmand.plus.base.MapViewTrackingUtilities;
 import net.osmand.plus.download.DownloadActivity;
 import net.osmand.plus.download.ui.AbstractLoadLocalIndexTask;
 import net.osmand.plus.helpers.AvoidSpecificRoads;
+import net.osmand.plus.helpers.DayNightHelper;
 import net.osmand.plus.helpers.LockHelper;
 import net.osmand.plus.helpers.WaypointHelper;
-import net.osmand.plus.inapp.InAppPurchaseHelper;
+import net.osmand.plus.inapp.InAppPurchaseHelperImpl;
 import net.osmand.plus.liveupdates.LiveUpdatesHelper;
 import net.osmand.plus.mapmarkers.MapMarkersDbHelper;
+import net.osmand.plus.mapmarkers.MapMarkersHelper;
 import net.osmand.plus.monitoring.LiveMonitoringHelper;
 import net.osmand.plus.monitoring.OsmandMonitoringPlugin;
+import net.osmand.plus.onlinerouting.OnlineRoutingHelper;
+import net.osmand.plus.openplacereviews.OprAuthHelper;
+import net.osmand.plus.osmedit.oauth.OsmOAuthHelper;
 import net.osmand.plus.poi.PoiFiltersHelper;
 import net.osmand.plus.quickaction.QuickActionRegistry;
 import net.osmand.plus.render.MapRenderRepositories;
@@ -55,7 +62,7 @@ import net.osmand.plus.routing.TransportRoutingHelper;
 import net.osmand.plus.search.QuickSearchHelper;
 import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.plus.settings.backend.OsmandSettings;
-import net.osmand.plus.settings.backend.SettingsHelper;
+import net.osmand.plus.settings.backend.backup.SettingsHelper;
 import net.osmand.plus.views.corenative.NativeCoreContext;
 import net.osmand.plus.voice.CommandPlayer;
 import net.osmand.plus.voice.CommandPlayerException;
@@ -64,6 +71,8 @@ import net.osmand.plus.voice.JSTTSCommandPlayerImpl;
 import net.osmand.plus.voice.MediaCommandPlayerImpl;
 import net.osmand.plus.voice.TTSCommandPlayerImpl;
 import net.osmand.plus.wikivoyage.data.TravelDbHelper;
+import net.osmand.plus.wikivoyage.data.TravelHelper;
+import net.osmand.plus.wikivoyage.data.TravelObfHelper;
 import net.osmand.render.RenderingRulesStorage;
 import net.osmand.router.RoutingConfiguration;
 import net.osmand.util.Algorithms;
@@ -83,12 +92,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 
-import btools.routingapp.BRouterServiceConnection;
+import btools.routingapp.IBRouterService;
 
 import static net.osmand.plus.AppVersionUpgradeOnInit.LAST_APP_VERSION;
 import static net.osmand.plus.liveupdates.LiveUpdatesHelper.getPendingIntent;
+import static net.osmand.plus.liveupdates.LiveUpdatesHelper.preferenceForLocalIndex;
 import static net.osmand.plus.liveupdates.LiveUpdatesHelper.preferenceLastCheck;
-import static net.osmand.plus.liveupdates.LiveUpdatesHelper.preferenceLiveUpdatesOn;
 import static net.osmand.plus.liveupdates.LiveUpdatesHelper.preferenceTimeOfDayToUpdate;
 import static net.osmand.plus.liveupdates.LiveUpdatesHelper.preferenceUpdateFrequency;
 import static net.osmand.plus.liveupdates.LiveUpdatesHelper.runLiveUpdate;
@@ -103,7 +112,7 @@ public class AppInitializer implements IProgress {
 	private static final String VECTOR_INDEXES_CHECK = "VECTOR_INDEXES_CHECK"; //$NON-NLS-1$
 	private static final String EXCEPTION_FILE_SIZE = "EXCEPTION_FS"; //$NON-NLS-1$
 
-	public static final String LATEST_CHANGES_URL = "https://osmand.net/blog/osmand-3-8-released";
+	public static final String LATEST_CHANGES_URL = "https://osmand.net/blog/osmand-3-9-released";
 //	public static final String LATEST_CHANGES_URL = null; // not enough to read
 	public static final int APP_EXIT_CODE = 4;
 	public static final String APP_EXIT_KEY = "APP_EXIT_KEY";
@@ -130,8 +139,13 @@ public class AppInitializer implements IProgress {
 
 	public interface AppInitializeListener {
 
+		@WorkerThread
+		void onStart(AppInitializer init);
+
+		@UiThread
 		void onProgress(AppInitializer init, InitEvents event);
 
+		@UiThread
 		void onFinish(AppInitializer init);
 	}
 	
@@ -415,20 +429,16 @@ public class AppInitializer implements IProgress {
 		if (osmandSettings.FOLLOW_THE_ROUTE.get()) {
 			ApplicationMode savedMode = osmandSettings.readApplicationMode();
 			if (!osmandSettings.APPLICATION_MODE.get().getStringKey().equals(savedMode.getStringKey())) {
-				osmandSettings.APPLICATION_MODE.set(savedMode);
+				osmandSettings.setApplicationMode(savedMode);
 			}
 		} else {
-			osmandSettings.APPLICATION_MODE.set(osmandSettings.DEFAULT_APPLICATION_MODE.get());
+			osmandSettings.setApplicationMode(osmandSettings.DEFAULT_APPLICATION_MODE.get());
 		}
 		startTime = System.currentTimeMillis();
-		try {
-			app.bRouterServiceConnection = startupInit(BRouterServiceConnection.connect(app), BRouterServiceConnection.class);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
 		getLazyRoutingConfig();
 		app.applyTheme(app);
-		app.inAppPurchaseHelper = startupInit(new InAppPurchaseHelper(app), InAppPurchaseHelper.class);
+		startupInit(app.reconnectToBRouter(), IBRouterService.class);
+		app.inAppPurchaseHelper = startupInit(new InAppPurchaseHelperImpl(app), InAppPurchaseHelperImpl.class);
 		app.poiTypes = startupInit(MapPoiTypes.getDefaultNoInit(), MapPoiTypes.class);
 		app.transportRoutingHelper = startupInit(new TransportRoutingHelper(app), TransportRoutingHelper.class);
 		app.routingHelper = startupInit(new RoutingHelper(app), RoutingHelper.class);
@@ -457,16 +467,19 @@ public class AppInitializer implements IProgress {
 		app.mapMarkersDbHelper = startupInit(new MapMarkersDbHelper(app), MapMarkersDbHelper.class);
 		app.mapMarkersHelper = startupInit(new MapMarkersHelper(app), MapMarkersHelper.class);
 		app.searchUICore = startupInit(new QuickSearchHelper(app), QuickSearchHelper.class);
-		app.mapViewTrackingUtilities = startupInit(new MapViewTrackingUtilities(app), MapViewTrackingUtilities.class); 
-		app.travelDbHelper = new TravelDbHelper(app);
-		if (app.getSettings().SELECTED_TRAVEL_BOOK.get() != null) {
-			app.travelDbHelper.initTravelBooks();
-		}
-		app.travelDbHelper = startupInit(app.travelDbHelper, TravelDbHelper.class);
+		app.mapViewTrackingUtilities = startupInit(new MapViewTrackingUtilities(app), MapViewTrackingUtilities.class);
+
+		// TODOTRAVEL_OBF_HELPER check ResourceManager and use TravelObfHelper
+		app.travelHelper = !TravelDbHelper.checkIfDbFileExists(app) ? new TravelObfHelper(app) : new TravelDbHelper(app);
+		app.travelHelper = startupInit(app.travelHelper, TravelHelper.class);
+
 		app.lockHelper = startupInit(new LockHelper(app), LockHelper.class);
 		app.settingsHelper = startupInit(new SettingsHelper(app), SettingsHelper.class);
 		app.quickActionRegistry = startupInit(new QuickActionRegistry(app.getSettings()), QuickActionRegistry.class);
-
+		app.osmOAuthHelper = startupInit(new OsmOAuthHelper(app), OsmOAuthHelper.class);
+		app.oprAuthHelper = startupInit(new OprAuthHelper(app), OprAuthHelper.class);
+		app.onlineRoutingHelper = startupInit(new OnlineRoutingHelper(app), OnlineRoutingHelper.class);
+		app.backupHelper = startupInit(new BackupHelper(app), BackupHelper.class);
 
 		initOpeningHoursParser();
 	}
@@ -510,7 +523,7 @@ public class AppInitializer implements IProgress {
 				return null;
 			}
 		});
-		app.regions.setLocale(app.getLanguage(), app.getCountry());
+		app.regions.setLocale(app.getLanguage(), app.getLocaleHelper().getCountry());
 	}
 
 
@@ -649,6 +662,7 @@ public class AppInitializer implements IProgress {
 
 	private void startApplicationBackground() {
 		try {
+			notifyStart();
 			startBgTime = System.currentTimeMillis();
 			app.getRendererRegistry().initRenderers(this);
 			notifyEvent(InitEvents.INIT_RENDERERS);
@@ -660,7 +674,7 @@ public class AppInitializer implements IProgress {
 			initPoiTypes();
 			notifyEvent(InitEvents.POI_TYPES_INITIALIZED);
 			app.resourceManager.reloadIndexesOnStart(this, warnings);
-
+			app.travelHelper.initializeDataOnAppStartup();
 			// native depends on renderers
 			initNativeCore();
 			notifyEvent(InitEvents.NATIVE_INITIALIZED);
@@ -679,7 +693,7 @@ public class AppInitializer implements IProgress {
 			// restore backuped favorites to normal file
 			restoreBackupForFavoritesFiles();
 			notifyEvent(InitEvents.RESTORE_BACKUPS);
-			app.mapMarkersHelper.syncAllGroupsAsync();
+			app.mapMarkersHelper.syncAllGroups();
 			app.searchUICore.initSearchUICore();
 
 			checkLiveUpdatesAlerts();
@@ -710,7 +724,7 @@ public class AppInitializer implements IProgress {
 		AlarmManager alarmMgr = (AlarmManager) app.getSystemService(Context.ALARM_SERVICE);
 		for (LocalIndexInfo fm : fullMaps) {
 			String fileName = fm.getFileName();
-			if (!preferenceLiveUpdatesOn(fileName, settings).get()) {
+			if (!preferenceForLocalIndex(fileName, settings).get()) {
 				continue;
 			}
 			int updateFrequencyOrd = preferenceUpdateFrequency(fileName, settings).get();
@@ -719,7 +733,7 @@ public class AppInitializer implements IProgress {
 			long lastCheck = preferenceLastCheck(fileName, settings).get();
 
 			if (System.currentTimeMillis() - lastCheck > updateFrequency.getTime() * 2) {
-				runLiveUpdate(app, fileName, false);
+				runLiveUpdate(app, fileName, false, null);
 				PendingIntent alarmIntent = getPendingIntent(app, fileName);
 				int timeOfDayOrd = preferenceTimeOfDayToUpdate(fileName, settings).get();
 				LiveUpdatesHelper.TimeOfDay timeOfDayToUpdate =
@@ -757,8 +771,7 @@ public class AppInitializer implements IProgress {
 			}
 		}
 		if(app.getSettings().SAVE_GLOBAL_TRACK_TO_GPX.get() && OsmandPlugin.getEnabledPlugin(OsmandMonitoringPlugin.class) != null){
-			int interval = app.getSettings().SAVE_GLOBAL_TRACK_INTERVAL.get();
-			app.startNavigationService(NavigationService.USED_BY_GPX, app.navigationServiceGpsInterval(interval));
+			app.startNavigationService(NavigationService.USED_BY_GPX);
 		}
 	}
 
@@ -807,6 +820,12 @@ public class AppInitializer implements IProgress {
 
 			}
 			app.getResourceManager().initMapBoundariesCacheNative();
+		}
+	}
+
+	public void notifyStart() {
+		for (AppInitializeListener listener : listeners) {
+			listener.onStart(AppInitializer.this);
 		}
 	}
 

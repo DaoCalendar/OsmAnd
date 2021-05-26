@@ -17,8 +17,8 @@ import net.osmand.GPXUtilities.WptPt;
 import net.osmand.data.LatLon;
 import net.osmand.data.WptLocationPoint;
 import net.osmand.plus.GpxSelectionHelper;
-import net.osmand.plus.MapMarkersHelper;
-import net.osmand.plus.MapMarkersHelper.MapMarkersGroup;
+import net.osmand.plus.mapmarkers.MapMarkersHelper;
+import net.osmand.plus.mapmarkers.MapMarkersGroup;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
 import net.osmand.plus.activities.MapActivity;
@@ -30,6 +30,7 @@ import net.osmand.plus.track.SaveGpxAsyncTask;
 import net.osmand.plus.track.SaveGpxAsyncTask.SaveGpxListener;
 import net.osmand.util.Algorithms;
 
+import java.io.File;
 import java.util.Map;
 
 public class WptPtEditorFragment extends PointEditorFragment {
@@ -66,7 +67,7 @@ public class WptPtEditorFragment extends PointEditorFragment {
 	protected DialogFragment createSelectCategoryDialog() {
 		WptPtEditor editor = getWptPtEditor();
 		if (editor != null) {
-			SelectCategoryDialogFragment selectCategoryDialogFragment = SelectCategoryDialogFragment.createInstance(editor.getFragmentTag());
+			SelectFavoriteCategoryBottomSheet selectCategoryDialogFragment = SelectFavoriteCategoryBottomSheet.createInstance(editor.getFragmentTag(), "");
 			GPXFile gpx = editor.getGpxFile();
 			if (gpx != null) {
 				selectCategoryDialogFragment.setGpxFile(gpx);
@@ -379,7 +380,7 @@ public class WptPtEditorFragment extends PointEditorFragment {
 	}
 
 	private void saveGpx(final OsmandApplication app, final GPXFile gpxFile, final boolean gpxSelected) {
-		new SaveGpxAsyncTask(gpxFile, new SaveGpxListener() {
+		new SaveGpxAsyncTask(new File(gpxFile.path), gpxFile, new SaveGpxListener() {
 			@Override
 			public void gpxSavingStarted() {
 

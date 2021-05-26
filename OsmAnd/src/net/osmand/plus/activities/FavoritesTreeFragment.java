@@ -10,6 +10,7 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.Html;
+import android.text.Spanned;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -41,8 +42,9 @@ import net.osmand.data.PointDescription;
 import net.osmand.plus.FavouritesDbHelper;
 import net.osmand.plus.FavouritesDbHelper.FavoriteGroup;
 import net.osmand.plus.FavouritesDbHelper.FavoritesListener;
-import net.osmand.plus.MapMarkersHelper;
+import net.osmand.plus.mapmarkers.MapMarkersHelper;
 import net.osmand.plus.OsmandApplication;
+import net.osmand.plus.settings.backend.OsmandPreference;
 import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities;
@@ -87,6 +89,8 @@ public class FavoritesTreeFragment extends OsmandExpandableListFragment implemen
 	public static final int IMPORT_FAVOURITES_ID = 7;
 	public static final String GROUP_EXPANDED_POSTFIX = "_group_expanded";
 
+	private static final int MAX_CHARS_IN_DESCRIPTION = 100000;
+
 	private FavouritesAdapter favouritesAdapter;
 	private FavouritesDbHelper helper;
 
@@ -96,7 +100,7 @@ public class FavoritesTreeFragment extends OsmandExpandableListFragment implemen
 	private Set<FavoriteGroup> groupsToDelete = new LinkedHashSet<>();
 	private ActionMode actionMode;
 	private Drawable arrowImageDisabled;
-	private HashMap<String, OsmandSettings.OsmandPreference<Boolean>> preferenceCache = new HashMap<>();
+	private HashMap<String, OsmandPreference<Boolean>> preferenceCache = new HashMap<>();
 	private View footerView;
 	private Location lastLocation;
 	private float lastHeading;
@@ -605,28 +609,54 @@ public class FavoritesTreeFragment extends OsmandExpandableListFragment implemen
 		}
 	}
 
-	private StringBuilder generateHtmlPrint(List<FavoriteGroup> groups) {
+	private String generateHtmlPrint(List<FavoriteGroup> groups) {
 		StringBuilder html = new StringBuilder();
+		StringBuilder buffer = new StringBuilder();
 		html.append("<h1>My Favorites</h1>");
+
 		for (FavoriteGroup group : groups) {
-			html.append("<h3>" + group.getDisplayName(app) + "</h3>");
-			for (FavouritePoint fp : group.getPoints()) {
-				String url = "geo:" + ((float) fp.getLatitude()) + "," + ((float) fp.getLongitude()) + "?m=" + fp.getName();
-				html.append("<p>" + fp.getDisplayName(app) + " - " + "<a href=\"" + url + "\">geo:"
-						+ ((float) fp.getLatitude()) + "," + ((float) fp.getLongitude()) + "</a><br>");
-				if (fp.isAddressSpecified()) {
-					html.append(": " + fp.getAddress());
-					html.append("<br>");
-				}
-				if (!Algorithms.isEmpty(fp.getDescription())) {
-					html.append(": " + fp.getDescription());
-				}
-				html.append("</p>");
+			buffer.setLength(0);
+			buffer.append("<h3>").append(group.getDisplayName(app)).append("</h3>");
+			if (buffer.length() + html.length() > MAX_CHARS_IN_DESCRIPTION) {
+				return html.append("<p>...</p>").toString();
+			}
+
+			html.append(buffer);
+			boolean reachedLimit = generateHtmlForGroup(group.getPoints(), html);
+			if (reachedLimit) {
+				return html.append("<p>...</p>").toString();
 			}
 		}
-		return html;
+
+		return html.toString();
 	}
 
+	private boolean generateHtmlForGroup(List<FavouritePoint> points, StringBuilder html) {
+		StringBuilder buffer = new StringBuilder();
+
+		for (FavouritePoint fp : points) {
+			buffer.setLength(0);
+
+			float lat = (float) fp.getLatitude();
+			float lon = (float) fp.getLongitude();
+			String url = "geo:" + lat + "," + lon + "?m=" + fp.getName();
+			buffer.append("<p>")
+					.append(fp.getDisplayName(app))
+					.append(" - <a href=\"")
+					.append(url)
+					.append("\">geo:")
+					.append(lat).append(",").append(lon)
+					.append("</a><br></p>");
+
+			if (buffer.length() + html.length() > MAX_CHARS_IN_DESCRIPTION) {
+				return true;
+			}
+
+			html.append(buffer);
+		}
+
+		return false;
+	}
 
 	private void shareFavourites() {
 		if (favouritesAdapter.isEmpty()) {
@@ -645,6 +675,7 @@ public class FavoritesTreeFragment extends OsmandExpandableListFragment implemen
 
 			File src = null;
 			File dst = null;
+			Spanned descriptionOfPoints;
 
 			@Override
 			protected void onPreExecute() {
@@ -661,9 +692,15 @@ public class FavoritesTreeFragment extends OsmandExpandableListFragment implemen
 
 			@Override
 			protected Void doInBackground(Void... params) {
+				List<FavoriteGroup> groups;
 				if (group != null) {
 					helper.saveFile(group.getPoints(), dst);
+					groups = new ArrayList<>();
+					groups.add(group);
+				} else {
+					groups = getMyApplication().getFavorites().getFavoriteGroups();
 				}
+				descriptionOfPoints = Html.fromHtml(generateHtmlPrint(groups));
 				return null;
 			}
 
@@ -679,19 +716,12 @@ public class FavoritesTreeFragment extends OsmandExpandableListFragment implemen
 						Algorithms.fileCopy(src, dst);
 					}
 					final Intent sendIntent = new Intent();
-					sendIntent.setAction(Intent.ACTION_SEND);
-					List<FavoriteGroup> groups;
-					if (group != null) {
-						groups = new ArrayList<>();
-						groups.add(group);
-					} else {
-						groups = getMyApplication().getFavorites().getFavoriteGroups();
-					}
-					sendIntent.putExtra(Intent.EXTRA_TEXT, Html.fromHtml(generateHtmlPrint(groups).toString()));
-					sendIntent.putExtra(Intent.EXTRA_SUBJECT, getString(R.string.share_fav_subject));
-					sendIntent.putExtra(Intent.EXTRA_STREAM, AndroidUtils.getUriForFile(getMyApplication(), dst));
-					sendIntent.setType("text/plain");
-					sendIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+					sendIntent.setAction(Intent.ACTION_SEND)
+							.putExtra(Intent.EXTRA_SUBJECT, getString(R.string.share_fav_subject))
+							.putExtra(Intent.EXTRA_TEXT, descriptionOfPoints)
+							.putExtra(Intent.EXTRA_STREAM, AndroidUtils.getUriForFile(getMyApplication(), dst))
+							.setType("text/plain")
+							.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 					startActivity(sendIntent);
 				} catch (IOException e) {
 					Toast.makeText(getActivity(), "Error sharing favorites: " + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -763,8 +793,8 @@ public class FavoritesTreeFragment extends OsmandExpandableListFragment implemen
 		}
 	}
 
-	private OsmandSettings.OsmandPreference<Boolean> getGroupExpandedPreference(String groupName) {
-		OsmandSettings.OsmandPreference<Boolean> preference = preferenceCache.get(groupName);
+	private OsmandPreference<Boolean> getGroupExpandedPreference(String groupName) {
+		OsmandPreference<Boolean> preference = preferenceCache.get(groupName);
 		if (preference == null) {
 			String groupKey = groupName + GROUP_EXPANDED_POSTFIX;
 			preference = getSettings().registerBooleanPreference(groupKey, false);

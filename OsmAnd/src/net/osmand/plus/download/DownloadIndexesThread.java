@@ -5,10 +5,10 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.net.TrafficStats;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.AsyncTask.Status;
-import android.os.StatFs;
 import android.view.View;
 import android.widget.Toast;
 
@@ -16,13 +16,12 @@ import androidx.annotation.UiThread;
 import androidx.appcompat.app.AlertDialog;
 
 import net.osmand.AndroidNetworkUtils;
+import net.osmand.AndroidUtils;
 import net.osmand.IndexConstants;
 import net.osmand.PlatformUtil;
 import net.osmand.map.WorldRegion;
 import net.osmand.map.WorldRegion.RegionParams;
 import net.osmand.plus.OsmandApplication;
-import net.osmand.plus.settings.backend.OsmandSettings;
-import net.osmand.plus.settings.backend.OsmandSettings.OsmandPreference;
 import net.osmand.plus.R;
 import net.osmand.plus.Version;
 import net.osmand.plus.base.BasicProgressAsyncTask;
@@ -30,6 +29,8 @@ import net.osmand.plus.download.DownloadFileHelper.DownloadFileShowWarning;
 import net.osmand.plus.helpers.DatabaseHelper;
 import net.osmand.plus.notifications.OsmandNotification;
 import net.osmand.plus.resources.ResourceManager;
+import net.osmand.plus.settings.backend.OsmandPreference;
+import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.util.Algorithms;
 
 import org.apache.commons.logging.Log;
@@ -58,8 +59,8 @@ public class DownloadIndexesThread {
 	private ConcurrentLinkedQueue<IndexItem> indexItemDownloading = new ConcurrentLinkedQueue<IndexItem>();
 	private IndexItem currentDownloadingItem = null;
 	private int currentDownloadingItemProgress = 0;
-
 	private DownloadResources indexes;
+	private static final int THREAD_ID = 10103;
 
 	public interface DownloadEvents {
 		
@@ -137,10 +138,10 @@ public class DownloadIndexesThread {
 			String setTts = null;
 			for (String s : OsmandSettings.TTS_AVAILABLE_VOICES) {
 				if (lng.startsWith(s)) {
-					setTts = s + "-tts";
+					setTts = s + IndexConstants.VOICE_PROVIDER_SUFFIX;
 					break;
 				} else if (lng.contains("," + s)) {
-					setTts = s + "-tts";
+					setTts = s + IndexConstants.VOICE_PROVIDER_SUFFIX;
 				}
 			}
 			if (setTts != null) {
@@ -238,6 +239,19 @@ public class DownloadIndexesThread {
 		}
 	}
 
+	public void cancelDownload(DownloadItem item) {
+		if (item instanceof MultipleDownloadItem) {
+			MultipleDownloadItem multipleDownloadItem = (MultipleDownloadItem) item;
+			cancelDownload(multipleDownloadItem.getAllIndexes());
+		} else if (item instanceof SrtmDownloadItem) {
+			IndexItem indexItem = ((SrtmDownloadItem) item).getIndexItem();
+			cancelDownload(indexItem);
+		} else if (item instanceof IndexItem) {
+			IndexItem indexItem = (IndexItem) item;
+			cancelDownload(indexItem);
+		}
+	}
+
 	public void cancelDownload(IndexItem item) {
 		app.logMapDownloadEvent("cancel", item);
 		if (currentDownloadingItem == item) {
@@ -288,15 +302,8 @@ public class DownloadIndexesThread {
 		return null;
 	}
 
-	@SuppressWarnings("deprecation")
 	public double getAvailableSpace() {
-		File dir = app.getAppPath("").getParentFile();
-		double asz = -1;
-		if (dir.canRead()) {
-			StatFs fs = new StatFs(dir.getAbsolutePath());
-			asz = (((long) fs.getAvailableBlocks()) * fs.getBlockSize()) / (1 << 20);
-		}
-		return asz;
+		return AndroidUtils.getAvailableSpace(app) / (1 << 20);
 	}
 	
 	/// PRIVATE IMPL
@@ -336,6 +343,7 @@ public class DownloadIndexesThread {
 
 		@Override
 		protected DownloadResources doInBackground(Void... params) {
+			TrafficStats.setThreadStatsTag(THREAD_ID);
 			DownloadResources result = null;
 			DownloadOsmandIndexesHelper.IndexFileList indexFileList = DownloadOsmandIndexesHelper.getIndexesList(ctx);
 			if (indexFileList != null) {
@@ -542,7 +550,7 @@ public class DownloadIndexesThread {
 			// validate enough space
 			if (asz != -1 && cs > asz) {
 				String breakDownloadMessage = app.getString(R.string.download_files_not_enough_space,
-						cs, asz);
+						String.valueOf(cs), String.valueOf(asz));
 				publishProgress(breakDownloadMessage);
 				return false;
 			}
@@ -574,7 +582,7 @@ public class DownloadIndexesThread {
 			manager.indexVoiceFiles(this);
 			manager.indexFontFiles(this);
 			if (vectorMapsToReindex) {
-				warnings = manager.indexingMaps(this);
+				warnings = manager.indexingMaps(this, filesToReindex);
 			}
 			List<String> wns = manager.indexAdditionalMaps(this);
 			if (wns != null) {

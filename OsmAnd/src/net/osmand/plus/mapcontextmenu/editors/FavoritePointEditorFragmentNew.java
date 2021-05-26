@@ -75,6 +75,9 @@ public class FavoritePointEditorFragmentNew extends PointEditorFragmentNew {
 		FavouritesDbHelper helper = getHelper();
 		if (editor != null && helper != null) {
 			FavouritePoint favorite = editor.getFavorite();
+			if (favorite == null && savedInstanceState != null) {
+				favorite = (FavouritePoint) savedInstanceState.getSerializable(FavoriteDialogs.KEY_FAVORITE);
+			}
 			this.favorite = favorite;
 			this.group = helper.getGroup(favorite);
 			this.color = favorite.getColor();
@@ -107,6 +110,12 @@ public class FavoritePointEditorFragmentNew extends PointEditorFragmentNew {
 			}
 		}
 		return view;
+	}
+
+	@Override
+	public void onSaveInstanceState(@NonNull Bundle outState) {
+		super.onSaveInstanceState(outState);
+		outState.putSerializable(FavoriteDialogs.KEY_FAVORITE, getFavorite());
 	}
 
 	private void replacePressed() {
@@ -242,9 +251,9 @@ public class FavoritePointEditorFragmentNew extends PointEditorFragmentNew {
 		final FavouritePoint favorite = getFavorite();
 		if (favorite != null) {
 			final FavouritePoint point = new FavouritePoint(favorite.getLatitude(), favorite.getLongitude(),
-					getNameTextValue(), getCategoryTextValue());
-			point.setDescription(getDescriptionTextValue());
-			point.setAddress(getAddressTextValue());
+					getNameTextValue(), getCategoryTextValue(), favorite.getAltitude(), favorite.getTimestamp());
+			point.setDescription(isDescriptionAvailable() ? getDescriptionTextValue() : null);
+			point.setAddress(isAddressAvailable() ? getAddressTextValue() : null);
 			point.setColor(color);
 			point.setBackgroundType(backgroundType);
 			point.setIconId(iconId);
@@ -258,9 +267,9 @@ public class FavoritePointEditorFragmentNew extends PointEditorFragmentNew {
 		final FavouritePoint favorite = getFavorite();
 		if (favorite != null) {
 			final FavouritePoint point = new FavouritePoint(favorite.getLatitude(), favorite.getLongitude(),
-					getNameTextValue(), getCategoryTextValue());
-			point.setDescription(getDescriptionTextValue());
-			point.setAddress(getAddressTextValue());
+					getNameTextValue(), getCategoryTextValue(), favorite.getAltitude(), favorite.getTimestamp());
+			point.setDescription(isDescriptionAvailable() ? getDescriptionTextValue() : null);
+			point.setAddress(isAddressAvailable() ? getAddressTextValue() : null);
 			point.setColor(color);
 			point.setBackgroundType(backgroundType);
 			point.setIconId(iconId);
@@ -302,12 +311,12 @@ public class FavoritePointEditorFragmentNew extends PointEditorFragmentNew {
 	}
 
 	private void doSave(FavouritePoint favorite, String name, String category, String description, String address,
-	                    @ColorInt int color, BackgroundType backgroundType, @DrawableRes int iconId, boolean needDismiss) {
+						@ColorInt int color, BackgroundType backgroundType, @DrawableRes int iconId, boolean needDismiss) {
 		FavouritesDbHelper helper = getHelper();
 		FavoritePointEditor editor = getFavoritePointEditor();
 		if (editor != null && helper != null) {
 			if (editor.isNew()) {
-				doAddFavorite(name, category, description, color, backgroundType, iconId);
+				doAddFavorite(name, category, description, address, color, backgroundType, iconId);
 			} else {
 				doEditFavorite(favorite, name, category, description, address, color, backgroundType, iconId, helper);
 			}
@@ -329,8 +338,8 @@ public class FavoritePointEditorFragmentNew extends PointEditorFragmentNew {
 	}
 
 	private void doEditFavorite(FavouritePoint favorite, String name, String category, String description, String address,
-	                            @ColorInt int color, BackgroundType backgroundType, @DrawableRes int iconId,
-	                            FavouritesDbHelper helper) {
+								@ColorInt int color, BackgroundType backgroundType, @DrawableRes int iconId,
+								FavouritesDbHelper helper) {
 		OsmandApplication app = getMyApplication();
 		if (app != null) {
 			app.getSettings().LAST_FAV_CATEGORY_ENTERED.set(category);
@@ -341,8 +350,8 @@ public class FavoritePointEditorFragmentNew extends PointEditorFragmentNew {
 		}
 	}
 
-	private void doAddFavorite(String name, String category, String description, @ColorInt int color,
-	                           BackgroundType backgroundType, @DrawableRes int iconId) {
+	private void doAddFavorite(String name, String category, String description, String address, @ColorInt int color,
+							   BackgroundType backgroundType, @DrawableRes int iconId) {
 		OsmandApplication app = getMyApplication();
 		FavouritesDbHelper helper = getHelper();
 		FavouritePoint favorite = getFavorite();
@@ -350,6 +359,7 @@ public class FavoritePointEditorFragmentNew extends PointEditorFragmentNew {
 			favorite.setName(name);
 			favorite.setCategory(category);
 			favorite.setDescription(description);
+			favorite.setAddress(address);
 			favorite.setColor(color);
 			favorite.setBackgroundType(backgroundType);
 			favorite.setIconId(iconId);

@@ -10,7 +10,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.snackbar.Snackbar;
 
-import net.osmand.plus.MapMarkersHelper.MapMarker;
+import net.osmand.plus.mapmarkers.MapMarker;
 import net.osmand.plus.OsmAndFormatter;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
@@ -145,7 +145,7 @@ public class MapMarkersHistoryAdapter extends RecyclerView.Adapter<RecyclerView.
 			String desc = app.getString(R.string.passed, OsmAndFormatter.getFormattedDate(app, marker.visitedDate));
 			String markerGroupName = marker.groupName;
 			if (markerGroupName != null) {
-				if (markerGroupName.equals("")) {
+				if (markerGroupName.isEmpty()) {
 					markerGroupName = app.getString(R.string.shared_string_favorites);
 				}
 				desc += " • " + markerGroupName;

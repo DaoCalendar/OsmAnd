@@ -31,19 +31,21 @@ import androidx.recyclerview.widget.RecyclerView;
 import net.osmand.AndroidUtils;
 import net.osmand.IndexConstants;
 import net.osmand.PlatformUtil;
-import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.OsmandPlugin;
 import net.osmand.plus.R;
-import net.osmand.plus.settings.backend.SettingsHelper;
-import net.osmand.plus.settings.backend.SettingsHelper.SettingsCollectListener;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.activities.MapActivity;
+import net.osmand.plus.development.OsmandDevelopmentPlugin;
 import net.osmand.plus.helpers.AndroidUiHelper;
 import net.osmand.plus.helpers.FontCache;
 import net.osmand.plus.openseamapsplugin.NauticalMapsPlugin;
 import net.osmand.plus.profiles.SelectCopyAppModeBottomSheet;
 import net.osmand.plus.profiles.SelectCopyAppModeBottomSheet.CopyAppModePrefsListener;
+import net.osmand.plus.settings.backend.ApplicationMode;
+import net.osmand.plus.settings.backend.backup.SettingsHelper;
+import net.osmand.plus.settings.backend.backup.SettingsHelper.SettingsCollectListener;
+import net.osmand.plus.settings.backend.backup.SettingsItem;
 import net.osmand.plus.settings.bottomsheets.ResetProfilePrefsBottomSheet;
 import net.osmand.plus.settings.bottomsheets.ResetProfilePrefsBottomSheet.ResetAppModePrefsListener;
 import net.osmand.plus.skimapsplugin.SkiMapsPlugin;
@@ -186,9 +188,9 @@ public class ConfigureProfileFragment extends BaseSettingsFragment implements Co
 	private void restoreCustomModeFromFile(final File file) {
 		app.getSettingsHelper().collectSettings(file, "", 1, new SettingsCollectListener() {
 			@Override
-			public void onSettingsCollectFinished(boolean succeed, boolean empty, @NonNull List<SettingsHelper.SettingsItem> items) {
+			public void onSettingsCollectFinished(boolean succeed, boolean empty, @NonNull List<SettingsItem> items) {
 				if (succeed) {
-					for (SettingsHelper.SettingsItem item : items) {
+					for (SettingsItem item : items) {
 						item.setShouldReplace(true);
 					}
 					importBackupSettingsItems(file, items);
@@ -197,10 +199,10 @@ public class ConfigureProfileFragment extends BaseSettingsFragment implements Co
 		});
 	}
 
-	private void importBackupSettingsItems(File file, List<SettingsHelper.SettingsItem> items) {
+	private void importBackupSettingsItems(File file, List<SettingsItem> items) {
 		app.getSettingsHelper().importSettings(file, items, "", 1, new SettingsHelper.SettingsImportListener() {
 			@Override
-			public void onSettingsImportFinished(boolean succeed, @NonNull List<SettingsHelper.SettingsItem> items) {
+			public void onSettingsImportFinished(boolean succeed, boolean needRestart, @NonNull List<SettingsItem> items) {
 				app.showToastMessage(R.string.profile_prefs_reset_successful);
 				updateCopiedOrResetPrefs();
 			}
@@ -344,6 +346,12 @@ public class ConfigureProfileFragment extends BaseSettingsFragment implements Co
 		if (mode.isCustomProfile() && !getBackupFileForCustomMode(app, mode.getStringKey()).exists()) {
 			resetToDefault.setVisible(false);
 		} else {
+			OsmandDevelopmentPlugin plugin = OsmandPlugin.getEnabledPlugin(OsmandDevelopmentPlugin.class);
+			if (plugin != null && mode.getParent() != null) {
+				String baseProfile = "(" + mode.getParent().toHumanString() + ")";
+				String title = getString(R.string.ltr_or_rtl_combine_via_space, getString(R.string.reset_to_default), baseProfile);
+				resetToDefault.setTitle(title);
+			}
 			resetToDefault.setIcon(app.getUIUtilities().getIcon(R.drawable.ic_action_reset_to_default_dark,
 					isNightMode() ? R.color.active_color_primary_dark : R.color.active_color_primary_light));
 		}
@@ -368,7 +376,7 @@ public class ConfigureProfileFragment extends BaseSettingsFragment implements Co
 		}
 		List<OsmandPlugin> plugins = OsmandPlugin.getVisiblePlugins();
 		for (OsmandPlugin plugin : plugins) {
-			if (plugin instanceof SkiMapsPlugin || plugin instanceof NauticalMapsPlugin || plugin.getSettingsFragment() == null) {
+			if (plugin instanceof SkiMapsPlugin || plugin instanceof NauticalMapsPlugin || plugin.getSettingsScreenType() == null) {
 				continue;
 			}
 			Preference preference = new Preference(ctx);
@@ -378,7 +386,7 @@ public class ConfigureProfileFragment extends BaseSettingsFragment implements Co
 			preference.setSummary(plugin.getPrefsDescription());
 			preference.setIcon(getContentIcon(plugin.getLogoResourceId()));
 			preference.setLayoutResource(R.layout.preference_with_descr);
-			preference.setFragment(plugin.getSettingsFragment().getName());
+			preference.setFragment(plugin.getSettingsScreenType().fragmentName);
 
 			preferenceCategory.addPreference(preference);
 		}
@@ -400,21 +408,20 @@ public class ConfigureProfileFragment extends BaseSettingsFragment implements Co
 		String prefId = preference.getKey();
 
 		if (CONFIGURE_MAP.equals(prefId) || CONFIGURE_SCREEN.equals(prefId)) {
-			FragmentActivity activity = getActivity();
-			if (activity != null) {
+			MapActivity mapActivity = getMapActivity();
+			if (mapActivity != null) {
 				try {
-					FragmentManager fragmentManager = activity.getSupportFragmentManager();
-					if (fragmentManager != null) {
-						ApplicationMode selectedMode = getSelectedAppMode();
-						if (!ApplicationMode.values(app).contains(selectedMode)) {
-							ApplicationMode.changeProfileAvailability(selectedMode, true, app);
-						}
-						settings.APPLICATION_MODE.set(selectedMode);
-						fragmentManager.beginTransaction()
-								.remove(this)
-								.addToBackStack(TAG)
-								.commitAllowingStateLoss();
+					FragmentManager fragmentManager = mapActivity.getSupportFragmentManager();
+					ApplicationMode selectedMode = getSelectedAppMode();
+					if (!ApplicationMode.values(app).contains(selectedMode)) {
+						ApplicationMode.changeProfileAvailability(selectedMode, true, app);
+						mapActivity.getMapLayers().getMapWidgetRegistry().updateVisibleWidgets();
 					}
+					settings.setApplicationMode(selectedMode);
+					fragmentManager.beginTransaction()
+							.remove(this)
+							.addToBackStack(TAG)
+							.commitAllowingStateLoss();
 				} catch (Exception e) {
 					LOG.error(e);
 				}
@@ -432,10 +439,7 @@ public class ConfigureProfileFragment extends BaseSettingsFragment implements Co
 		} else if (EXPORT_PROFILE.equals(prefId)) {
 			FragmentManager fragmentManager = getFragmentManager();
 			if (fragmentManager != null) {
-				ExportProfileBottomSheet.showInstance(
-						fragmentManager,
-						this,
-						getSelectedAppMode());
+				ExportSettingsFragment.showInstance(fragmentManager, getSelectedAppMode(), false);
 			}
 		} else if (DELETE_PROFILE.equals(prefId)) {
 			onDeleteProfileClick();
@@ -460,7 +464,7 @@ public class ConfigureProfileFragment extends BaseSettingsFragment implements Co
 				bld.setTitle(R.string.profile_alert_delete_title);
 				bld.setMessage(String
 						.format(getString(R.string.profile_alert_delete_msg),
-								profile.getUserProfileName()));
+								profile.toHumanString()));
 				bld.setPositiveButton(R.string.shared_string_delete,
 						new DialogInterface.OnClickListener() {
 							@Override

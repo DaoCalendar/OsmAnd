@@ -5,6 +5,7 @@ import android.text.TextUtils;
 import android.view.View;
 import android.widget.Toast;
 
+import androidx.annotation.ColorInt;
 import androidx.appcompat.widget.SwitchCompat;
 
 import com.google.gson.Gson;
@@ -19,7 +20,6 @@ import net.osmand.plus.quickaction.QuickAction;
 import net.osmand.plus.quickaction.QuickActionType;
 import net.osmand.plus.quickaction.SwitchableAction;
 import net.osmand.plus.settings.backend.ApplicationMode;
-import net.osmand.plus.settings.backend.OsmandSettings;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -85,36 +85,19 @@ public class SwitchProfileAction extends SwitchableAction<String> {
 
 	@Override
 	public void execute(MapActivity activity) {
-		OsmandSettings settings = activity.getMyApplication().getSettings();
 		List<String> profiles = loadListFromParams();
-
 		if (profiles.size() == 0) {
 			Toast.makeText(activity, activity.getString(R.string.profiles_for_action_not_found),
 					Toast.LENGTH_SHORT).show();
 			return;
 		}
 
-		boolean showDialog = Boolean.valueOf(getParams().get(KEY_DIALOG));
+		boolean showDialog = Boolean.parseBoolean(getParams().get(KEY_DIALOG));
 		if (showDialog) {
 			showChooseDialog(activity.getSupportFragmentManager());
 			return;
 		}
-
-		int index = -1;
-		final String currentProfile = settings.getApplicationMode().getStringKey();
-
-		for (int idx = 0; idx < profiles.size(); idx++) {
-			if (currentProfile.equals(profiles.get(idx))) {
-				index = idx;
-				break;
-			}
-		}
-
-		String nextProfile = profiles.get(0);
-
-		if (index >= 0 && index + 1 < profiles.size()) {
-			nextProfile = profiles.get(index + 1);
-		}
+		String nextProfile = getNextSelectedItem(activity.getMyApplication());
 		executeWithParams(activity, nextProfile);
 	}
 
@@ -123,7 +106,7 @@ public class SwitchProfileAction extends SwitchableAction<String> {
 		ApplicationMode appMode = getModeForKey(params);
 		if (appMode != null) {
 			OsmandApplication app = activity.getMyApplication();
-			app.getSettings().APPLICATION_MODE.set(appMode);
+			app.getSettings().setApplicationMode(appMode);
 			app.getQuickActionRegistry().setQuickActionFabState(true);
 
 			String message = String.format(activity.getString(
@@ -150,6 +133,29 @@ public class SwitchProfileAction extends SwitchableAction<String> {
 	public String getSelectedItem(OsmandApplication app) {
 		ApplicationMode appMode = app.getSettings().getApplicationMode();
 		return appMode.getStringKey();
+	}
+
+	@Override
+	public String getNextSelectedItem(OsmandApplication app) {
+		List<String> profiles = loadListFromParams();
+		if (profiles.size() > 0) {
+			String currentProfile = getSelectedItem(app);
+
+			int index = -1;
+			for (int idx = 0; idx < profiles.size(); idx++) {
+				if (currentProfile.equals(profiles.get(idx))) {
+					index = idx;
+					break;
+				}
+			}
+
+			String nextProfile = profiles.get(0);
+			if (index >= 0 && index + 1 < profiles.size()) {
+				nextProfile = profiles.get(index + 1);
+			}
+			return nextProfile;
+		}
+		return null;
 	}
 
 	@Override
@@ -182,13 +188,14 @@ public class SwitchProfileAction extends SwitchableAction<String> {
 	}
 
 	@Override
-	protected int getItemIconColorRes(OsmandApplication app, String item) {
+	@ColorInt
+	protected int getItemIconColor(OsmandApplication app, String item) {
 		ApplicationMode appMode = getModeForKey(item);
 		if (appMode != null) {
 			boolean nightMode = !app.getSettings().isLightContent();
-			return appMode.getIconColorInfo().getColor(nightMode);
+			return appMode.getProfileColor(nightMode);
 		}
-		return super.getItemIconColorRes(app, item);
+		return super.getItemIconColor(app, item);
 	}
 
 	@Override
@@ -227,5 +234,10 @@ public class SwitchProfileAction extends SwitchableAction<String> {
 				adapter.addItem(key, ctx);
 			}
 		}
+	}
+
+	@Override
+	public String getActionText(OsmandApplication app) {
+		return getName(app);
 	}
 }

@@ -5,7 +5,6 @@ import android.content.DialogInterface;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.StatFs;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -21,19 +20,24 @@ import androidx.annotation.NonNull;
 import androidx.fragment.app.FragmentManager;
 
 import net.osmand.AndroidUtils;
+import net.osmand.FileUtils;
 import net.osmand.IProgress;
+import net.osmand.PlatformUtil;
 import net.osmand.plus.OnDismissDialogFragmentListener;
 import net.osmand.plus.OsmandApplication;
-import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.plus.R;
 import net.osmand.plus.base.BottomSheetDialogFragment;
 import net.osmand.plus.dashboard.DashChooseAppDirFragment;
 import net.osmand.plus.download.DownloadActivity;
 import net.osmand.plus.download.DownloadIndexesThread;
+import net.osmand.plus.settings.backend.OsmandSettings;
+
+import org.apache.commons.logging.Log;
 
 import java.io.File;
 
 public class DataStoragePlaceDialogFragment extends BottomSheetDialogFragment {
+	private static final Log LOG = PlatformUtil.getLog(DataStoragePlaceDialogFragment.class);
 
 	public static final String TAG = "DataStoragePlaceDialogFragment";
 	private static final String STORAGE_READOLNY_KEY = "storage_readolny_key";
@@ -71,7 +75,7 @@ public class DataStoragePlaceDialogFragment extends BottomSheetDialogFragment {
 
 		File internalStorage = getInternalStorageDirectory(activity);
 		File external1Storage = getExternal1StorageDirectory(activity);
-		if (external1Storage != null && external1Storage.exists() && OsmandSettings.isWritable(external1Storage)) {
+		if (external1Storage != null && external1Storage.exists() && FileUtils.isWritable(external1Storage)) {
 			deviceStorage = external1Storage;
 			deviceStorageType = OsmandSettings.EXTERNAL_STORAGE_TYPE_EXTERNAL_FILE;
 			deviceStorageName = getString(R.string.storage_directory_external);
@@ -112,7 +116,7 @@ public class DataStoragePlaceDialogFragment extends BottomSheetDialogFragment {
 		deviceStorageImageView.setImageDrawable(getContentIcon(R.drawable.ic_action_phone));
 		TextView deviceStorageDescription = (TextView) view.findViewById(R.id.deviceMemoryDescription);
 		deviceStorageDescription.setText(deviceStorageName);
-		deviceStorageDescription.setText(getFreeSpace(deviceStorage));
+		deviceStorageDescription.setText(AndroidUtils.getFreeSpace(activity, deviceStorage));
 
 		View sharedMemoryRow = view.findViewById(R.id.sharedMemoryRow);
 		if (hasExternalStoragePermission && sharedStorage != null) {
@@ -120,7 +124,7 @@ public class DataStoragePlaceDialogFragment extends BottomSheetDialogFragment {
 			ImageView sharedMemoryImageView = (ImageView) view.findViewById(R.id.sharedMemoryImageView);
 			sharedMemoryImageView.setImageDrawable(getContentIcon(R.drawable.ic_action_phone));
 			TextView sharedMemoryDescription = (TextView) view.findViewById(R.id.sharedMemoryDescription);
-			sharedMemoryDescription.setText(getFreeSpace(sharedStorage));
+			sharedMemoryDescription.setText(AndroidUtils.getFreeSpace(activity, sharedStorage));
 		} else {
 			view.findViewById(R.id.divSharedStorage).setVisibility(View.GONE);
 			sharedMemoryRow.setVisibility(View.GONE);
@@ -132,7 +136,7 @@ public class DataStoragePlaceDialogFragment extends BottomSheetDialogFragment {
 			ImageView memoryStickImageView = (ImageView) view.findViewById(R.id.memoryStickImageView);
 			memoryStickImageView.setImageDrawable(getContentIcon(R.drawable.ic_sdcard));
 			TextView memoryStickDescription = (TextView) view.findViewById(R.id.memoryStickDescription);
-			memoryStickDescription.setText(getFreeSpace(cardStorage));
+			memoryStickDescription.setText(AndroidUtils.getFreeSpace(activity, cardStorage));
 		} else {
 			view.findViewById(R.id.divExtStorage).setVisibility(View.GONE);
 			memoryStickRow.setVisibility(View.GONE);
@@ -185,19 +189,6 @@ public class DataStoragePlaceDialogFragment extends BottomSheetDialogFragment {
 				.getDefaultInternalStorage();
 	}
 
-	private String getFreeSpace(File dir) {
-		String sz = "";
-		if (dir != null && dir.canRead()) {
-			StatFs fs = new StatFs(dir.getAbsolutePath());
-			@SuppressWarnings("deprecation")
-			long size = (long) fs.getAvailableBlocks() * fs.getBlockSize();
-			if (size > 0) {
-				sz = AndroidUtils.formatSize(getActivity(), size);
-			}
-		}
-		return sz;
-	}
-
 	private void checkAssets() {
 		getMyApplication().getResourceManager().checkAssets(IProgress.EMPTY_PROGRESS, true);
 	}
@@ -246,7 +237,7 @@ public class DataStoragePlaceDialogFragment extends BottomSheetDialogFragment {
 			};
 
 	public boolean saveFilesLocation(int type, File selectedFile, Activity context) {
-		boolean wr = OsmandSettings.isWritable(selectedFile);
+		boolean wr = FileUtils.isWritable(selectedFile);
 		if (wr) {
 			((OsmandApplication) context.getApplication())
 					.setExternalStorageDirectory(type, selectedFile.getAbsolutePath());

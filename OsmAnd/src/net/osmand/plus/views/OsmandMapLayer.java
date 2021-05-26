@@ -1,6 +1,5 @@
 package net.osmand.plus.views;
 
-import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
@@ -44,6 +43,7 @@ import java.util.Map;
 
 public abstract class OsmandMapLayer {
 
+	public static final float ICON_VISIBLE_PART_RATIO = 0.45f;
 	protected List<LatLon> fullObjectsLatLon;
 	protected List<LatLon> smallObjectsLatLon;
 
@@ -235,8 +235,8 @@ public abstract class OsmandMapLayer {
 		return (int) (r * tb.getDensity());
 	}
 
-	protected int getIconSize(Context ctx) {
-		return ctx.getResources().getDimensionPixelSize(R.dimen.favorites_icon_outline_size);
+	protected float getIconSize(OsmandApplication app) {
+		return app.getResources().getDimensionPixelSize(R.dimen.favorites_icon_outline_size) * ICON_VISIBLE_PART_RATIO * app.getSettings().TEXT_SCALE.get();
 	}
 
 	public Rect getIconDestinationRect(float x, float y, int width, int height, float scale) {
@@ -377,6 +377,7 @@ public abstract class OsmandMapLayer {
 		public Paint paint;
 		public Paint customColorPaint;
 		public int customColor = 0;
+		public float customWidth = 0;
 		public int defaultWidth = 0;
 		public int defaultColor = 0;
 		public boolean isPaint2;
@@ -481,8 +482,13 @@ public abstract class OsmandMapLayer {
 			if (isShadowPaint) {
 				canvas.drawPath(path, shadowPaint);
 			}
-			if (customColor != 0) {
-				customColorPaint.setColor(customColor);
+			if (customColor != 0 || customWidth != 0) {
+				if (customColor != 0) {
+					customColorPaint.setColor(customColor);
+				}
+				if (customWidth != 0) {
+					customColorPaint.setStrokeWidth(customWidth);
+				}
 				canvas.drawPath(path, customColorPaint);
 			} else {
 				canvas.drawPath(path, paint);

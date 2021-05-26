@@ -109,7 +109,7 @@
     <string name="get_telegram_description_continue">Kérjük, telepítse a Telegramot és hozzon létre egy fiókot.</string>
     <string name="get_telegram_after_creating_account">Utána használhatja ezt az alkalmazást.</string>
     <string name="shared_string_all">Minden</string>
-    <string name="shared_string_off">Kikapcsolás</string>
+    <string name="shared_string_off">Kikapcsolva</string>
     <string name="hours_and_minutes_format">%1$d óra %2$d perc</string>
     <string name="minutes_format">%1$d perc</string>
     <string name="shared_string_install">Telepítés</string>
@@ -266,6 +266,10 @@
     <string name="last_response_date">Utolsó válasz: %1$s</string>
     <string name="last_update_from_telegram_duration">Utolsó frissítés a Telegramtól: %1$s</string>
     <string name="last_response_duration">Utolsó válasz: %1$s</string>
-    <string name="duration_ago">Ennyivel ezelőtt: %1$s</string>
+    <string name="duration_ago">Ennyi idővel ezelőtt: %1$s</string>
     <string name="shared_string_error_short">HIBA</string>
+    <string name="shared_string_export">Exportálás</string>
+    <string name="logcat_buffer">Logcat-puffer (hibanapló)</string>
+    <string name="logcat_buffer_descr">Az alkalmazás részletes naplóinak ellenőrzése és megosztása</string>
+    <string name="send_report">Jelentés küldése</string>
 </resources>

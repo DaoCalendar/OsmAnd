@@ -22,6 +22,8 @@ import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Build.VERSION;
+import android.os.Build.VERSION_CODES;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.StatFs;
@@ -55,6 +57,7 @@ import androidx.annotation.ColorRes;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
@@ -65,7 +68,10 @@ import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
 import net.osmand.util.Algorithms;
 
+import org.apache.commons.logging.Log;
+
 import java.io.File;
+import java.lang.reflect.Field;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -82,17 +88,18 @@ import static android.util.TypedValue.COMPLEX_UNIT_DIP;
 import static android.util.TypedValue.COMPLEX_UNIT_SP;
 
 public class AndroidUtils {
+	private static final Log LOG = PlatformUtil.getLog(AndroidUtils.class);
 
 	public static final String STRING_PLACEHOLDER = "%s";
 	public static final MessageFormat formatKb = new MessageFormat("{0, number,##.#}", Locale.US);
 	public static final MessageFormat formatGb = new MessageFormat("{0, number,#.##}", Locale.US);
 	public static final MessageFormat formatMb = new MessageFormat("{0, number,##.#}", Locale.US);
-	
+
 	/**
 	 * @param context
 	 * @return true if Hardware keyboard is available
 	 */
-	
+
 	public static boolean isHardwareKeyboardAvailable(Context context) {
 		return context.getResources().getConfiguration().keyboard != Configuration.KEYBOARD_NOKEYS;
 	}
@@ -146,20 +153,18 @@ public class AndroidUtils {
 		return resizedBitmap;
 	}
 
+	public static Bitmap createScaledBitmap(Drawable drawable, int width, int height) {
+		return scaleBitmap(drawableToBitmap(drawable), width, height, false);
+	}
+
 	public static ColorStateList createBottomNavColorStateList(Context ctx, boolean nightMode) {
 		return AndroidUtils.createCheckedColorStateList(ctx, nightMode,
 				R.color.icon_color_default_light, R.color.wikivoyage_active_light,
 				R.color.icon_color_default_light, R.color.wikivoyage_active_dark);
 	}
 
-	public static String trimExtension(String src) {
-		if (src != null) {
-			int index = src.lastIndexOf('.');
-			if (index != -1) {
-				return src.substring(0, index);
-			}
-		}
-		return src;
+	public static String addColon(OsmandApplication app, @StringRes int stringRes) {
+		return app.getString(R.string.ltr_or_rtl_combine_via_colon, app.getString(stringRes), "").trim();
 	}
 
 	public static Uri getUriForFile(Context context, File file) {
@@ -261,6 +266,11 @@ public class AndroidUtils {
 		return "";
 	}
 
+	public static String getFreeSpace(Context ctx, File dir) {
+		long size = AndroidUtils.getAvailableSpace(dir);
+		return AndroidUtils.formatSize(ctx, size);
+	}
+
 	public static View findParentViewById(View view, int id) {
 		ViewParent viewParent = view.getParent();
 
@@ -319,6 +329,57 @@ public class AndroidUtils {
 				new int[]{
 						ContextCompat.getColor(ctx, night ? darkState : lightState),
 						ContextCompat.getColor(ctx, night ? darkNormal : lightNormal)
+				}
+		);
+	}
+
+	public static ColorStateList createColorStateList(Context ctx, boolean night) {
+		return new ColorStateList(
+				new int[][] {
+						new int[] {-android.R.attr.state_enabled}, // disabled
+						new int[] {android.R.attr.state_checked},
+						new int[] {}
+				},
+				new int[] {
+						ContextCompat.getColor(ctx, night? R.color.text_color_secondary_dark : R.color.text_color_secondary_light),
+						ContextCompat.getColor(ctx, night? R.color.active_color_primary_dark : R.color.active_color_primary_light),
+						ContextCompat.getColor(ctx, night? R.color.text_color_secondary_dark : R.color.text_color_secondary_light)}
+		);
+	}
+
+	public static ColorStateList createCheckedColorIntStateList(@ColorInt int normal, @ColorInt int checked) {
+		return createCheckedColorIntStateList(false, normal, checked, 0, 0);
+	}
+
+	public static ColorStateList createCheckedColorIntStateList(boolean night,
+															 @ColorInt int lightNormal, @ColorInt int lightChecked,
+															 @ColorInt int darkNormal, @ColorInt int darkChecked) {
+		return createColorIntStateList(night, android.R.attr.state_checked,
+				lightNormal, lightChecked, darkNormal, darkChecked);
+	}
+
+	public static ColorStateList createEnabledColorIntStateList(@ColorInt int normal, @ColorInt int pressed) {
+		return createEnabledColorIntStateList(false, normal, pressed, 0, 0);
+	}
+
+	public static ColorStateList createEnabledColorIntStateList(boolean night,
+															 @ColorInt int lightNormal, @ColorInt int lightPressed,
+															 @ColorInt int darkNormal, @ColorInt int darkPressed) {
+		return createColorIntStateList(night, android.R.attr.state_enabled,
+				lightNormal, lightPressed, darkNormal, darkPressed);
+	}
+
+	private static ColorStateList createColorIntStateList(boolean night, int state,
+													   @ColorInt int lightNormal, @ColorInt int lightState,
+													   @ColorInt int darkNormal, @ColorInt int darkState) {
+		return new ColorStateList(
+				new int[][]{
+						new int[]{state},
+						new int[]{}
+				},
+				new int[]{
+						night ? darkState : lightState,
+						night ? darkNormal : lightNormal
 				}
 		);
 	}
@@ -428,6 +489,16 @@ public class AndroidUtils {
 		textView.setHintTextColor(night ?
 				ctx.getResources().getColor(R.color.text_color_secondary_dark)
 				: ctx.getResources().getColor(R.color.text_color_secondary_light));
+	}
+
+	@ColorRes
+	public static int getPrimaryTextColorId(boolean nightMode) {
+		return nightMode ? R.color.text_color_primary_dark : R.color.text_color_primary_light;
+	}
+
+	@ColorRes
+	public static int getSecondaryTextColorId(boolean nightMode) {
+		return nightMode ? R.color.text_color_secondary_dark : R.color.text_color_secondary_light;
 	}
 
 	public static int getTextMaxWidth(float textSize, List<String> titles) {
@@ -711,7 +782,7 @@ public class AndroidUtils {
 			tv.setTextDirection(textDirection);
 		}
 	}
-	
+
 	public static int getLayoutDirection(@NonNull Context ctx) {
 		Locale currentLocale = ctx.getResources().getConfiguration().locale;
 		return TextUtilsCompat.getLayoutDirectionFromLocale(currentLocale);
@@ -792,10 +863,54 @@ public class AndroidUtils {
 		return result;
 	}
 
+	public static long getAvailableSpace(@NonNull OsmandApplication app) {
+		return getAvailableSpace(app.getAppPath(null));
+	}
+
+	public static long getTotalSpace(@NonNull OsmandApplication app) {
+		return getTotalSpace(app.getAppPath(null));
+	}
+
+	public static long getAvailableSpace(@Nullable File dir) {
+		if (dir != null && dir.canRead()) {
+			try {
+				StatFs fs = new StatFs(dir.getAbsolutePath());
+				if (VERSION.SDK_INT >= VERSION_CODES.JELLY_BEAN_MR2) {
+					return fs.getAvailableBlocksLong() * fs.getBlockSizeLong();
+				} else {
+					return fs.getAvailableBlocks() * fs.getBlockSize();
+				}
+			} catch (IllegalArgumentException e) {
+				LOG.error(e);
+			}
+		}
+		return -1;
+	}
+
+	public static long getTotalSpace(@Nullable File dir) {
+		if (dir != null && dir.canRead()) {
+			try {
+				StatFs fs = new StatFs(dir.getAbsolutePath());
+				if (VERSION.SDK_INT >= VERSION_CODES.JELLY_BEAN_MR2) {
+					return fs.getBlockCountLong() * fs.getBlockSizeLong();
+				} else {
+					return fs.getBlockCount() * fs.getBlockSize();
+				}
+			} catch (IllegalArgumentException e) {
+				LOG.error(e);
+			}
+		}
+		return -1;
+	}
+
 	public static float getFreeSpaceGb(File dir) {
 		if (dir.canRead()) {
-			StatFs fs = new StatFs(dir.getAbsolutePath());
-			return (float) (fs.getBlockSize()) * fs.getAvailableBlocks() / (1 << 30);
+			try {
+				StatFs fs = new StatFs(dir.getAbsolutePath());
+				return (float) (fs.getBlockSize()) * fs.getAvailableBlocks() / (1 << 30);
+			} catch (IllegalArgumentException e) {
+				LOG.error(e);
+			}
 		}
 		return -1;
 	}
@@ -803,13 +918,6 @@ public class AndroidUtils {
 	public static float getTotalSpaceGb(File dir) {
 		if (dir.canRead()) {
 			return (float) (dir.getTotalSpace()) / (1 << 30);
-		}
-		return -1;
-	}
-
-	public static float getUsedSpaceGb(File dir) {
-		if (dir.canRead()) {
-			return getTotalSpaceGb(dir) - getFreeSpaceGb(dir);
 		}
 		return -1;
 	}
@@ -843,7 +951,7 @@ public class AndroidUtils {
 	public static boolean isRTL() {
 		return TextUtilsCompat.getLayoutDirectionFromLocale(Locale.getDefault()) == ViewCompat.LAYOUT_DIRECTION_RTL;
 	}
-	
+
 	public static String createNewFileName(String oldName) {
 		int firstDotIndex = oldName.indexOf('.');
 		String nameWithoutExt = oldName.substring(0, firstDotIndex);
@@ -865,7 +973,7 @@ public class AndroidUtils {
 			i--;
 		} while (i >= 0);
 		int newNumberValue = Integer.parseInt(hasNameNumberSection ? numberSection.toString() : "0") + 1;
-		
+
 		String newName;
 		if (newNumberValue == 1) {
 			newName = nameWithoutExt + " " + newNumberValue + ext;
@@ -888,5 +996,72 @@ public class AndroidUtils {
 			builder.append(w);
 		}
 		return builder;
+	}
+
+	public static String getRoutingStringPropertyName(Context ctx, String propertyName, String defValue) {
+		String value = getStringByProperty(ctx, "routing_attr_" + propertyName + "_name");
+		return value != null ? value : defValue;
+	}
+
+	public static String getRoutingStringPropertyDescription(Context ctx, String propertyName, String defValue) {
+		String value = getStringByProperty(ctx, "routing_attr_" + propertyName + "_description");
+		return value != null ? value : defValue;
+	}
+
+	public static String getRenderingStringPropertyName(Context ctx, String propertyName, String defValue) {
+		String value = getStringByProperty(ctx, "rendering_attr_" + propertyName + "_name");
+		return value != null ? value : defValue;
+	}
+
+	public static String getRenderingStringPropertyDescription(Context ctx, String propertyName, String defValue) {
+		String value = getStringByProperty(ctx, "rendering_attr_" + propertyName + "_description");
+		return value != null ? value : defValue;
+	}
+
+	public static String getIconStringPropertyName(Context ctx, String propertyName) {
+		String value = getStringByProperty(ctx, "icon_group_" + propertyName);
+		return value != null ? value : propertyName;
+	}
+
+	public static String getRenderingStringPropertyValue(Context ctx, String propertyValue) {
+		if (propertyValue == null) {
+			return "";
+		}
+		String propertyValueReplaced = propertyValue.replaceAll("\\s+", "_");
+		String value = getStringByProperty(ctx, "rendering_value_" + propertyValueReplaced + "_name");
+		return value != null ? value : propertyValue;
+	}
+
+	public static String getStringRouteInfoPropertyValue(Context ctx, String propertyValue) {
+		if (propertyValue == null) {
+			return "";
+		}
+		String propertyValueReplaced = propertyValue.replaceAll("\\s+", "_");
+		String value = getStringByProperty(ctx, "routeInfo_" + propertyValueReplaced + "_name");
+		return value != null ? value : propertyValue;
+	}
+
+
+	public static String getActivityTypeStringPropertyName(Context ctx, String propertyName, String defValue) {
+		String value = getStringByProperty(ctx, "activity_type_" + propertyName + "_name");
+		return value != null ? value : defValue;
+	}
+
+	private static String getStringByProperty(@NonNull Context ctx, @NonNull String property) {
+		try {
+			Field field = R.string.class.getField(property);
+			return getStringForField(ctx, field);
+		} catch (Exception e) {
+			System.err.println(e.getMessage());
+		}
+		return null;
+	}
+
+	private static String getStringForField(@NonNull Context ctx, @Nullable Field field) throws IllegalAccessException {
+		if (field != null) {
+			Integer in = (Integer) field.get(null);
+			return ctx.getString(in);
+		}
+		return null;
 	}
 }

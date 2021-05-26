@@ -153,35 +153,34 @@ public class OsmMapUtils {
 		}
 		boolean area = w.getFirstNodeId() == w.getLastNodeId();
 		// double check for area (could be negative all)
-		if(area) {
+		if (area) {
 			Node fn = w.getFirstNode();
 			Node ln = w.getLastNode();
-			if(fn != null && fn != null && MapUtils.getDistance(fn.getLatLon(), ln.getLatLon()) < 50) {
+			if (fn != null && fn != null && MapUtils.getDistance(fn.getLatLon(), ln.getLatLon()) < 50) {
 				area = true;
 			} else {
 				area = false;
 			}
 		}
 		LatLon ll = area ? getComplexPolyCenter(nodes, null) : getWeightCenterForNodes(nodes);
-		if(ll == null) {
+		if (ll == null) {
 			return null;
 		}
 		double flat = ll.getLatitude();
 		double flon = ll.getLongitude();
-		if(!area || !MapAlgorithms.containsPoint(nodes, ll.getLatitude(), ll.getLongitude())) {
+		if (!area || !MapAlgorithms.containsPoint(nodes, ll.getLatitude(), ll.getLongitude())) {
 			double minDistance = Double.MAX_VALUE;
 			for (Node n : nodes) {
 				if (n != null) {
 					double d = MapUtils.getDistance(n.getLatitude(), n.getLongitude(), ll.getLatitude(), ll.getLongitude());
-					if(d < minDistance) {
+					if (d < minDistance) {
 						flat = n.getLatitude();
 						flon = n.getLongitude();
 						minDistance = d;
 					}
 				}
-			}	
+			}
 		}
-		
 		return new LatLon(flat, flon);
 
 	}
@@ -338,6 +337,30 @@ public class OsmMapUtils {
 			simplifyDouglasPeucker(n, zoom, epsilon, kept, index, end, avoidNooses);
 		} else {
 			kept[end] = true;
+		}
+	}
+
+	public static void simplifyDouglasPeucker(List<Node> nodes, int start, int end, List<Node> survivedNodes, double epsilon) {
+		double dmax = Double.NEGATIVE_INFINITY;
+		int index = -1;
+
+		Node startPt = nodes.get(start);
+		Node endPt = nodes.get(end);
+
+		for (int i = start + 1; i < end; i++) {
+			Node pt = nodes.get(i);
+			double d = MapUtils.getOrthogonalDistance(pt.getLatitude(), pt.getLongitude(),
+					startPt.getLatitude(), startPt.getLongitude(), endPt.getLatitude(), endPt.getLongitude());
+			if (d > dmax) {
+				dmax = d;
+				index = i;
+			}
+		}
+		if (dmax > epsilon) {
+			simplifyDouglasPeucker(nodes, start, index, survivedNodes, epsilon);
+			simplifyDouglasPeucker(nodes, index, end, survivedNodes, epsilon);
+		} else {
+			survivedNodes.add(nodes.get(end));
 		}
 	}
 

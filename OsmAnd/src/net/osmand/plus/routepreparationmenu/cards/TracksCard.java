@@ -10,8 +10,10 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.appcompat.view.ContextThemeWrapper;
 import androidx.core.content.ContextCompat;
+import androidx.fragment.app.Fragment;
 
 import net.osmand.AndroidUtils;
+import net.osmand.GPXUtilities;
 import net.osmand.GPXUtilities.GPXFile;
 import net.osmand.IndexConstants;
 import net.osmand.plus.GPXDatabase.GpxDataItem;
@@ -19,6 +21,9 @@ import net.osmand.plus.R;
 import net.osmand.plus.activities.MapActivity;
 import net.osmand.plus.helpers.GpxUiHelper;
 import net.osmand.plus.helpers.GpxUiHelper.GPXInfo;
+import net.osmand.plus.routepreparationmenu.MapRouteInfoMenuFragment;
+import net.osmand.plus.settings.backend.ApplicationMode;
+import net.osmand.plus.track.TrackSelectSegmentBottomSheet;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -28,7 +33,7 @@ import java.util.List;
 
 public class TracksCard extends BaseCard {
 
-	private List<GPXFile> gpxFiles;
+	private final List<GPXFile> gpxFiles;
 	private boolean showLimited = true;
 
 	private static class GpxItem {
@@ -60,10 +65,12 @@ public class TracksCard extends BaseCard {
 	@SuppressLint("DefaultLocale")
 	@Override
 	protected void updateContent() {
+		String gpxDir = app.getAppPath(IndexConstants.GPX_INDEX_DIR).getAbsolutePath();
 		final List<GpxItem> list = new ArrayList<>();
 		for (GPXFile gpx : gpxFiles) {
 			File f = new File(gpx.path);
-			list.add(new GpxItem(GpxUiHelper.getGpxTitle(f.getName()), gpx, new GPXInfo(f.getName(), f.lastModified(), f.length())));
+			String fileName = gpx.path.startsWith(gpxDir) ? gpx.path.substring(gpxDir.length() + 1) : f.getName();
+			list.add(new GpxItem(GpxUiHelper.getGpxTitle(f.getName()), gpx, new GPXInfo(fileName, f.lastModified(), f.length())));
 		}
 		Collections.sort(list, new Comparator<GpxItem>() {
 			@Override
@@ -72,7 +79,7 @@ public class TracksCard extends BaseCard {
 			}
 		});
 
-		LinearLayout tracks = (LinearLayout) view.findViewById(R.id.items);
+		LinearLayout tracks = view.findViewById(R.id.items);
 		tracks.removeAllViews();
 
 		int minCardHeight = app.getResources().getDimensionPixelSize(R.dimen.route_info_card_item_height);
@@ -106,17 +113,30 @@ public class TracksCard extends BaseCard {
 			((TextView) v.findViewById(R.id.points_count)).setTextColor(descriptionColor);
 			((TextView) v.findViewById(R.id.time)).setTextColor(descriptionColor);
 
-			ImageView img = (ImageView) v.findViewById(R.id.icon);
+			ImageView img = v.findViewById(R.id.icon);
 			img.setImageDrawable(getActiveIcon(R.drawable.ic_action_polygom_dark));
 			img.setVisibility(View.VISIBLE);
-			LinearLayout container = (LinearLayout) v.findViewById(R.id.container);
+			LinearLayout container = v.findViewById(R.id.container);
 			container.setMinimumHeight(minCardHeight);
 			AndroidUtils.setPadding(container, listContentPadding, 0, 0, 0);
 			v.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
-					mapActivity.getMapActions().setGPXRouteParams(item.file);
-					app.getTargetPointsHelper().updateRouteAndRefresh(true);
+					List<GPXUtilities.WptPt> points = item.file.getRoutePoints();
+					if (!points.isEmpty()) {
+						ApplicationMode mode = ApplicationMode.valueOfStringKey(points.get(0).getProfileType(), null);
+						if (mode != null) {
+							app.getRoutingHelper().setAppMode(mode);
+							app.initVoiceCommandPlayer(mapActivity, mode, true, null, false, false, true);
+						}
+					}
+					if (item.file.getNonEmptySegmentsCount() > 1) {
+						Fragment targetFragment = mapActivity.getSupportFragmentManager().findFragmentByTag(MapRouteInfoMenuFragment.TAG);
+						TrackSelectSegmentBottomSheet.showInstance(mapActivity.getSupportFragmentManager(), item.file, targetFragment);
+					} else {
+						mapActivity.getMapActions().setGPXRouteParams(item.file);
+						app.getTargetPointsHelper().updateRouteAndRefresh(true);
+					}
 				}
 			});
 			tracks.addView(v);

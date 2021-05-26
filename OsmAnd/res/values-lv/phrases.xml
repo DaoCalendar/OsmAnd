@@ -11,7 +11,7 @@
     <string name="poi_shoes_type">Kurpes</string>
     <string name="poi_fire_hydrant_type">Ugunsdzēsības hidranti</string>
     <string name="poi_fire_hydrant_position">Vieta</string>
-    <string name="poi_fire_hydrant_water_source">Ūdens ņemšanas vieta</string>
+    <string name="poi_water_source">Ūdens ņemšanas vieta</string>
     <string name="poi_payment_toll_type">Apmaksas veids</string>
     <string name="poi_traffic_signals_sound">Skaņa</string>
     <string name="poi_highway_crossing_type">Veids</string>
@@ -31,7 +31,7 @@
     <string name="poi_observatory_designation">Nozīmēšana</string>
     <string name="poi_telescope_type">Veids</string>
     <string name="poi_animal_training_type">Veids</string>
-    <string name="poi_embassy_type">Veids</string>
+    <string name="poi_diplomatic_filter">Veids</string>
     <string name="poi_city_capital">Galvaspilsēta</string>
     <string name="poi_pharmacy_dispensing">Zāles pret receptēm</string>
     <string name="poi_healthcare_alternative_types">Specializācija</string>
@@ -475,7 +475,6 @@
     <string name="poi_healthcare_alternative">Alternatīvā medicīna</string>
     <string name="poi_audiologist">Ausu ārsts</string>
     <string name="poi_blood_bank">Asins donoru centrs</string>
-    <string name="poi_healthcare_centre">Veselības centrs</string>
     <string name="poi_midwife">Vecmāte</string>
     <string name="poi_occupational_therapist">Terapeits</string>
     <string name="poi_optometrist">Optometrists</string>
@@ -747,7 +746,6 @@
     <string name="poi_crematorium">Krematorija</string>
     <string name="poi_internet_cafe">Interneta kafejnīca</string>
     <string name="poi_bank">Banka</string>
-    <string name="poi_amenity_atm">Bankomāts</string>
     <string name="poi_payment_terminal">Iemaksas terminālis</string>
     <string name="poi_pawnbroker">Lombards</string>
     <string name="poi_bitcoin_yes">Apmaksa ar bitcoin</string>
@@ -2448,7 +2446,6 @@
     <string name="poi_inscription_e">Uzraksts: A</string>
     <string name="poi_inscription_ne">Uzraksts: ZA</string>
     <string name="poi_construction_yes">Notiek celtniecība</string>
-    <string name="poi_additional_atm_yes">Bankomāti: ir</string>
     <string name="poi_atm_no">Bankomāti: nav</string>
     <string name="poi_firepit">Ugunsdzēšanas vieta</string>
     <string name="poi_fair_trade_yes">Fair trade: ir</string>
@@ -2700,10 +2697,9 @@
     <string name="poi_fire_hydrant_position_street">Hidranta atrašanās vieta: iela</string>
     <string name="poi_fire_hydrant_position_underground">"Hidranta atrašanās vieta:  zemē"</string>
     <string name="poi_fire_hydrant_style_wsh">Hidranta stils: wsh</string>
-    <string name="poi_fire_hydrant_style_water_source_main">Galvenais</string>
-    <string name="poi_fire_hydrant_style_water_source_pond">Dīķis</string>
-    <string name="poi_fire_hydrant_style_water_source_stream">Caurplūde</string>
-    <string name="poi_fire_hydrant_style_water_source_cistern">Cisterna</string>
+    <string name="poi_water_source_main">Galvenais</string>
+    <string name="poi_water_source_pond">Dīķis</string>
+    <string name="poi_water_source_stream">Caurplūde</string>
     <string name="poi_in_service_yes">Lietošanā: jā</string>
     <string name="poi_street_cabinet_power">Skapja tips: elektrība</string>
     <string name="poi_street_cabinet_telecom">Skapja tips: telekomunikācijas</string>
@@ -3216,5 +3212,5 @@
     <string name="poi_climbing_crag_filter">Klints kāpšanas treniņvietas</string>
     <string name="poi_climbing_crag">Jā</string>
     <string name="reddit">Reddit</string>
-    <string name="poi_source_biomass">Enerģijas avots: biomasa</string>
+    <string name="poi_generator_source_biomass">Enerģijas avots: biomasa</string>
 </resources>

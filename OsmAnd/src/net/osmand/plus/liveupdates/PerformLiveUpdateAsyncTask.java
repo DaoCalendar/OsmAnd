@@ -6,9 +6,14 @@ import android.content.Context;
 import android.os.AsyncTask;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
+import net.osmand.AndroidNetworkUtils;
+import net.osmand.AndroidNetworkUtils.OnRequestResultListener;
 import net.osmand.PlatformUtil;
 import net.osmand.plus.OsmandApplication;
+import net.osmand.plus.download.DownloadActivity;
+import net.osmand.plus.settings.backend.CommonPreference;
 import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.plus.R;
 import net.osmand.plus.download.AbstractDownloadActivity;
@@ -16,12 +21,20 @@ import net.osmand.plus.download.DownloadActivityType;
 import net.osmand.plus.download.DownloadIndexesThread;
 import net.osmand.plus.download.IndexItem;
 import net.osmand.plus.resources.IncrementalChangesManager;
+import net.osmand.util.Algorithms;
 
 import org.apache.commons.logging.Log;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
 
+import static net.osmand.plus.liveupdates.LiveUpdatesHelper.preferenceLastCheck;
+import static net.osmand.plus.liveupdates.LiveUpdatesHelper.preferenceLatestUpdateAvailable;
 import static net.osmand.plus.liveupdates.LiveUpdatesHelper.preferenceUpdateFrequency;
 
 public class PerformLiveUpdateAsyncTask
@@ -33,6 +46,7 @@ public class PerformLiveUpdateAsyncTask
 	@NonNull
 	private final String localIndexFileName;
 	private final boolean userRequested;
+	private Runnable runOnSuccess;
 
 	public PerformLiveUpdateAsyncTask(@NonNull Context context,
 									  @NonNull String localIndexFileName,
@@ -40,6 +54,10 @@ public class PerformLiveUpdateAsyncTask
 		this.context = context;
 		this.localIndexFileName = localIndexFileName;
 		this.userRequested = userRequested;
+	}
+
+	public void setRunOnSuccess(Runnable runOnSuccess) {
+		this.runOnSuccess = runOnSuccess;
 	}
 
 	@Override
@@ -50,8 +68,8 @@ public class PerformLiveUpdateAsyncTask
 			activity.setSupportProgressBarIndeterminateVisibility(true);
 		}
 		final OsmandApplication myApplication = getMyApplication();
-		OsmandSettings.CommonPreference<Long> lastCheckPreference =
-				LiveUpdatesHelper.preferenceLastCheck(localIndexFileName, myApplication.getSettings());
+		CommonPreference<Long> lastCheckPreference =
+				preferenceLastCheck(localIndexFileName, myApplication.getSettings());
 		lastCheckPreference.set(System.currentTimeMillis());
 	}
 
@@ -128,16 +146,18 @@ public class PerformLiveUpdateAsyncTask
 							if (context instanceof DownloadIndexesThread.DownloadEvents) {
 								((DownloadIndexesThread.DownloadEvents) context).downloadInProgress();
 							}
+							updateLatestAvailability(application, localIndexFileName);
 						} else {
 							LOG.debug("onPostExecute: Not enough space for updates");
 						}
-					} 
+					}
 					LOG.debug("onPostExecute: No internet connection");
 				}
 			} else {
 				if (context instanceof DownloadIndexesThread.DownloadEvents) {
 					((DownloadIndexesThread.DownloadEvents) context).downloadInProgress();
-					if (userRequested && context instanceof OsmLiveActivity) {
+					if (userRequested && context instanceof DownloadActivity) {
+						updateLatestAvailability(application, localIndexFileName);
 						application.showShortToastMessage(R.string.no_updates_available);
 					}
 				}
@@ -148,7 +168,7 @@ public class PerformLiveUpdateAsyncTask
 	public static void tryRescheduleDownload(@NonNull Context context,
 											 @NonNull OsmandSettings settings,
 											 @NonNull String localIndexFileName) {
-		final OsmandSettings.CommonPreference<Integer> updateFrequencyPreference =
+		final CommonPreference<Integer> updateFrequencyPreference =
 				preferenceUpdateFrequency(localIndexFileName, settings);
 		final Integer frequencyOrdinal = updateFrequencyPreference.get();
 		if (LiveUpdatesHelper.UpdateFrequency.values()[frequencyOrdinal]
@@ -168,5 +188,34 @@ public class PerformLiveUpdateAsyncTask
 		} else {
 			settings.LIVE_UPDATES_RETRIES.resetToDefault();
 		}
+	}
+
+	private void updateLatestAvailability(OsmandApplication app, @NonNull final String localIndexFileName) {
+		final OsmandSettings settings = app.getSettings();
+		AndroidNetworkUtils.sendRequestAsync(
+				app, LiveUpdatesFragment.URL, null, "Requesting map updates info...", false, false, new OnRequestResultListener() {
+					@Override
+					public void onResult(@Nullable String result, @Nullable String error) {
+						if (!Algorithms.isEmpty(result)) {
+							SimpleDateFormat source = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US);
+							source.setTimeZone(TimeZone.getTimeZone("UTC"));
+							try {
+								Date parsed = source.parse(result);
+								if (parsed != null) {
+									long dateTime = parsed.getTime();
+									preferenceLatestUpdateAvailable(settings).set(dateTime);
+									preferenceLatestUpdateAvailable(localIndexFileName, settings).set(dateTime);
+									if (runOnSuccess != null) {
+										runOnSuccess.run();
+									}
+								}
+							} catch (ParseException e) {
+								long dateTime = preferenceLatestUpdateAvailable(settings).get();
+								preferenceLatestUpdateAvailable(localIndexFileName, settings).set(dateTime);
+								LOG.error(e.getMessage(), e);
+							}
+						}
+					}
+				});
 	}
 }

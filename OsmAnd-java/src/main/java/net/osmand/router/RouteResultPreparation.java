@@ -171,15 +171,58 @@ public class RouteResultPreparation {
 
 	List<RouteSegmentResult> prepareResult(RoutingContext ctx, List<RouteSegmentResult> result, boolean recalculation) throws IOException {
 		for(int i = 0; i < result.size(); i++) {
-			checkAndInitRouteRegion(ctx, result.get(i).getObject());
+			RouteDataObject road = result.get(i).getObject();
+			checkAndInitRouteRegion(ctx, road);
+			//"osmand_dp" using for backward compatibility from native lib RoutingConfiguration directionPoints
+			if (road.region != null) {
+				road.region.findOrCreateRouteType(RoutingConfiguration.DirectionPoint.TAG, RoutingConfiguration.DirectionPoint.DELETE_TYPE);
+			}
 		}
 		combineWayPointsForAreaRouting(ctx, result);
 		validateAllPointsConnected(result);
 		splitRoadsAndAttachRoadSegments(ctx, result, recalculation);
+		for (int i = 0; i < result.size(); i++) {
+			filterMinorStops(result.get(i));
+		}
 		calculateTimeSpeed(ctx, result);
-		
 		prepareTurnResults(ctx, result);
 		return result;
+	}
+	
+	public RouteSegmentResult filterMinorStops(RouteSegmentResult seg) {
+		List<Integer> stops = null;
+		boolean plus = seg.getStartPointIndex() < seg.getEndPointIndex();
+		int next;
+
+		for (int i = seg.getStartPointIndex(); i != seg.getEndPointIndex(); i = next) {
+			next = plus ? i + 1 : i - 1;
+			int[] pointTypes = seg.getObject().getPointTypes(i);
+			if (pointTypes != null) {
+				for (int j = 0; j < pointTypes.length; j++) {
+					if (pointTypes[j] == seg.getObject().region.stopMinor) {
+						if (stops == null) {
+							stops = new ArrayList<>();
+						}
+						stops.add(i);
+					}
+				}
+			}
+		}
+
+		if (stops != null) {
+			for (int stop : stops) {
+				List<RouteSegmentResult> attachedRoutes = seg.getAttachedRoutes(stop);
+				for (RouteSegmentResult attached : attachedRoutes) {
+					int attStopPriority = highwaySpeakPriority(attached.getObject().getHighway());
+					int segStopPriority = highwaySpeakPriority(seg.getObject().getHighway());
+					if (segStopPriority < attStopPriority) {
+						seg.getObject().removePointType(stop, seg.getObject().region.stopSign);
+						break;
+					}
+				}
+			}
+		}
+		return seg;
 	}
 
 	public void prepareTurnResults(RoutingContext ctx, List<RouteSegmentResult> result) {
@@ -1079,8 +1122,8 @@ public class RouteResultPreparation {
 			if (UNMATCHED_HIGHWAY_TYPE.equals(rr.getObject().getHighway())) {
 				bearingDist = RouteSegmentResult.DIST_BEARING_DETECT_UNMATCHED;
 			}
-			double mpi = MapUtils.degreesDiff(prev.getBearingEnd(prev.getEndPointIndex(), bearingDist), 
-					rr.getBearingBegin(rr.getStartPointIndex(), bearingDist));
+			double mpi = MapUtils.degreesDiff(prev.getBearingEnd(prev.getEndPointIndex(), Math.min(prev.getDistance(), bearingDist)), 
+					rr.getBearingBegin(rr.getStartPointIndex(), Math.min(rr.getDistance(), bearingDist)));
 			if (mpi >= TURN_DEGREE_MIN) {
 				if (mpi < TURN_DEGREE_MIN) {
 					// Slight turn detection here causes many false positives where drivers would expect a "normal" TL. Best use limit-angle=TURN_DEGREE_MIN, this reduces TSL to the turn-lanes cases.
@@ -1189,6 +1232,7 @@ public class RouteResultPreparation {
 		RouteSegmentResult last = rr;
 		RouteSegmentResult firstRoundabout = rr;
 		RouteSegmentResult lastRoundabout = rr;
+		
 		for (int j = i; j < result.size(); j++) {
 			RouteSegmentResult rnext = result.get(j);
 			last = rnext;
@@ -1215,12 +1259,18 @@ public class RouteResultPreparation {
 		TurnType t = TurnType.getExitTurn(exit, 0, leftSide);
 		// usually covers more than expected
 		float turnAngleBasedOnOutRoads = (float) MapUtils.degreesDiff(last.getBearingBegin(), prev.getBearingEnd());
-		// usually covers less than expected
+		// Angle based on circle method tries 
+		// 1. to calculate antinormal to roundabout circle on roundabout entrance and 
+		// 2. normal to roundabout circle on roundabout exit
+		// 3. calculate angle difference
+		// This method doesn't work if you go from S to N touching only 1 point of roundabout, 
+		// but it is very important to identify very sharp or very large angle to understand did you pass whole roundabout or small entrance
 		float turnAngleBasedOnCircle = (float) -MapUtils.degreesDiff(firstRoundabout.getBearingBegin(), lastRoundabout.getBearingEnd() + 180);
-		if(Math.abs(turnAngleBasedOnOutRoads - turnAngleBasedOnCircle) > 180) {
-			t.setTurnAngle(turnAngleBasedOnCircle ) ;
+		if (Math.abs(turnAngleBasedOnOutRoads) > 120) {
+			// correctly identify if angle is +- 180, so we approach from left or right side
+			t.setTurnAngle(turnAngleBasedOnCircle) ;
 		} else {
-			t.setTurnAngle((turnAngleBasedOnCircle + turnAngleBasedOnOutRoads) / 2) ;
+			t.setTurnAngle(turnAngleBasedOnOutRoads) ;
 		}
 		return t;
 	}
@@ -1717,7 +1767,7 @@ public class RouteResultPreparation {
 				}
 			}
 		}
-		Integer[] array = possibleTurns.toArray(new Integer[possibleTurns.size()]);
+		Integer[] array = possibleTurns.toArray(new Integer[0]);
 		Arrays.sort(array, new Comparator<Integer>() {
 
 			@Override

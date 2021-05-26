@@ -2,6 +2,8 @@ package net.osmand.util;
 
 import net.osmand.IProgress;
 import net.osmand.PlatformUtil;
+import net.osmand.data.LatLon;
+import net.osmand.router.RouteColorize;
 
 import org.apache.commons.logging.Log;
 import org.xmlpull.v1.XmlPullParser;
@@ -49,6 +51,14 @@ public class Algorithms {
 	private static char[] CHARS_TO_NORMALIZE_KEY = new char['’'];
 	private static char[] CHARS_TO_NORMALIZE_VALUE = new char['\''];
 
+	public static final int ZIP_FILE_SIGNATURE = 0x504b0304;
+	public static final int XML_FILE_SIGNATURE = 0x3c3f786d;
+	public static final int OBF_FILE_SIGNATURE = 0x08029001;
+	public static final int SQLITE_FILE_SIGNATURE = 0x53514C69;
+	public static final int BZIP_FILE_SIGNATURE = 0x425a;
+	public static final int GZIP_FILE_SIGNATURE = 0x1f8b;
+
+
 	public static String normalizeSearchText(String s) {
 		boolean norm = false;
 		for (int i = 0; i < s.length() && !norm; i++) {
@@ -73,12 +83,20 @@ public class Algorithms {
 		return map == null || map.size() == 0;
 	}
 
+	public static String emptyIfNull(String s) {
+		return s == null ? "" : s;
+	}
+
 	public static boolean isEmpty(CharSequence s) {
 		return s == null || s.length() == 0;
 	}
 
 	public static boolean isBlank(String s) {
 		return s == null || s.trim().length() == 0;
+	}
+
+	public static int hash(Object... values) {
+		return Arrays.hashCode(values);
 	}
 
 	public static boolean stringsEqual(String s1, String s2) {
@@ -102,7 +120,7 @@ public class Algorithms {
 		}
 		return def;
 	}
-	
+
 	public static int parseIntSilently(String input, int def) {
 		if (input != null && input.length() > 0) {
 			try {
@@ -114,14 +132,56 @@ public class Algorithms {
 		return def;
 	}
 
+	public static double parseDoubleSilently(String input, double def) {
+		if (input != null && input.length() > 0) {
+			try {
+				return Double.parseDouble(input);
+			} catch (NumberFormatException e) {
+				return def;
+			}
+		}
+		return def;
+	}
+
+	public static boolean isFirstPolygonInsideSecond(List<LatLon> firstPolygon,
+	                                                 List<LatLon> secondPolygon) {
+		for (LatLon point : firstPolygon) {
+			if (!isPointInsidePolygon(point, secondPolygon)) {
+				// if at least one point is not inside the boundary, return false
+				return false;
+			}
+		}
+		return true;
+	}
+
+	public static boolean isPointInsidePolygon(LatLon point,
+	                                           List<LatLon> polygon) {
+		double pointX = point.getLongitude();
+		double pointY = point.getLatitude();
+		boolean result = false;
+		for (int i = 0, j = polygon.size() - 1; i < polygon.size(); j = i++) {
+			double x1 = polygon.get(i).getLongitude();
+			double y1 = polygon.get(i).getLatitude();
+			double x2 = polygon.get(j).getLongitude();
+			double y2 = polygon.get(j).getLatitude();
+			if ((y1 > pointY) != (y2 > pointY)
+					&& (pointX < (x2 - x1) * (pointY - y1) / (y2-y1) + x1)) {
+				result = !result;
+			}
+		}
+		return result;
+	}
+
 	public static String getFileNameWithoutExtension(File f) {
 		return getFileNameWithoutExtension(f.getName());
 	}
 
 	public static String getFileNameWithoutExtension(String name) {
-		int i = name.indexOf('.');
-		if (i >= 0) {
-			name = name.substring(0, i);
+		if (name != null) {
+			int index = name.lastIndexOf('.');
+			if (index != -1) {
+				return name.substring(0, index);
+			}
 		}
 		return name;
 	}
@@ -239,30 +299,40 @@ public class Algorithms {
 	}
 
 	public static Set<String> decodeStringSet(String s) {
-		if (isEmpty(s)) {
-			return Collections.emptySet();
-		}
-		return new HashSet<>(Arrays.asList(s.split(CHAR_TOSPLIT + "")));
+		return decodeStringSet(s, String.valueOf(CHAR_TOSPLIT));
 	}
 
 	public static String encodeStringSet(Set<String> set) {
+		return encodeStringSet(set, String.valueOf(CHAR_TOSPLIT));
+	}
+
+	public static Set<String> decodeStringSet(String s, String split) {
+		if (isEmpty(s)) {
+			return Collections.emptySet();
+		}
+		return new HashSet<>(Arrays.asList(s.split(split)));
+	}
+
+	public static String encodeStringSet(Set<String> set, String split) {
 		if (set != null) {
 			StringBuilder sb = new StringBuilder();
 			for (String s : set) {
-				sb.append(s).append(CHAR_TOSPLIT);
+				sb.append(s).append(split);
 			}
 			return sb.toString();
 		}
 		return "";
 	}
 
-	public static int findFirstNumberEndIndex(String value) {
+	public static int findFirstNumberEndIndexLegacy(String value) {
+		// keep this method unmodified ! (to check old clients crashes on server side)
 		int i = 0;
 		boolean valid = false;
 		if (value.length() > 0 && value.charAt(0) == '-') {
 			i++;
 		}
-		while (i < value.length() && (isDigit(value.charAt(i)) || value.charAt(i) == '.')) {
+		while (i < value.length() &&
+				(isDigit(value.charAt(i)) || value.charAt(i) == '.')) {
 			i++;
 			valid = true;
 		}
@@ -271,6 +341,43 @@ public class Algorithms {
 		} else {
 			return -1;
 		}
+	}
+
+	public static int findFirstNumberEndIndex(String value) {
+		int i = 0;
+		if (value.length() > 0 && value.charAt(0) == '-') {
+			i++;
+		}
+		int state = 0; // 0 - no number, 1 - 1st digits, 2 - dot, 3 - last digits
+		while (i < value.length() && (isDigit(value.charAt(i)) || (value.charAt(i) == '.'))) {
+			if (value.charAt(i) == '.') {
+				if (state == 2) {
+					return i - 1;
+				}
+				if (state != 1) {
+					return -1;
+				}
+				state = 2;
+			} else {
+				if (state == 2) {
+					// last digits 
+					state = 3;
+				} else if (state == 0) {
+					// first digits started
+					state = 1;
+				}
+
+			}
+			i++;
+		}
+		if (state == 2) {
+			// invalid number like 40. correct to -> '40'
+			return i - 1;
+		}
+		if (state == 0) {
+			return -1;
+		}
+		return i;
 	}
 
 	public static boolean isDigit(char charAt) {
@@ -293,7 +400,25 @@ public class Algorithms {
 		FileInputStream in = new FileInputStream(file);
 		int test = readInt(in);
 		in.close();
-		return test == 0x504b0304;
+		return test == ZIP_FILE_SIGNATURE;
+	}
+
+	public static boolean checkFileSignature(InputStream inputStream, int fileSignature) throws IOException {
+		if (inputStream == null) return false;
+		int firstBytes;
+		if (isSmallFileSignature(fileSignature)) {
+			firstBytes = readSmallInt(inputStream);
+		} else {
+			firstBytes = readInt(inputStream);
+		}
+		if (inputStream.markSupported()) {
+			inputStream.reset();
+		}
+		return firstBytes == fileSignature;
+	}
+
+	public static boolean isSmallFileSignature(int fileSignature) {
+		return fileSignature == BZIP_FILE_SIGNATURE || fileSignature == GZIP_FILE_SIGNATURE;
 	}
 
 	/**
@@ -322,7 +447,7 @@ public class Algorithms {
 		return false;
 	}
 
-	private static int readInt(InputStream in) throws IOException {
+	public static int readInt(InputStream in) throws IOException {
 		int ch1 = in.read();
 		int ch2 = in.read();
 		int ch3 = in.read();
@@ -330,6 +455,14 @@ public class Algorithms {
 		if ((ch1 | ch2 | ch3 | ch4) < 0)
 			throw new EOFException();
 		return ((ch1 << 24) + (ch2 << 16) + (ch3 << 8) + ch4);
+	}
+
+	public static int readSmallInt(InputStream in) throws IOException {
+		int ch1 = in.read();
+		int ch2 = in.read();
+		if ((ch1 | ch2) < 0)
+			throw new EOFException();
+		return ((ch1 << 8) + ch2);
 	}
 
 	public static String capitalizeFirstLetterAndLowercase(String s) {
@@ -509,6 +642,13 @@ public class Algorithms {
 		} catch (IOException e) {
 			log.warn("Closing stream warn", e); //$NON-NLS-1$
 		}
+	}
+
+	public static ByteArrayInputStream createByteArrayIS(InputStream in) throws IOException {
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		streamCopy(in, out);
+		in.close();
+		return new ByteArrayInputStream(out.toByteArray());
 	}
 
 	@SuppressWarnings("ResultOfMethodCallIgnored")
@@ -697,6 +837,10 @@ public class Algorithms {
 		return false;
 	}
 
+	public static boolean isInt(double d) {
+		return (d == Math.floor(d)) && !Double.isInfinite(d);
+	}
+
 	public static boolean isInt(String value) {
 		int length = value.length();
 		for (int i = 0; i < length; i++) {
@@ -879,6 +1023,14 @@ public class Algorithms {
 		return map;
 	}
 
+	public static <T> void reverseArray(T[] array) {
+		for (int i = 0; i < array.length / 2; i++) {
+			T temp = array[i];
+			array[i] = array[array.length - i - 1];
+			array[array.length - i - 1] = temp;
+		}
+	}
+
 	public static boolean containsInArrayL(long[] array, long value) {
 		return Arrays.binarySearch(array, value) >= 0;
 	}
@@ -941,5 +1093,47 @@ public class Algorithms {
 			res[i] = Integer.parseInt(items[i]);
 		}
 		return res;
+	}
+
+	public static boolean isValidMessageFormat(CharSequence sequence) {
+		if (!isEmpty(sequence)) {
+			int counter = 0;
+			for (int i = 0; i < sequence.length(); i++) {
+				char ch = sequence.charAt(i);
+				if (ch == '{') {
+					counter++;
+				} else if (ch == '}') {
+					counter--;
+				}
+			}
+			return counter == 0;
+		}
+		return false;
+	}
+
+	public static int[] stringToGradientPalette(String str) {
+		if (Algorithms.isBlank(str)) {
+			return RouteColorize.colors;
+		}
+		String[] arr = str.split(" ");
+		if (arr.length != 3) {
+			return RouteColorize.colors;
+		}
+		int[] colors = new int[3];
+		try {
+			for (int i = 0; i < 3; i++) {
+				colors[i] = Algorithms.parseColor(arr[i]);
+			}
+		} catch (IllegalArgumentException e) {
+			return RouteColorize.colors;
+		}
+		return colors;
+	}
+
+	public static String gradientPaletteToString(int[] colors) {
+		int[] src = (colors != null && colors.length == 3) ? colors : RouteColorize.colors;
+		return Algorithms.colorToString(src[0]) + " " +
+				Algorithms.colorToString(src[1]) + " " +
+				Algorithms.colorToString(src[2]);
 	}
 }

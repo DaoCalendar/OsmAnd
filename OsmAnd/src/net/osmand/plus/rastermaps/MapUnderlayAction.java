@@ -15,19 +15,20 @@ import com.google.gson.reflect.TypeToken;
 
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.OsmandPlugin;
-import net.osmand.plus.settings.backend.OsmandSettings;
-import net.osmand.plus.settings.backend.OsmandSettings.LayerTransparencySeekbarMode;
 import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.activities.MapActivity;
 import net.osmand.plus.quickaction.QuickAction;
 import net.osmand.plus.quickaction.QuickActionType;
 import net.osmand.plus.quickaction.SwitchableAction;
+import net.osmand.plus.settings.backend.OsmandSettings;
+import net.osmand.util.Algorithms;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
 
 public class MapUnderlayAction extends SwitchableAction<Pair<String, String>> {
 
@@ -59,20 +60,40 @@ public class MapUnderlayAction extends SwitchableAction<Pair<String, String>> {
 
 	@Override
 	public String getSelectedItem(OsmandApplication app) {
-		return app.getSettings().MAP_UNDERLAY.get();
+		return app.getSettings().MAP_UNDERLAY.get() != null ? app.getSettings().MAP_UNDERLAY.get() : KEY_NO_UNDERLAY;
+	}
+
+	@Override
+	public String getNextSelectedItem(OsmandApplication app) {
+		List<Pair<String, String>> sources = loadListFromParams();
+		if (sources.size() > 0) {
+			String currentSource = getSelectedItem(app);
+
+			int index = -1;
+			for (int idx = 0; idx < sources.size(); idx++) {
+				if (Algorithms.stringsEqual(sources.get(idx).first, currentSource)) {
+					index = idx;
+					break;
+				}
+			}
+
+			Pair<String, String> nextSource = sources.get(0);
+			if (index >= 0 && index + 1 < sources.size()) {
+				nextSource = sources.get(index + 1);
+			}
+			return nextSource.first;
+		}
+		return null;
 	}
 
 	@Override
 	protected void saveListToParams(List<Pair<String, String>> list) {
-
 		getParams().put(getListKey(), new Gson().toJson(list));
 	}
 
 	@Override
 	public List<Pair<String, String>> loadListFromParams() {
-
 		String json = getParams().get(getListKey());
-
 		if (json == null || json.isEmpty()) return new ArrayList<>();
 
 		Type listType = new TypeToken<ArrayList<Pair<String, String>>>() {
@@ -89,35 +110,16 @@ public class MapUnderlayAction extends SwitchableAction<Pair<String, String>> {
 	@Override
 	public void execute(MapActivity activity) {
 		OsmandRasterMapsPlugin plugin = OsmandPlugin.getEnabledPlugin(OsmandRasterMapsPlugin.class);
-
 		if (plugin != null) {
-
-			OsmandSettings settings = activity.getMyApplication().getSettings();
 			List<Pair<String, String>> sources = loadListFromParams();
 			if (sources.size() > 0) {
-				boolean showBottomSheetStyles = Boolean.valueOf(getParams().get(KEY_DIALOG));
+				boolean showBottomSheetStyles = Boolean.parseBoolean(getParams().get(KEY_DIALOG));
 				if (showBottomSheetStyles) {
 					showChooseDialog(activity.getSupportFragmentManager());
 					return;
 				}
-
-				int index = -1;
-				final String currentSource = settings.MAP_UNDERLAY.get() == null ? KEY_NO_UNDERLAY
-					: settings.MAP_UNDERLAY.get();
-
-				for (int idx = 0; idx < sources.size(); idx++) {
-					if (sources.get(idx).first.equals(currentSource)) {
-						index = idx;
-						break;
-					}
-				}
-
-				Pair<String, String> nextSource = sources.get(0);
-
-				if (index >= 0 && index + 1 < sources.size()) {
-					nextSource = sources.get(index + 1);
-				}
-				executeWithParams(activity, nextSource.first);
+				String nextItem = getNextSelectedItem(activity.getMyApplication());
+				executeWithParams(activity, nextItem);
 			}
 		}
 	}
@@ -141,14 +143,9 @@ public class MapUnderlayAction extends SwitchableAction<Pair<String, String>> {
 				settings.MAP_UNDERLAY.set(null);
 				activity.getMapLayers().getMapControlsLayer().hideTransparencyBar();
 				settings.MAP_UNDERLAY_PREVIOUS.set(null);
-
-
 			}
-			final OsmandSettings.CommonPreference<Boolean> hidePolygonsPref =
-					activity.getMyApplication().getSettings().getCustomRenderBooleanProperty("noPolygons");
-			hidePolygonsPref.set(hasUnderlay);
-
 			plugin.updateMapLayers(activity.getMapView(), settings.MAP_UNDERLAY, activity.getMapLayers());
+			activity.refreshMapComplete();
 			Toast.makeText(activity, activity.getString(R.string.quick_action_map_underlay_switch,
 					getTranslatedItemName(activity, params)), Toast.LENGTH_SHORT).show();
 		}
@@ -162,7 +159,7 @@ public class MapUnderlayAction extends SwitchableAction<Pair<String, String>> {
 			return item;
 		}
 	}
-	
+
 	@Override
 	protected int getAddBtnText() {
 		return R.string.quick_action_map_underlay_action;

@@ -1,6 +1,7 @@
 apply plugin: 'java'
 apply plugin: 'maven-publish'
-    
+apply plugin: 'ivy-publish'
+
 configurations {
 	android
 }
@@ -85,12 +86,22 @@ artifacts {
 }
 
 publishing {
+	repositories {
+		ivy {
+			url = System.getenv("OSMAND_BINARIES_IVY_ROOT") ?: "./"
+		}
+	}
     publications {
         maven(MavenPublication) {
 			artifactId "osmand-base"
             from components.java
         }
-    }
+		ivyJava(IvyPublication) {
+			artifact androidJar {
+				classifier 'android'
+			}
+		}
+	}
 }
 
 dependencies {
@@ -104,6 +115,9 @@ dependencies {
 	implementation 'com.moparisthebest:junidecode:0.1.1'
 	implementation 'com.vividsolutions:jts-core:1.14.0'
 	implementation 'com.google.openlocationcode:openlocationcode:1.0.4'
+	implementation ('com.github.scribejava:scribejava-apis:7.1.1') {
+		exclude group: "com.fasterxml.jackson.core"
+	}
 	// turn off for now
 	//implementation 'com.atilika.kuromoji:kuromoji-ipadic:0.9.0'
 	implementation 'net.sf.kxml:kxml2:2.1.8'

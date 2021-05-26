@@ -21,7 +21,6 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.SwitchCompat;
-import androidx.core.content.ContextCompat;
 
 import com.github.ksoichiro.android.observablescrollview.ObservableListView;
 import com.google.android.material.slider.RangeSlider;
@@ -43,7 +42,6 @@ import net.osmand.plus.download.DownloadValidationManager;
 import net.osmand.plus.download.IndexItem;
 import net.osmand.plus.helpers.FontCache;
 import net.osmand.plus.settings.backend.OsmandSettings;
-import net.osmand.plus.settings.backend.OsmandSettings.TerrainMode;
 import net.osmand.plus.widgets.style.CustomTypefaceSpan;
 
 import org.apache.commons.logging.Log;
@@ -51,14 +49,16 @@ import org.apache.commons.logging.Log;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.List;
+import java.util.Locale;
 
-import static net.osmand.plus.UiUtilities.CustomRadioButtonType.*;
+import static net.osmand.plus.UiUtilities.CustomRadioButtonType.END;
+import static net.osmand.plus.UiUtilities.CustomRadioButtonType.START;
 import static net.osmand.plus.download.DownloadActivityType.HILLSHADE_FILE;
 import static net.osmand.plus.download.DownloadActivityType.SLOPE_FILE;
-import static net.osmand.plus.settings.backend.OsmandSettings.TerrainMode.HILLSHADE;
-import static net.osmand.plus.settings.backend.OsmandSettings.TerrainMode.SLOPE;
 import static net.osmand.plus.srtmplugin.SRTMPlugin.TERRAIN_MAX_ZOOM;
 import static net.osmand.plus.srtmplugin.SRTMPlugin.TERRAIN_MIN_ZOOM;
+import static net.osmand.plus.srtmplugin.TerrainMode.HILLSHADE;
+import static net.osmand.plus.srtmplugin.TerrainMode.SLOPE;
 
 
 public class TerrainFragment extends BaseOsmAndFragment implements View.OnClickListener,
@@ -76,7 +76,6 @@ public class TerrainFragment extends BaseOsmAndFragment implements View.OnClickL
 	private boolean nightMode;
 	private boolean terrainEnabled;
 
-	private int colorProfileRes;
 	private int colorProfile;
 
 	private TextView downloadDescriptionTv;
@@ -104,7 +103,7 @@ public class TerrainFragment extends BaseOsmAndFragment implements View.OnClickL
 
 	private ArrayAdapter<ContextMenuItem> listAdapter;
 
-	private Slider.OnChangeListener transparencySliderChangeListener = new Slider.OnChangeListener() {
+	private final Slider.OnChangeListener transparencySliderChangeListener = new Slider.OnChangeListener() {
 		@Override
 		public void onValueChange(@NonNull Slider slider, float value, boolean fromUser) {
 			if (fromUser) {
@@ -116,7 +115,7 @@ public class TerrainFragment extends BaseOsmAndFragment implements View.OnClickL
 		}
 	};
 
-	private RangeSlider.OnChangeListener zoomSliderChangeListener = new RangeSlider.OnChangeListener() {
+	private final RangeSlider.OnChangeListener zoomSliderChangeListener = new RangeSlider.OnChangeListener() {
 		@Override
 		public void onValueChange(@NonNull RangeSlider slider, float value, boolean fromUser) {
 			List<Float> values = slider.getValues();
@@ -145,8 +144,7 @@ public class TerrainFragment extends BaseOsmAndFragment implements View.OnClickL
 		uiUtilities = app.getUIUtilities();
 		nightMode = app.getDaynightHelper().isNightModeForMapControls();
 		srtmPlugin = OsmandPlugin.getPlugin(SRTMPlugin.class);
-		colorProfileRes = settings.getApplicationMode().getIconColorInfo().getColor(nightMode);
-		colorProfile = ContextCompat.getColor(app, colorProfileRes);
+		colorProfile = settings.getApplicationMode().getProfileColor(nightMode);
 		terrainEnabled = srtmPlugin.isTerrainLayerEnabled();
 		super.onCreate(savedInstanceState);
 	}
@@ -189,11 +187,7 @@ public class TerrainFragment extends BaseOsmAndFragment implements View.OnClickL
 				getString(R.string.slope_read_more),
 				wikiString
 		);
-		String emptyStateText = String.format(
-				getString(R.string.ltr_or_rtl_combine_via_space),
-				getString(R.string.terrain_empty_state_text),
-				PLUGIN_URL
-		);
+		String emptyStateText = getString(R.string.terrain_empty_state_text) + "\n" + PLUGIN_URL;
 		setupClickableText(slopeReadMoreTv, readMoreText, wikiString, SLOPES_WIKI_URL, false);
 		setupClickableText(emptyStateDescriptionTv, emptyStateText, PLUGIN_URL, PLUGIN_URL, true);
 
@@ -222,18 +216,13 @@ public class TerrainFragment extends BaseOsmAndFragment implements View.OnClickL
 
 	@Override
 	public void onClick(View view) {
-		switch (view.getId()) {
-			case R.id.switch_compat:
-				onSwitchClick();
-				break;
-			case R.id.left_button:
-				setupTerrainMode(HILLSHADE);
-				break;
-			case R.id.right_button:
-				setupTerrainMode(SLOPE);
-				break;
-			default:
-				break;
+		int id = view.getId();
+		if (id == R.id.switch_compat) {
+			onSwitchClick();
+		} else if (id == R.id.left_button) {
+			setupTerrainMode(HILLSHADE);
+		} else if (id == R.id.right_button) {
+			setupTerrainMode(SLOPE);
 		}
 	}
 
@@ -244,7 +233,7 @@ public class TerrainFragment extends BaseOsmAndFragment implements View.OnClickL
 			String transparency = transparencyValue + "%";
 			int minZoom = Math.max(srtmPlugin.getTerrainMinZoom(), TERRAIN_MIN_ZOOM);
 			int maxZoom = Math.min(srtmPlugin.getTerrainMaxZoom(), TERRAIN_MAX_ZOOM);
-			iconIv.setImageDrawable(uiUtilities.getIcon(R.drawable.ic_action_hillshade_dark, colorProfileRes));
+			iconIv.setImageDrawable(uiUtilities.getPaintedIcon(R.drawable.ic_action_hillshade_dark, colorProfile));
 			stateTv.setText(R.string.shared_string_enabled);
 			transparencySlider.setValue(transparencyValue);
 			transparencyValueTv.setText(transparency);
@@ -291,17 +280,17 @@ public class TerrainFragment extends BaseOsmAndFragment implements View.OnClickL
 
 	private void adjustModeButtons(TerrainMode mode) {
 		if (mode == SLOPE) {
-			UiUtilities.updateCustomRadioButtons(app, customRadioButton, nightMode, RIGHT);
+			UiUtilities.updateCustomRadioButtons(app, customRadioButton, nightMode, END);
 		} else {
-			UiUtilities.updateCustomRadioButtons(app, customRadioButton, nightMode, LEFT);
+			UiUtilities.updateCustomRadioButtons(app, customRadioButton, nightMode, START);
 		}
 	}
 
 	private void setupClickableText(TextView textView,
-	                                String text,
-	                                String clickableText,
-	                                final String url,
-	                                final boolean medium) {
+									String text,
+									String clickableText,
+									final String url,
+									final boolean medium) {
 		SpannableString spannableString = new SpannableString(text);
 		ClickableSpan clickableSpan = new ClickableSpan() {
 			@Override

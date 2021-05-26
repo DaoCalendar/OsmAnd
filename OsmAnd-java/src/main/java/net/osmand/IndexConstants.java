@@ -14,17 +14,22 @@ public class IndexConstants {
 	public static final String TEMP_SOURCE_TO_LOAD = "temp";
 	
 	public static final String POI_INDEX_EXT = ".poi.odb"; //$NON-NLS-1$
-	
+
+	public static final String ZIP_EXT = ".zip"; //$NON-NLS-1$
 	public static final String BINARY_MAP_INDEX_EXT = ".obf"; //$NON-NLS-1$
 	public static final String BINARY_MAP_INDEX_EXT_ZIP = ".obf.zip"; //$NON-NLS-1$
 	
 	public static final String BINARY_WIKIVOYAGE_MAP_INDEX_EXT = ".sqlite"; //$NON-NLS-1$
+	public static final String BINARY_TRAVEL_GUIDE_MAP_INDEX_EXT = ".travel.obf"; //$NON-NLS-1$
+	public static final String BINARY_TRAVEL_GUIDE_MAP_INDEX_EXT_ZIP = ".travel.obf.zip"; //$NON-NLS-1$
 	public static final String BINARY_WIKI_MAP_INDEX_EXT = ".wiki.obf"; //$NON-NLS-1$
 	public static final String BINARY_WIKI_MAP_INDEX_EXT_ZIP = ".wiki.obf.zip"; //$NON-NLS-1$
 	public static final String BINARY_ROAD_MAP_INDEX_EXT = ".road.obf"; //$NON-NLS-1$
 	public static final String BINARY_ROAD_MAP_INDEX_EXT_ZIP = ".road.obf.zip"; //$NON-NLS-1$
 	public static final String BINARY_SRTM_MAP_INDEX_EXT = ".srtm.obf"; //$NON-NLS-1$
+	public static final String BINARY_SRTM_FEET_MAP_INDEX_EXT = ".srtmf.obf"; //$NON-NLS-1$
 	public static final String BINARY_SRTM_MAP_INDEX_EXT_ZIP = ".srtm.obf.zip"; //$NON-NLS-1$
+	public static final String BINARY_SRTM_FEET_MAP_INDEX_EXT_ZIP  = ".srtmf.obf.zip"; //$NON-NLS-1$
 	public static final String EXTRA_EXT = ".extra";
 	public static final String EXTRA_ZIP_EXT = ".extra.zip";
 	
@@ -71,9 +76,11 @@ public class IndexConstants {
 	public static final String FONT_INDEX_DIR = "fonts/"; //$NON-NLS-1$
 	public static final String VOICE_INDEX_DIR = "voice/"; //$NON-NLS-1$
 	public static final String RENDERERS_DIR = "rendering/"; //$NON-NLS-1$
-	public static final String ROUTING_XML_FILE= "routing.xml";
+	public static final String ROUTING_XML_FILE = "routing.xml";
 	public static final String SETTINGS_DIR = "settings/"; //$NON-NLS-1$
 	public static final String TEMP_DIR = "temp/";
 	public static final String ROUTING_PROFILES_DIR = "routing/";
 	public static final String PLUGINS_DIR = "plugins/";
+
+	public static final String VOICE_PROVIDER_SUFFIX = "-tts";
 }

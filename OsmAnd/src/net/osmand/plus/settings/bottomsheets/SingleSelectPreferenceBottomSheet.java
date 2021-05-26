@@ -6,6 +6,7 @@ import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 
@@ -26,7 +27,7 @@ public class SingleSelectPreferenceBottomSheet extends BasePreferenceBottomSheet
 
 	public static final String TAG = SingleSelectPreferenceBottomSheet.class.getSimpleName();
 
-	private static final String SELECTED_ENTRY_INDEX_KEY = "selected_entry_index_key";
+	public static final String SELECTED_ENTRY_INDEX_KEY = "selected_entry_index_key";
 	private static final String USE_COLLAPSIBLE_DESCRIPTION = "use_collapsible_description";
 	private static final int COLLAPSED_DESCRIPTION_LINES = 4;
 
@@ -69,8 +70,11 @@ public class SingleSelectPreferenceBottomSheet extends BasePreferenceBottomSheet
 			final BaseBottomSheetItem[] preferenceItem = new BottomSheetItemWithCompoundButton[1];
 			preferenceItem[0] = new BottomSheetItemWithCompoundButton.Builder()
 					.setChecked(i == selectedEntryIndex)
-					.setButtonTintList(AndroidUtils.createCheckedColorStateList(ctx, R.color.icon_color_default_light,
-							isProfileDependent() ? getAppMode().getIconColorInfo().getColor(nightMode) : getActiveColorId()))
+					.setButtonTintList(AndroidUtils.createCheckedColorIntStateList(
+							ContextCompat.getColor(ctx,R.color.icon_color_default_light),
+							isProfileDependent() ?
+									getAppMode().getProfileColor(nightMode) :
+									ContextCompat.getColor(ctx, getActiveColorId())))
 					.setTitle(entries[i])
 					.setTag(i)
 					.setLayoutId(R.layout.bottom_sheet_item_with_radio_btn_left)

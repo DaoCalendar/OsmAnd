@@ -1,8 +1,5 @@
 package net.osmand.plus;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-
 import net.osmand.GPXUtilities.GPXFile;
 import net.osmand.GPXUtilities.GPXTrackAnalysis;
 import net.osmand.IndexConstants;
@@ -16,9 +13,12 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 public class GPXDatabase {
 
-	private static final int DB_VERSION = 11;
+	private static final int DB_VERSION = 12;
 	private static final String DB_NAME = "gpx_database";
 
 	private static final String GPX_TABLE_NAME = "gpxTable";
@@ -48,6 +48,7 @@ public class GPXDatabase {
 
 	private static final String GPX_COL_COLOR = "color";
 	private static final String GPX_COL_FILE_LAST_MODIFIED_TIME = "fileLastModifiedTime";
+	private static final String GPX_COL_FILE_LAST_UPLOADED_TIME = "fileLastUploadedTime";
 
 	private static final String GPX_COL_SPLIT_TYPE = "splitType";
 	private static final String GPX_COL_SPLIT_INTERVAL = "splitInterval";
@@ -98,6 +99,7 @@ public class GPXDatabase {
 			GPX_COL_WPT_POINTS + " int, " +
 			GPX_COL_COLOR + " TEXT, " +
 			GPX_COL_FILE_LAST_MODIFIED_TIME + " long, " +
+			GPX_COL_FILE_LAST_UPLOADED_TIME + " long, " +
 			GPX_COL_SPLIT_TYPE + " int, " +
 			GPX_COL_SPLIT_INTERVAL + " double, " +
 			GPX_COL_API_IMPORTED + " int, " + // 1 = true, 0 = false
@@ -133,6 +135,7 @@ public class GPXDatabase {
 			GPX_COL_WPT_POINTS + ", " +
 			GPX_COL_COLOR + ", " +
 			GPX_COL_FILE_LAST_MODIFIED_TIME + ", " +
+			GPX_COL_FILE_LAST_UPLOADED_TIME + ", " +
 			GPX_COL_SPLIT_TYPE + ", " +
 			GPX_COL_SPLIT_INTERVAL + ", " +
 			GPX_COL_API_IMPORTED + ", " +
@@ -176,14 +179,15 @@ public class GPXDatabase {
 		private File file;
 		private GPXTrackAnalysis analysis;
 		private String width;
-		private GradientScaleType gradientScaleType;
 		private int color;
-		private int gradientSpeedColor;
-		private int gradientAltitudeColor;
-		private int gradientSlopeColor;
+		private GradientScaleType gradientScaleType;
+		private int[] gradientSpeedPalette;
+		private int[] gradientAltitudePalette;
+		private int[] gradientSlopePalette;
 		private int splitType;
 		private double splitInterval;
 		private long fileLastModifiedTime;
+		private long fileLastUploadedTime;
 		private boolean apiImported;
 		private boolean showAsMarkers;
 		private boolean joinSegments;
@@ -200,6 +204,11 @@ public class GPXDatabase {
 			this.color = color;
 		}
 
+		public GpxDataItem(File file, long fileLastUploadedTime) {
+			this.file = file;
+			this.fileLastUploadedTime = fileLastUploadedTime;
+		}
+
 		public GpxDataItem(File file, @NonNull GPXFile gpxFile) {
 			this.file = file;
 			readGpxParams(gpxFile);
@@ -210,9 +219,9 @@ public class GPXDatabase {
 			width = gpxFile.getWidth(null);
 			showArrows = gpxFile.isShowArrows();
 			showStartFinish = gpxFile.isShowStartFinish();
-			gradientSpeedColor = gpxFile.getGradientScaleColor(GradientScaleType.SPEED.getColorTypeName(), 0);
-			gradientSlopeColor = gpxFile.getGradientScaleColor(GradientScaleType.SLOPE.getColorTypeName(), 0);
-			gradientAltitudeColor = gpxFile.getGradientScaleColor(GradientScaleType.ALTITUDE.getColorTypeName(), 0);
+			gradientSpeedPalette = gpxFile.getGradientScaleColor(GradientScaleType.SPEED.getColorTypeName());
+			gradientSlopePalette = gpxFile.getGradientScaleColor(GradientScaleType.SLOPE.getColorTypeName());
+			gradientAltitudePalette = gpxFile.getGradientScaleColor(GradientScaleType.ALTITUDE.getColorTypeName());
 
 			if (!Algorithms.isEmpty(gpxFile.getSplitType()) && gpxFile.getSplitInterval() > 0) {
 				GpxSplitType gpxSplitType = GpxSplitType.getSplitTypeByName(gpxFile.getSplitType());
@@ -243,25 +252,28 @@ public class GPXDatabase {
 			return gradientScaleType;
 		}
 
-		public int getGradientSpeedColor() {
-			return gradientSpeedColor;
+		public int[] getGradientSpeedPalette() {
+			return gradientSpeedPalette;
 		}
 
-		public int getGradientAltitudeColor() {
-			return gradientAltitudeColor;
+		public int[] getGradientAltitudePalette() {
+			return gradientAltitudePalette;
 		}
 
-		public int getGradientSlopeColor() {
-			return gradientSlopeColor;
+		public int[] getGradientSlopePalette() {
+			return gradientSlopePalette;
 		}
 
 		public String getWidth() {
 			return width;
 		}
 
-
 		public long getFileLastModifiedTime() {
 			return fileLastModifiedTime;
+		}
+
+		public long getFileLastUploadedTime() {
+			return fileLastUploadedTime;
 		}
 
 		public int getSplitType() {
@@ -442,10 +454,13 @@ public class GPXDatabase {
 			db.execSQL("UPDATE " + GPX_TABLE_NAME + " SET " + GPX_COL_SHOW_START_FINISH + " = ? " +
 					"WHERE " + GPX_COL_SHOW_START_FINISH + " IS NULL", new Object[]{1});
 		}
+		if (oldVersion < 12) {
+			db.execSQL("ALTER TABLE " + GPX_TABLE_NAME + " ADD " + GPX_COL_FILE_LAST_UPLOADED_TIME + " long");
+		}
 		db.execSQL("CREATE INDEX IF NOT EXISTS " + GPX_INDEX_NAME_DIR + " ON " + GPX_TABLE_NAME + " (" + GPX_COL_NAME + ", " + GPX_COL_DIR + ");");
 	}
 
-	private boolean updateLastModifiedTime(GpxDataItem item) {
+	private boolean updateLastModifiedTime(@NonNull GpxDataItem item) {
 		SQLiteConnection db = openConnection(false);
 		if (db != null) {
 			try {
@@ -465,7 +480,26 @@ public class GPXDatabase {
 		return false;
 	}
 
-	public boolean rename(File currentFile, File newFile) {
+	public boolean updateLastUploadedTime(@NonNull GpxDataItem item, long fileLastUploadedTime) {
+		SQLiteConnection db = openConnection(false);
+		if (db != null) {
+			try {
+				String fileName = getFileName(item.file);
+				String fileDir = getFileDir(item.file);
+				db.execSQL("UPDATE " + GPX_TABLE_NAME + " SET " +
+								GPX_COL_FILE_LAST_UPLOADED_TIME + " = ? " +
+								" WHERE " + GPX_COL_NAME + " = ? AND " + GPX_COL_DIR + " = ?",
+						new Object[] { fileLastUploadedTime, fileName, fileDir });
+				item.fileLastUploadedTime = fileLastUploadedTime;
+			} finally {
+				db.close();
+			}
+			return true;
+		}
+		return false;
+	}
+
+	public boolean rename(@Nullable GpxDataItem item, File currentFile, File newFile) {
 		SQLiteConnection db = openConnection(false);
 		if (db != null){
 			try {
@@ -478,6 +512,9 @@ public class GPXDatabase {
 								GPX_COL_DIR + " = ? " +
 						" WHERE " + GPX_COL_NAME + " = ? AND " + GPX_COL_DIR + " = ?",
 						new Object[] { newFileName, newFileDir, fileName, fileDir });
+				if (item != null) {
+					item.file = newFile;
+				}
 			} finally {
 				db.close();
 			}
@@ -504,7 +541,7 @@ public class GPXDatabase {
 		return false;
 	}
 
-	public boolean updateGradientScaleColor(@NonNull GpxDataItem item, @NonNull GradientScaleType gradientScaleType, int gradientScaleColor) {
+	public boolean updateGradientScaleColor(@NonNull GpxDataItem item, @NonNull GradientScaleType gradientScaleType, int[] gradientScalePalette) {
 		SQLiteConnection db = openConnection(false);
 		if (db != null) {
 			try {
@@ -513,17 +550,17 @@ public class GPXDatabase {
 				String columnName = null;
 				if (GradientScaleType.SPEED == gradientScaleType) {
 					columnName = GPX_COL_GRADIENT_SPEED_COLOR;
-					item.gradientSpeedColor = gradientScaleColor;
+					item.gradientSpeedPalette = gradientScalePalette;
 				} else if (GradientScaleType.ALTITUDE == gradientScaleType) {
 					columnName = GPX_COL_GRADIENT_ALTITUDE_COLOR;
-					item.gradientAltitudeColor = gradientScaleColor;
+					item.gradientAltitudePalette = gradientScalePalette;
 				} else if (GradientScaleType.SLOPE == gradientScaleType) {
 					columnName = GPX_COL_GRADIENT_SLOPE_COLOR;
-					item.gradientSlopeColor = gradientScaleColor;
+					item.gradientSlopePalette = gradientScalePalette;
 				}
 				db.execSQL("UPDATE " + GPX_TABLE_NAME + " SET " + columnName + " = ? " +
 								" WHERE " + GPX_COL_NAME + " = ? AND " + GPX_COL_DIR + " = ?",
-						new Object[] {(gradientScaleColor == 0 ? "" : Algorithms.colorToString(gradientScaleColor)), fileName, fileDir});
+						new Object[] {Algorithms.gradientPaletteToString(gradientScalePalette), fileName, fileDir});
 			} finally {
 				db.close();
 			}
@@ -719,20 +756,21 @@ public class GPXDatabase {
 		String gradientScaleType = item.gradientScaleType != null ? item.gradientScaleType.getTypeName() : null;
 		if (a != null) {
 			db.execSQL(
-					"INSERT INTO " + GPX_TABLE_NAME + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+					"INSERT INTO " + GPX_TABLE_NAME + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 					new Object[] {fileName, fileDir, a.totalDistance, a.totalTracks, a.startTime, a.endTime,
 							a.timeSpan, a.timeMoving, a.totalDistanceMoving, a.diffElevationUp, a.diffElevationDown,
 							a.avgElevation, a.minElevation, a.maxElevation, a.maxSpeed, a.avgSpeed, a.points, a.wptPoints,
-							color, item.file.lastModified(), item.splitType, item.splitInterval, item.apiImported ? 1 : 0,
+							color, item.file.lastModified(), item.fileLastUploadedTime, item.splitType, item.splitInterval, item.apiImported ? 1 : 0,
 							Algorithms.encodeStringSet(item.analysis.wptCategoryNames), item.showAsMarkers ? 1 : 0,
 							item.joinSegments ? 1 : 0, item.showArrows ? 1 : 0, item.showStartFinish ? 1 : 0, item.width,
-							item.gradientSpeedColor, item.gradientAltitudeColor, item.gradientSlopeColor, gradientScaleType});
+							item.gradientSpeedPalette, item.gradientAltitudePalette, item.gradientSlopePalette, gradientScaleType});
 		} else {
 			db.execSQL("INSERT INTO " + GPX_TABLE_NAME + "(" +
 							GPX_COL_NAME + ", " +
 							GPX_COL_DIR + ", " +
 							GPX_COL_COLOR + ", " +
 							GPX_COL_FILE_LAST_MODIFIED_TIME + ", " +
+							GPX_COL_FILE_LAST_UPLOADED_TIME + ", " +
 							GPX_COL_SPLIT_TYPE + ", " +
 							GPX_COL_SPLIT_INTERVAL + ", " +
 							GPX_COL_API_IMPORTED + ", " +
@@ -745,11 +783,13 @@ public class GPXDatabase {
 							GPX_COL_GRADIENT_ALTITUDE_COLOR + ", " +
 							GPX_COL_GRADIENT_SLOPE_COLOR + ", " +
 							GPX_COL_GRADIENT_SCALE_TYPE +
-							") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-					new Object[] {fileName, fileDir, color, 0, item.splitType, item.splitInterval,
+							") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+					new Object[] {fileName, fileDir, color, 0, item.fileLastUploadedTime, item.splitType, item.splitInterval,
 							item.apiImported ? 1 : 0, item.showAsMarkers ? 1 : 0, item.joinSegments ? 1 : 0,
 							item.showArrows ? 1 : 0, item.showStartFinish ? 1 : 0, item.width,
-							item.gradientSpeedColor, item.gradientAltitudeColor, item.gradientSlopeColor, gradientScaleType});
+							Algorithms.gradientPaletteToString(item.gradientSpeedPalette),
+							Algorithms.gradientPaletteToString(item.gradientAltitudePalette),
+							Algorithms.gradientPaletteToString(item.gradientSlopePalette), gradientScaleType});
 		}
 	}
 
@@ -824,19 +864,20 @@ public class GPXDatabase {
 		int wptPoints = (int)query.getInt(17);
 		String color = query.getString(18);
 		long fileLastModifiedTime = query.getLong(19);
-		int splitType = (int)query.getInt(20);
-		double splitInterval = query.getDouble(21);
-		boolean apiImported = query.getInt(22) == 1;
-		String wptCategoryNames = query.getString(23);
-		boolean showAsMarkers = query.getInt(24) == 1;
-		boolean joinSegments = query.getInt(25) == 1;
-		boolean showArrows = query.getInt(26) == 1;
-		boolean showStartFinish = query.getInt(27) == 1;
-		String width = query.getString(28);
-		String gradientSpeedColor = query.getString(29);
-		String gradientAltitudeColor = query.getString(30);
-		String gradientSlopeColor = query.getString(31);
-		String gradientScaleType = query.getString(32);
+		long fileLastUploadedTime = query.getLong(20);
+		int splitType = (int)query.getInt(21);
+		double splitInterval = query.getDouble(22);
+		boolean apiImported = query.getInt(23) == 1;
+		String wptCategoryNames = query.getString(24);
+		boolean showAsMarkers = query.getInt(25) == 1;
+		boolean joinSegments = query.getInt(26) == 1;
+		boolean showArrows = query.getInt(27) == 1;
+		boolean showStartFinish = query.getInt(28) == 1;
+		String width = query.getString(29);
+		String gradientSpeedPalette = query.getString(30);
+		String gradientAltitudePalette = query.getString(31);
+		String gradientSlopePalette = query.getString(32);
+		String gradientScaleType = query.getString(33);
 
 		GPXTrackAnalysis a = new GPXTrackAnalysis();
 		a.totalDistance = totalDistance;
@@ -869,6 +910,7 @@ public class GPXDatabase {
 		GpxDataItem item = new GpxDataItem(new File(dir, fileName), a);
 		item.color = parseColor(color);
 		item.fileLastModifiedTime = fileLastModifiedTime;
+		item.fileLastUploadedTime = fileLastUploadedTime;
 		item.splitType = splitType;
 		item.splitInterval = splitInterval;
 		item.apiImported = apiImported;
@@ -877,12 +919,12 @@ public class GPXDatabase {
 		item.showArrows = showArrows;
 		item.showStartFinish = showStartFinish;
 		item.width = width;
-		item.gradientSpeedColor = parseColor(gradientSpeedColor);
-		item.gradientAltitudeColor = parseColor(gradientAltitudeColor);
-		item.gradientSlopeColor = parseColor(gradientSlopeColor);
+		item.gradientSpeedPalette = Algorithms.stringToGradientPalette(gradientSpeedPalette);
+		item.gradientAltitudePalette = Algorithms.stringToGradientPalette(gradientAltitudePalette);
+		item.gradientSlopePalette = Algorithms.stringToGradientPalette(gradientSlopePalette);
 
 		try {
-			item.gradientScaleType = Algorithms.isEmpty(gradientScaleType) ? null : GradientScaleType.valueOf(gradientScaleType);
+			item.gradientScaleType = GradientScaleType.getGradientTypeByName(gradientScaleType);
 		} catch (IllegalArgumentException e) {
 			item.gradientScaleType = null;
 		}

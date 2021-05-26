@@ -13,7 +13,6 @@ import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.view.ContextThemeWrapper;
-import androidx.core.content.ContextCompat;
 
 import net.osmand.CallbackWithObject;
 import net.osmand.GPXUtilities.GPXFile;
@@ -29,7 +28,7 @@ import net.osmand.plus.DialogListItemAdapter;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.OsmandPlugin;
 import net.osmand.plus.settings.backend.OsmandSettings;
-import net.osmand.plus.settings.backend.OsmandSettings.CommonPreference;
+import net.osmand.plus.settings.backend.CommonPreference;
 import net.osmand.plus.R;
 import net.osmand.plus.SQLiteTileSource;
 import net.osmand.plus.activities.MapActivity.ShowQuickSearchMode;
@@ -57,7 +56,8 @@ import net.osmand.plus.views.layers.POIMapLayer;
 import net.osmand.plus.views.layers.PointLocationLayer;
 import net.osmand.plus.views.layers.PointNavigationLayer;
 import net.osmand.plus.views.layers.RouteLayer;
-import net.osmand.plus.views.layers.RulerControlLayer;
+import net.osmand.plus.views.layers.RadiusRulerControlLayer;
+import net.osmand.plus.views.layers.DistanceRulerControlLayer;
 import net.osmand.plus.views.layers.TransportStopsLayer;
 import net.osmand.plus.views.mapwidgets.MapWidgetRegistry;
 
@@ -82,7 +82,8 @@ public class MapActivityLayers {
 	private FavouritesLayer mFavouritesLayer;
 	private TransportStopsLayer transportStopsLayer;
 	private PointLocationLayer locationLayer;
-	private RulerControlLayer rulerControlLayer;
+	private RadiusRulerControlLayer radiusRulerControlLayer;
+	private DistanceRulerControlLayer distanceRulerControlLayer;
 	private PointNavigationLayer navigationLayer;
 	private MapMarkersLayer mapMarkersLayer;
 	private ImpassableRoadsLayer impassableRoadsLayer;
@@ -94,7 +95,7 @@ public class MapActivityLayers {
 	private DownloadedRegionsLayer downloadedRegionsLayer;
 	private MapWidgetRegistry mapWidgetRegistry;
 	private MeasurementToolLayer measurementToolLayer;
-	
+
 	private StateChangedListener<Integer> transparencyListener;
 
 	public MapActivityLayers(MapActivity activity) {
@@ -168,9 +169,12 @@ public class MapActivityLayers {
 		// 7.5 Impassible roads
 		impassableRoadsLayer = new ImpassableRoadsLayer(activity);
 		mapView.addLayer(impassableRoadsLayer, 7.5f);
-		// 7.8 ruler control layer
-		rulerControlLayer = new RulerControlLayer(activity);
-		mapView.addLayer(rulerControlLayer, 7.8f);
+		// 7.8 radius ruler control layer
+		radiusRulerControlLayer = new RadiusRulerControlLayer(activity);
+		mapView.addLayer(radiusRulerControlLayer, 7.8f);
+		// 7.9 ruler by tap control layer
+		distanceRulerControlLayer = new DistanceRulerControlLayer(activity);
+		mapView.addLayer(distanceRulerControlLayer, 7.9f);
 		// 8. context menu layer 
 		// 9. map info layer
 		mapInfoLayer = new MapInfoLayer(activity, routeLayer);
@@ -179,7 +183,7 @@ public class MapActivityLayers {
 		mapControlsLayer = new MapControlsLayer(activity);
 		mapView.addLayer(mapControlsLayer, 11);
 		// 12. quick actions layer
-		mapQuickActionLayer = new MapQuickActionLayer(activity, contextMenuLayer);
+		mapQuickActionLayer = new MapQuickActionLayer(activity);
 		mapView.addLayer(mapQuickActionLayer, 12);
 		contextMenuLayer.setMapQuickActionLayer(mapQuickActionLayer);
 		mapControlsLayer.setMapQuickActionLayer(mapQuickActionLayer);
@@ -302,7 +306,7 @@ public class MapActivityLayers {
 					public void onClick(DialogInterface dialog, int which) {
 						for (int i = 0; i < listAdapter.getCount(); i++) {
 							ContextMenuItem item = listAdapter.getItem(i);
-								PoiUIFilter filter = list.get(i);
+							PoiUIFilter filter = list.get(i);
 							if (item.getSelected()) {
 								if (filter.isStandardFilter()) {
 									filter.removeUnsavedFilterByName();
@@ -432,7 +436,7 @@ public class MapActivityLayers {
 		} else {
 			builder.setIcon(R.drawable.mx_user_defined);
 		}
-		builder.setColor(ContextMenuItem.INVALID_ID);
+		builder.setColor(activity, ContextMenuItem.INVALID_ID);
 		builder.setSkipPaintingWithoutColor(true);
 		adapter.addItem(builder.createItem());
 	}
@@ -490,7 +494,7 @@ public class MapActivityLayers {
 		OsmandApplication app = getApplication();
 		boolean nightMode = isNightMode(app);
 		int themeRes = getThemeRes(app);
-		int selectedModeColor = ContextCompat.getColor(app, settings.getApplicationMode().getIconColorInfo().getColor(nightMode));
+		int selectedModeColor = settings.getApplicationMode().getProfileColor(nightMode);
 		DialogListItemAdapter dialogAdapter = DialogListItemAdapter.createSingleChoiceAdapter(
 				items, nightMode, selectedItem, app, selectedModeColor, themeRes, new View.OnClickListener() {
 					@Override
@@ -567,7 +571,7 @@ public class MapActivityLayers {
 		}
 		return app.getDaynightHelper().isNightModeForMapControls();
 	}
-	
+
 	private int getThemeRes(OsmandApplication app) {
 		return isNightMode(app) ? R.style.OsmandDarkTheme : R.style.OsmandLightTheme;
 	}
@@ -612,8 +616,12 @@ public class MapActivityLayers {
 		return locationLayer;
 	}
 
-	public RulerControlLayer getRulerControlLayer() {
-		return rulerControlLayer;
+	public RadiusRulerControlLayer getRadiusRulerControlLayer() {
+		return radiusRulerControlLayer;
+	}
+
+	public DistanceRulerControlLayer getDistanceRulerControlLayer() {
+		return distanceRulerControlLayer;
 	}
 
 	public MapInfoLayer getMapInfoLayer() {
@@ -643,7 +651,7 @@ public class MapActivityLayers {
 	public POIMapLayer getPoiMapLayer() {
 		return poiMapLayer;
 	}
-	
+
 	public TransportStopsLayer getTransportStopsLayer() {
 		return transportStopsLayer;
 	}

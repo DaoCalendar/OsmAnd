@@ -5,6 +5,7 @@ import android.os.Bundle;
 import androidx.annotation.NonNull;
 
 import net.osmand.plus.GPXDatabase.GpxDataItem;
+import net.osmand.plus.OsmandApplication;
 import net.osmand.util.Algorithms;
 
 import static net.osmand.plus.activities.TrackActivity.CURRENT_RECORDING;
@@ -25,6 +26,9 @@ public class TrackDrawInfo {
 	private String width;
 	private GradientScaleType gradientScaleType;
 	private int color;
+	private int[] speedGradientPalette;
+	private int[] altitudeGradientPalette;
+	private int[] slopeGradientPalette;
 	private int splitType;
 	private double splitInterval;
 	private boolean joinSegments;
@@ -40,11 +44,14 @@ public class TrackDrawInfo {
 		readBundle(bundle);
 	}
 
-	public TrackDrawInfo(GpxDataItem gpxDataItem, boolean currentRecording) {
+	public TrackDrawInfo(@NonNull OsmandApplication app, @NonNull GpxDataItem gpxDataItem, boolean currentRecording) {
 		filePath = gpxDataItem.getFile().getPath();
 		width = gpxDataItem.getWidth();
-		gradientScaleType = gpxDataItem.getGradientScaleType();
 		color = gpxDataItem.getColor();
+		gradientScaleType = gpxDataItem.getGradientScaleType();
+		speedGradientPalette = gpxDataItem.getGradientSpeedPalette();
+		altitudeGradientPalette = gpxDataItem.getGradientAltitudePalette();
+		slopeGradientPalette = gpxDataItem.getGradientSlopePalette();
 		splitType = gpxDataItem.getSplitType();
 		splitInterval = gpxDataItem.getSplitInterval();
 		joinSegments = gpxDataItem.isJoinSegments();
@@ -79,6 +86,40 @@ public class TrackDrawInfo {
 
 	public void setColor(int color) {
 		this.color = color;
+	}
+
+	public int[] getGradientPalette(@NonNull GradientScaleType scaleType) {
+		if (scaleType == GradientScaleType.SPEED) {
+			return speedGradientPalette;
+		} else if (scaleType == GradientScaleType.ALTITUDE) {
+			return altitudeGradientPalette;
+		} else {
+			return slopeGradientPalette;
+		}
+	}
+
+	public int[] getSpeedGradientPalette() {
+		return speedGradientPalette;
+	}
+
+	public int[] getAltitudeGradientPalette() {
+		return altitudeGradientPalette;
+	}
+
+	public int[] getSlopeGradientPalette() {
+		return slopeGradientPalette;
+	}
+
+	public void setSpeedGradientPalette(int[] palette) {
+		this.speedGradientPalette = palette;
+	}
+
+	public void setAltitudeGradientPalette(int[] palette) {
+		this.altitudeGradientPalette = palette;
+	}
+
+	public void setSlopeGradientPalette(int[] palette) {
+		this.slopeGradientPalette = palette;
 	}
 
 	public int getSplitType() {

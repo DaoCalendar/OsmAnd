@@ -22,11 +22,8 @@ import net.osmand.data.FavouritePoint;
 import net.osmand.data.LatLon;
 import net.osmand.data.PointDescription;
 import net.osmand.data.TransportStop;
-import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.plus.ContextMenuAdapter;
 import net.osmand.plus.GpxSelectionHelper.SelectedGpxFile;
-import net.osmand.plus.MapMarkersHelper.MapMarker;
-import net.osmand.plus.MapMarkersHelper.MapMarkerChangedListener;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.OsmandPlugin;
 import net.osmand.plus.R;
@@ -34,6 +31,7 @@ import net.osmand.plus.TargetPointsHelper.TargetPoint;
 import net.osmand.plus.TargetPointsHelper.TargetPointChangedListener;
 import net.osmand.plus.activities.MapActivity;
 import net.osmand.plus.helpers.GpxUiHelper;
+import net.osmand.plus.mapcontextmenu.AdditionalActionsBottomSheetDialogFragment.ContextMenuItemClickListener;
 import net.osmand.plus.mapcontextmenu.MenuController.ContextMenuToolbarController;
 import net.osmand.plus.mapcontextmenu.MenuController.MenuState;
 import net.osmand.plus.mapcontextmenu.MenuController.MenuType;
@@ -47,12 +45,14 @@ import net.osmand.plus.mapcontextmenu.editors.RtePtEditor;
 import net.osmand.plus.mapcontextmenu.editors.WptPtEditor;
 import net.osmand.plus.mapcontextmenu.other.MapMultiSelectionMenu;
 import net.osmand.plus.mapcontextmenu.other.ShareMenu;
-import net.osmand.plus.mapcontextmenu.AdditionalActionsBottomSheetDialogFragment.ContextMenuItemClickListener;
+import net.osmand.plus.mapmarkers.MapMarker;
+import net.osmand.plus.mapmarkers.MapMarkersHelper.MapMarkerChangedListener;
 import net.osmand.plus.monitoring.OsmandMonitoringPlugin;
 import net.osmand.plus.routing.RoutingHelper;
+import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.plus.transport.TransportStopRoute;
-import net.osmand.plus.views.layers.ContextMenuLayer;
 import net.osmand.plus.views.OsmandMapLayer;
+import net.osmand.plus.views.layers.ContextMenuLayer;
 import net.osmand.plus.views.mapwidgets.MapInfoWidgetsFactory.TopToolbarController;
 import net.osmand.plus.views.mapwidgets.MapInfoWidgetsFactory.TopToolbarControllerType;
 import net.osmand.util.Algorithms;
@@ -570,14 +570,9 @@ public class MapContextMenu extends MenuTitleController implements StateChangedL
 	public void updateControlsVisibility(boolean menuVisible) {
 		MapActivity mapActivity = getMapActivity();
 		if (mapActivity != null) {
-			int topControlsVisibility = shouldShowTopControls(menuVisible) ? View.VISIBLE : View.GONE;
-			mapActivity.findViewById(R.id.map_center_info).setVisibility(topControlsVisibility);
-			mapActivity.findViewById(R.id.map_left_widgets_panel).setVisibility(topControlsVisibility);
-			mapActivity.findViewById(R.id.map_right_widgets_panel).setVisibility(topControlsVisibility);
-
-			int bottomControlsVisibility = shouldShowBottomControls(menuVisible) ? View.VISIBLE : View.GONE;
-			mapActivity.findViewById(R.id.bottom_controls_container).setVisibility(bottomControlsVisibility);
-
+			boolean topControlsVisible = shouldShowTopControls(menuVisible);
+			boolean bottomControlsVisible = shouldShowBottomControls(menuVisible);
+			mapActivity.getWidgetsVisibilityHelper().updateControlsVisibility(topControlsVisible, bottomControlsVisible);
 			mapActivity.refreshMap();
 		}
 	}
@@ -647,7 +642,7 @@ public class MapContextMenu extends MenuTitleController implements StateChangedL
 	}
 
 	private void updateTitle(String address) {
-		nameStr = address;
+		setNameStr(address);
 		getPointDescription().setName(address);
 		WeakReference<MapContextMenuFragment> fragmentRef = findMenuFragment();
 		if (fragmentRef != null)
@@ -953,7 +948,7 @@ public class MapContextMenu extends MenuTitleController implements StateChangedL
 		MapActivity mapActivity = getMapActivity();
 		if (mapActivity != null) {
 			if (navigateInPedestrianMode()) {
-				mapActivity.getMyApplication().getSettings().APPLICATION_MODE.set(ApplicationMode.PEDESTRIAN);
+				mapActivity.getMyApplication().getSettings().setApplicationMode(ApplicationMode.PEDESTRIAN, false);
 			}
 			mapActivity.getMapLayers().getMapControlsLayer().navigateButton();
 		}
@@ -1032,6 +1027,8 @@ public class MapContextMenu extends MenuTitleController implements StateChangedL
 						title = "";
 					}
 					String originObjectName = "";
+					double altitude = Double.NaN;
+					long timestamp = System.currentTimeMillis();
 					Object object = getObject();
 					if (object != null) {
 						if (object instanceof Amenity) {
@@ -1039,10 +1036,13 @@ public class MapContextMenu extends MenuTitleController implements StateChangedL
 						} else if (object instanceof TransportStop) {
 							originObjectName = ((TransportStop) object).toStringEn();
 						}
+						if (object instanceof WptPt) {
+							altitude = ((WptPt) object).ele;
+						}
 					}
 					FavoritePointEditor favoritePointEditor = getFavoritePointEditor();
 					if (favoritePointEditor != null) {
-						favoritePointEditor.add(getLatLon(), title, getStreetStr(), originObjectName);
+						favoritePointEditor.add(getLatLon(), title, getStreetStr(), originObjectName, altitude, timestamp);
 					}
 				}
 			});
@@ -1070,7 +1070,8 @@ public class MapContextMenu extends MenuTitleController implements StateChangedL
 			for (OsmandMapLayer layer : mapActivity.getMapView().getLayers()) {
 				layer.populateObjectContextMenu(latLon, getObject(), menuAdapter, mapActivity);
 			}
-			mapActivity.getMapActions().addActionsToAdapter(configure ? 0 : latLon.getLatitude(), configure ? 0 : latLon.getLongitude(), menuAdapter, configure ? null : getObject(), configure);		}
+			mapActivity.getMapActions().addActionsToAdapter(configure ? 0 : latLon.getLatitude(), configure ? 0 : latLon.getLongitude(), menuAdapter, configure ? null : getObject(), configure);
+		}
 		return menuAdapter;
 	}
 

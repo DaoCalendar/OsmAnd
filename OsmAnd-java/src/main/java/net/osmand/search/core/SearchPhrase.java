@@ -1,30 +1,23 @@
 package net.osmand.search.core;
 
+import java.util.*;
+import java.util.regex.Pattern;
+
 import net.osmand.Collator;
-import net.osmand.CollatorStringMatcher;import net.osmand.OsmAndCollator;
+import net.osmand.CollatorStringMatcher;
 import net.osmand.CollatorStringMatcher.StringMatcherMode;
+import net.osmand.OsmAndCollator;
 import net.osmand.StringMatcher;
+import net.osmand.binary.Abbreviations;
 import net.osmand.binary.BinaryMapIndexReader;
 import net.osmand.binary.BinaryMapIndexReader.SearchRequest;
 import net.osmand.binary.CommonWords;
 import net.osmand.data.LatLon;
 import net.osmand.data.QuadRect;
+import net.osmand.osm.AbstractPoiType;
 import net.osmand.util.Algorithms;
 import net.osmand.util.LocationParser;
 import net.osmand.util.MapUtils;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.regex.Pattern;
 
 // Immutable object !
 public class SearchPhrase {
@@ -58,6 +51,8 @@ public class SearchPhrase {
 	private NameStringMatcher firstUnknownNameStringMatcher;
 	private NameStringMatcher mainUnknownNameStringMatcher;
 	private List<NameStringMatcher> unknownWordsMatcher = new ArrayList<>();
+
+	private AbstractPoiType unselectedPoiType;
 	
 	private QuadRect cache1kmRect;
 	
@@ -216,25 +211,39 @@ public class SearchPhrase {
 				boolean lastAndIncomplete = i == ws.length - 1 && !sp.lastUnknownSearchWordComplete;
 				if (wd.length() > 0 && (!conjunction || lastAndIncomplete)) {
 					if (first) {
-						sp.firstUnknownSearchWord = wd;
+						sp.firstUnknownSearchWord = Abbreviations.replace(wd);
 						first = false;
 					} else {
-						sp.otherUnknownWords.add(wd);
+						sp.otherUnknownWords.add(Abbreviations.replace(wd));
 					}
 				}
 			}
 		}
-		
 		return sp;
 	}
 	
-	public int countWords(String w) {
-		String[] ws = w.split(ALLDELIMITERS);
+	public static List<String> splitWords(String w, List<String> ws) {
+		if (!Algorithms.isEmpty(w)) {
+			String[] wrs = w.split(ALLDELIMITERS);
+			for (int i = 0; i < wrs.length; i++) {
+				String wd = wrs[i].trim();
+				if (wd.length() > 0) {
+					ws.add(wd);
+				}
+			}
+		}
+		return ws;
+	}
+	
+	public static int countWords(String w) {
 		int cnt = 0;
-		for (int i = 0; i < ws.length; i++) {
-			String wd = ws[i].trim();
-			if (wd.length() > 0) {
-				cnt++;
+		if (!Algorithms.isEmpty(w)) {
+			String[] ws = w.split(ALLDELIMITERS);
+			for (int i = 0; i < ws.length; i++) {
+				String wd = ws[i].trim();
+				if (wd.length() > 0) {
+					cnt++;
+				}
 			}
 		}
 		return cnt;
@@ -300,14 +309,20 @@ public class SearchPhrase {
 	public List<SearchWord> getWords() {
 		return words;
 	}
+
+	public AbstractPoiType getUnselectedPoiType() {
+		return unselectedPoiType;
+	}
 	
+	public void setUnselectedPoiType(AbstractPoiType unselectedPoiType) {
+		this.unselectedPoiType = unselectedPoiType;
+	}
 
 	public boolean isMainUnknownSearchWordComplete() {
 		// return lastUnknownSearchWordComplete || otherUnknownWords.size() > 0 || unknownSearchWordPoiType != null;
 		return mainUnknownSearchWordComplete;
 	}
-	
-	
+
 	public boolean isLastUnknownSearchWordComplete() {
 		return lastUnknownSearchWordComplete;
 	}
@@ -718,7 +733,7 @@ public class SearchPhrase {
                 if (result.containsKey(currRegionName)) {
                     result.get(currRegionName).add(r);
                 } else {
-                    result.put(currRegionName, new ArrayList<>(Arrays.asList(r)));
+                    result.put(currRegionName, new ArrayList<>(Collections.singletonList(r)));
                 }
                 it.remove();
             }

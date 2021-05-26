@@ -10,22 +10,16 @@ import android.widget.ArrayAdapter;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
-import androidx.core.content.ContextCompat;
 
 import net.osmand.AndroidUtils;
 import net.osmand.data.LatLon;
-import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.plus.ContextMenuAdapter;
 import net.osmand.plus.ContextMenuItem;
 import net.osmand.plus.DialogListItemAdapter;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.OsmandPlugin;
-import net.osmand.plus.settings.backend.OsmandSettings;
-import net.osmand.plus.settings.backend.OsmandSettings.TerrainMode;
-import net.osmand.plus.settings.backend.OsmandSettings.CommonPreference;
 import net.osmand.plus.R;
 import net.osmand.plus.activities.MapActivity;
-import net.osmand.plus.activities.SettingsActivity;
 import net.osmand.plus.dashboard.DashboardOnMap;
 import net.osmand.plus.download.DownloadActivityType;
 import net.osmand.plus.download.DownloadIndexesThread;
@@ -33,6 +27,9 @@ import net.osmand.plus.download.DownloadResources;
 import net.osmand.plus.download.IndexItem;
 import net.osmand.plus.inapp.InAppPurchaseHelper;
 import net.osmand.plus.quickaction.QuickActionType;
+import net.osmand.plus.settings.backend.ApplicationMode;
+import net.osmand.plus.settings.backend.CommonPreference;
+import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.plus.views.OsmandMapTileView;
 import net.osmand.render.RenderingRuleProperty;
 import net.osmand.util.Algorithms;
@@ -90,12 +87,14 @@ public class SRTMPlugin extends OsmandPlugin {
 
 	@Override
 	public boolean needsInstallation() {
-		return super.needsInstallation() && !InAppPurchaseHelper.isSubscribedToLiveUpdates(app);
+		return super.needsInstallation()
+				&& !InAppPurchaseHelper.isContourLinesPurchased(app);
 	}
 
 	@Override
 	protected boolean pluginAvailable(OsmandApplication app) {
-		return super.pluginAvailable(app) || InAppPurchaseHelper.isSubscribedToLiveUpdates(app);
+		return super.pluginAvailable(app)
+				|| InAppPurchaseHelper.isContourLinesPurchased(app);
 	}
 
 	@Override
@@ -119,7 +118,7 @@ public class SRTMPlugin extends OsmandPlugin {
 	}
 
 	@Override
-	public String getDescription() {
+	public CharSequence getDescription() {
 		return app.getString(R.string.srtm_plugin_description);
 	}
 
@@ -137,9 +136,9 @@ public class SRTMPlugin extends OsmandPlugin {
 	public boolean init(@NonNull final OsmandApplication app, Activity activity) {
 		OsmandSettings settings = app.getSettings();
 		CommonPreference<String> pref = settings.getCustomRenderProperty("contourLines");
-		if (pref.get().equals("")) {
+		if (pref.get().isEmpty()) {
 			for (ApplicationMode m : ApplicationMode.allPossibleValues()) {
-				if (pref.getModeValue(m).equals("")) {
+				if (pref.getModeValue(m).isEmpty()) {
 					pref.setModeValue(m, "13");
 				}
 			}
@@ -234,7 +233,7 @@ public class SRTMPlugin extends OsmandPlugin {
 
 		RenderingRuleProperty contourLinesProp = app.getRendererRegistry().getCustomRenderingRuleProperty(CONTOUR_LINES_ATTR);
 		if (contourLinesProp != null) {
-			final OsmandSettings.CommonPreference<String> pref = app.getSettings().getCustomRenderProperty(contourLinesProp.getAttrName());
+			final CommonPreference<String> pref = app.getSettings().getCustomRenderProperty(contourLinesProp.getAttrName());
 			if (!Algorithms.isEmpty(pref.get())) {
 				contourLinesEnabled = !CONTOUR_LINES_DISABLED_VALUE.equals(pref.get());
 			} else {
@@ -291,7 +290,7 @@ public class SRTMPlugin extends OsmandPlugin {
 						public void run() {
 							RenderingRuleProperty contourLinesProp = app.getRendererRegistry().getCustomRenderingRuleProperty(CONTOUR_LINES_ATTR);
 							if (contourLinesProp != null) {
-								final OsmandSettings.CommonPreference<String> pref = settings.getCustomRenderProperty(contourLinesProp.getAttrName());
+								final CommonPreference<String> pref = settings.getCustomRenderProperty(contourLinesProp.getAttrName());
 								boolean selected = !pref.get().equals(CONTOUR_LINES_DISABLED_VALUE);
 
 								SRTMPlugin plugin = OsmandPlugin.getPlugin(SRTMPlugin.class);
@@ -303,13 +302,12 @@ public class SRTMPlugin extends OsmandPlugin {
 								if (item != null) {
 									item.setDescription(app.getString(R.string.display_zoom_level,
 											getPrefDescription(app, contourLinesProp, pref)));
-									item.setColorRes(selected ? R.color.osmand_orange : ContextMenuItem.INVALID_ID);
+									item.setColor(app, selected ? R.color.osmand_orange : ContextMenuItem.INVALID_ID);
 									item.setSelected(selected);
 									adapter.notifyDataSetChanged();
 								}
-								refreshMapComplete(mapActivity);
+								mapActivity.refreshMapComplete();
 							}
-
 						}
 					});
 				} else if (itemId == R.string.shared_string_terrain) {
@@ -323,12 +321,12 @@ public class SRTMPlugin extends OsmandPlugin {
 							}
 							ContextMenuItem item = adapter.getItem(position);
 							if (item != null) {
-								item.setColorRes(selected ? R.color.osmand_orange : ContextMenuItem.INVALID_ID);
+								item.setColor(app, selected ? R.color.osmand_orange : ContextMenuItem.INVALID_ID);
 								item.setSelected(selected);
 								adapter.notifyDataSetChanged();
 							}
 							updateLayers(mapView, mapActivity);
-							refreshMapComplete(mapActivity);
+							mapActivity.refreshMapComplete();
 						}
 					});
 				}
@@ -338,7 +336,7 @@ public class SRTMPlugin extends OsmandPlugin {
 
 		RenderingRuleProperty contourLinesProp = app.getRendererRegistry().getCustomRenderingRuleProperty(CONTOUR_LINES_ATTR);
 		if (contourLinesProp != null) {
-			final OsmandSettings.CommonPreference<String> pref = settings.getCustomRenderProperty(contourLinesProp.getAttrName());
+			final CommonPreference<String> pref = settings.getCustomRenderProperty(contourLinesProp.getAttrName());
 			boolean contourLinesSelected = isContourLinesLayerEnabled(app);
 			String descr = getPrefDescription(app, contourLinesProp, pref);
 			adapter.addItem(new ContextMenuItem.ItemBuilder()
@@ -347,7 +345,7 @@ public class SRTMPlugin extends OsmandPlugin {
 					.setSelected(contourLinesSelected)
 					.setIcon(R.drawable.ic_plugin_srtm)
 					.setDescription(app.getString(R.string.display_zoom_level, descr))
-					.setColor(contourLinesSelected ? R.color.osmand_orange : ContextMenuItem.INVALID_ID)
+					.setColor(app, contourLinesSelected ? R.color.osmand_orange : ContextMenuItem.INVALID_ID)
 					.setItemDeleteAction(makeDeleteAction(settings.CONTOUR_LINES_ZOOM))
 					.setSecondaryIcon(R.drawable.ic_action_additional_option)
 					.setListener(listener).createItem());
@@ -359,9 +357,9 @@ public class SRTMPlugin extends OsmandPlugin {
 				.setTitleId(R.string.shared_string_terrain, mapActivity)
 				.setDescription(app.getString(terrainMode == TerrainMode.HILLSHADE
 						? R.string.shared_string_hillshade
-						: R.string.shared_string_slope))
+						: R.string.download_slope_maps))
 				.setSelected(terrainEnabled)
-				.setColor(terrainEnabled ? R.color.osmand_orange : ContextMenuItem.INVALID_ID)
+				.setColor(app, terrainEnabled ? R.color.osmand_orange : ContextMenuItem.INVALID_ID)
 				.setIcon(R.drawable.ic_action_hillshade_dark)
 				.setSecondaryIcon(R.drawable.ic_action_additional_option)
 				.setItemDeleteAction(makeDeleteAction(settings.TERRAIN, settings.TERRAIN_MODE))
@@ -407,7 +405,7 @@ public class SRTMPlugin extends OsmandPlugin {
 								   final Runnable callback) {
 		RenderingRuleProperty contourLinesProp = app.getRendererRegistry().getCustomRenderingRuleProperty(CONTOUR_LINES_ATTR);
 		if (contourLinesProp != null) {
-			final OsmandSettings.CommonPreference<String> pref = settings.getCustomRenderProperty(contourLinesProp.getAttrName());
+			final CommonPreference<String> pref = settings.getCustomRenderProperty(contourLinesProp.getAttrName());
 			CommonPreference<String> zoomSetting = settings.CONTOUR_LINES_ZOOM;
 			if (!isChecked) {
 				zoomSetting.set(pref.get());
@@ -435,19 +433,19 @@ public class SRTMPlugin extends OsmandPlugin {
 		}
 	}
 
-	public String getPrefDescription(final Context ctx, final RenderingRuleProperty p, final OsmandSettings.CommonPreference<String> pref) {
+	public String getPrefDescription(final Context ctx, final RenderingRuleProperty p, final CommonPreference<String> pref) {
 		if (!Algorithms.isEmpty(pref.get())) {
-			return SettingsActivity.getStringPropertyValue(ctx, pref.get());
+			return AndroidUtils.getRenderingStringPropertyValue(ctx, pref.get());
 		} else {
-			return SettingsActivity.getStringPropertyValue(ctx, p.getDefaultValueDescription());
+			return AndroidUtils.getRenderingStringPropertyValue(ctx, p.getDefaultValueDescription());
 		}
 	}
 
 	public void selectPropertyValue(final MapActivity activity,
 									final RenderingRuleProperty p,
-									final OsmandSettings.CommonPreference<String> pref,
+									final CommonPreference<String> pref,
 									final Runnable callback) {
-		final String propertyDescr = SettingsActivity.getStringPropertyDescription(activity,
+		final String propertyDescr = AndroidUtils.getRenderingStringPropertyDescription(activity,
 				p.getAttrName(), p.getName());
 		boolean nightMode = isNightMode(activity, app);
 		int themeRes = getThemeRes(activity, app);
@@ -456,7 +454,7 @@ public class SRTMPlugin extends OsmandPlugin {
 
 		List<String> possibleValuesList = new ArrayList<>(Arrays.asList(p.getPossibleValues()));
 		possibleValuesList.remove(CONTOUR_LINES_DISABLED_VALUE);
-		final String[] possibleValues = possibleValuesList.toArray(new String[possibleValuesList.size()]);
+		final String[] possibleValues = possibleValuesList.toArray(new String[0]);
 
 		int i = possibleValuesList.indexOf(pref.get());
 		if (i >= 0) {
@@ -466,15 +464,15 @@ public class SRTMPlugin extends OsmandPlugin {
 		}
 
 		String[] possibleValuesString = new String[possibleValues.length + 1];
-		possibleValuesString[0] = SettingsActivity.getStringPropertyValue(activity,
+		possibleValuesString[0] = AndroidUtils.getRenderingStringPropertyValue(activity,
 				p.getDefaultValueDescription());
 
 		for (int j = 0; j < possibleValues.length; j++) {
-			possibleValuesString[j + 1] = SettingsActivity.getStringPropertyValue(activity,
+			possibleValuesString[j + 1] = AndroidUtils.getRenderingStringPropertyValue(activity,
 					possibleValues[j]);
 		}
 
-		int selectedModeColor = ContextCompat.getColor(app, settings.getApplicationMode().getIconColorInfo().getColor(nightMode));
+		int selectedModeColor = settings.getApplicationMode().getProfileColor(nightMode);
 		DialogListItemAdapter dialogAdapter = DialogListItemAdapter.createSingleChoiceAdapter(
 				possibleValuesString, nightMode, i, app, selectedModeColor, themeRes, new View.OnClickListener() {
 
@@ -486,7 +484,7 @@ public class SRTMPlugin extends OsmandPlugin {
 						} else {
 							pref.set(possibleValues[which - 1]);
 						}
-						refreshMapComplete(activity);
+						activity.refreshMapComplete();
 					}
 				}
 		);
@@ -505,12 +503,6 @@ public class SRTMPlugin extends OsmandPlugin {
 
 	@Override
 	public void disable(OsmandApplication app) {
-	}
-
-	public static void refreshMapComplete(final MapActivity activity) {
-		activity.getMyApplication().getResourceManager().getRenderer().clearCache();
-		activity.updateMapSettings();
-		activity.getMapView().refreshMap(true);
 	}
 
 	private static boolean isNightMode(Activity activity, OsmandApplication app) {

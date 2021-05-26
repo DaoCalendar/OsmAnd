@@ -14,8 +14,8 @@ import net.osmand.data.LatLon;
 import net.osmand.data.PointDescription;
 import net.osmand.data.TransportStop;
 import net.osmand.plus.FavouritesDbHelper;
-import net.osmand.plus.MapMarkersHelper;
-import net.osmand.plus.MapMarkersHelper.MapMarker;
+import net.osmand.plus.mapmarkers.MapMarkersHelper;
+import net.osmand.plus.mapmarkers.MapMarker;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
 import net.osmand.plus.activities.MapActivity;
@@ -24,10 +24,10 @@ import net.osmand.plus.helpers.FontCache;
 import net.osmand.plus.mapcontextmenu.MenuController;
 import net.osmand.plus.mapcontextmenu.builders.FavouritePointMenuBuilder;
 import net.osmand.plus.mapcontextmenu.editors.FavoritePointEditor;
-import net.osmand.plus.mapcontextmenu.editors.FavoritePointEditorFragment;
 import net.osmand.plus.mapcontextmenu.editors.FavoritePointEditorFragmentNew;
 import net.osmand.plus.transport.TransportStopRoute;
 import net.osmand.plus.widgets.style.CustomTypefaceSpan;
+import net.osmand.util.Algorithms;
 import net.osmand.util.OpeningHoursParser;
 import net.osmand.view.GravityDrawable;
 
@@ -100,14 +100,8 @@ public class FavouritePointMenuController extends MenuController {
 		MapActivity mapActivity = getMapActivity();
 		if (mapActivity != null) {
 			Fragment fragment = mapActivity.getSupportFragmentManager().findFragmentByTag(FavoritePointEditor.TAG);
-			if (fragment != null) {
-				// TODO: uncomment & delete if else after switch to new UI Fragment
-				//((FavoritePointEditorFragment) fragment).dismiss();
-				if (fragment instanceof FavoritePointEditorFragmentNew) {
-					((FavoritePointEditorFragmentNew) fragment).dismiss();
-				} else {
-					((FavoritePointEditorFragment) fragment).dismiss();
-				}
+			if (fragment instanceof FavoritePointEditorFragmentNew) {
+				((FavoritePointEditorFragmentNew) fragment).dismiss();
 				return true;
 			}
 		}
@@ -160,11 +154,16 @@ public class FavouritePointMenuController extends MenuController {
 	@NonNull
 	@Override
 	public CharSequence getSubtypeStr() {
-		Typeface typeface = FontCache.getRobotoRegular(getMapActivity());
-		SpannableString addressSpannable = new SpannableString(fav.getAddress());
-		addressSpannable.setSpan(new CustomTypefaceSpan(typeface), 0, addressSpannable.length(), 0);
+		MapActivity mapActivity = getMapActivity();
+		if (mapActivity != null && !Algorithms.isEmpty(fav.getAddress())) {
+			Typeface typeface = FontCache.getRobotoRegular(mapActivity);
+			SpannableString addressSpannable = new SpannableString(fav.getAddress());
+			addressSpannable.setSpan(new CustomTypefaceSpan(typeface), 0, addressSpannable.length(), 0);
 
-		return addressSpannable;
+			return addressSpannable;
+		} else {
+			return "";
+		}
 	}
 
 	@Override
@@ -174,8 +173,8 @@ public class FavouritePointMenuController extends MenuController {
 			OsmandApplication app = mapActivity.getMyApplication();
 			FavouritesDbHelper helper = app.getFavorites();
 			String group = fav.getCategory();
-			if (helper.getGroup(group) != null) {
-				Drawable line2icon = helper.getColoredIconForGroup(group);
+			Drawable line2icon = helper.getGroup(group) != null ? helper.getColoredIconForGroup(group) : null;
+			if (line2icon != null) {
 				GravityDrawable gravityIcon = new GravityDrawable(line2icon);
 				gravityIcon.setBoundsFrom(line2icon);
 				return gravityIcon;

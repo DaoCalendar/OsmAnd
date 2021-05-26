@@ -36,10 +36,10 @@
     <string name="shared_string_close">Κλείσιμο</string>
     <string name="shared_string_off">Ανενεργό</string>
     <string name="shared_string_install">Εγκατάσταση</string>
-    <string name="shared_string_share">Διαμοιρασμός</string>
+    <string name="shared_string_share">Κοινοποίηση</string>
     <string name="shared_string_back">Προηγούμενο</string>
     <string name="shared_string_continue">Συνέχεια</string>
-    <string name="shared_string_cancel">Ακύρωση</string>
+    <string name="shared_string_cancel">Άκυρο</string>
     <string name="shared_string_settings">Επιλογές</string>
     <string name="shared_string_enabled">Ενεργοποιημένο</string>
     <string name="units_and_formats">Μονάδες μέτρησης &amp; φορμά</string>
@@ -53,4 +53,5 @@
     <string name="si_km_m">Χιλιόμετρα/μέτρα</string>
     <string name="unit_of_length_descr">Αλλαγή απόστασης που μετριέται.</string>
     <string name="unit_of_length">Μονάδες μήκους</string>
+    <string name="shared_string_sort_by">Ταξινόμηση κατά</string>
 </resources>

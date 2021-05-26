@@ -4,9 +4,10 @@
 	xmlns:tools="http://schemas.android.com/tools"
 	android:title="@string/osmand_settings">
 
-	<net.osmand.plus.settings.preferences.ListPreferenceEx
-		android:icon="@drawable/ic_world_globe_dark"
+	<Preference
 		android:key="default_application_mode_string"
+		android:icon="@drawable/ic_world_globe_dark"
+		android:persistent="false"
 		android:layout="@layout/preference_with_descr"
 		android:title="@string/settings_preset" />
 
@@ -21,7 +22,7 @@
 		android:layout="@layout/preference_with_descr"
 		android:persistent="false"
 		android:title="@string/application_dir"
-		app:fragment="net.osmand.plus.settings.fragments.DataStorageFragment"
+		app:fragment="net.osmand.plus.settings.datastorage.DataStorageFragment"
 		tools:icon="@drawable/ic_action_folder" />
 
 	<Preference
@@ -47,7 +48,6 @@
 		android:layout="@layout/preference_with_descr"
 		android:persistent="false"
 		android:title="@string/dialogs_and_notifications_title"
-		android:summary="@string/shared_string_all"
 		app:fragment="net.osmand.plus.settings.fragments.DialogsAndNotificationsSettingsFragment"
 		tools:icon="@drawable/ic_action_notification" />
 

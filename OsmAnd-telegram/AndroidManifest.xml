@@ -7,7 +7,6 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
@@ -19,8 +18,11 @@
         android:launchMode="singleTask"
         android:screenOrientation="unspecified"
         android:supportsRtl="true"
-        android:theme="@style/AppTheme">
+        android:theme="@style/AppTheme"
+        android:hasFragileUserData="true"
+        android:requestLegacyExternalStorage="true">
 
+        <activity android:name=".ui.TrackerLogcatActivity" />
         <activity
             android:name=".ui.MainActivity"
             android:configChanges="orientation|screenSize"
@@ -48,13 +50,12 @@
         <service
             android:name=".TelegramService"
             android:label="@string/process_service"
-            android:stopWithTask="false">
+            android:exported="false"
+            android:foregroundServiceType="location">
             <intent-filter>
                 <action android:name="net.osmand.telegram.TelegramService" />
             </intent-filter>
         </service>
-
-        <receiver android:name=".OnTelegramServiceAlarmReceiver" />
 
         <receiver
             android:name=".InitAppBroadcastReceiver"

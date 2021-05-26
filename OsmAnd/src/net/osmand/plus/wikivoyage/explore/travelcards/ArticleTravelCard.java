@@ -76,7 +76,8 @@ public class ArticleTravelCard extends BaseTravelCard {
 				@Override
 				public void onClick(View v) {
 					if (fragmentManager != null) {
-						WikivoyageArticleDialogFragment.showInstance(app, fragmentManager, article.getTripId(), article.getLang());
+						WikivoyageArticleDialogFragment.showInstance(app, fragmentManager,
+								article.generateIdentifier(), article.getLang());
 					}
 				}
 			};
@@ -91,7 +92,7 @@ public class ArticleTravelCard extends BaseTravelCard {
 
 	private void updateSaveButton(final ArticleTravelVH holder) {
 		if (article != null) {
-			final TravelLocalDataHelper helper = app.getTravelDbHelper().getLocalDataHelper();
+			final TravelLocalDataHelper helper = app.getTravelHelper().getBookmarksHelper();
 			final boolean saved = helper.isArticleSaved(article);
 			Drawable icon = getActiveIcon(saved ? R.drawable.ic_action_read_later_fill : R.drawable.ic_action_read_later);
 			holder.rightButton.setText(saved ? R.string.shared_string_remove : R.string.shared_string_bookmark);
@@ -99,15 +100,8 @@ public class ArticleTravelCard extends BaseTravelCard {
 			holder.rightButton.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View view) {
-					if (article != null) {
-						if (saved) {
-							helper.removeArticleFromSaved(article);
-						} else {
-							app.getTravelDbHelper().createGpxFile(article);
-							helper.addArticleToSaved(article);
-						}
-						updateSaveButton(holder);
-					}
+					app.getTravelHelper().saveOrRemoveArticle(article, !saved);
+					updateSaveButton(holder);
 				}
 			});
 		}

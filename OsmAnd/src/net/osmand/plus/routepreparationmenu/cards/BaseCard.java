@@ -31,7 +31,6 @@ public abstract class BaseCard {
 	protected boolean nightMode;
 
 	private CardListener listener;
-	private CardChartListener chartListener;
 
 	public interface CardListener {
 		void onCardLayoutNeeded(@NonNull BaseCard card);
@@ -40,9 +39,13 @@ public abstract class BaseCard {
 	}
 
 	public BaseCard(@NonNull MapActivity mapActivity) {
+		this(mapActivity, true);
+	}
+
+	public BaseCard(@NonNull MapActivity mapActivity, boolean usedOnMap) {
 		this.mapActivity = mapActivity;
 		this.app = mapActivity.getMyApplication();
-		nightMode = mapActivity.getMyApplication().getDaynightHelper().isNightModeForMapControls();
+		nightMode = usedOnMap ? app.getDaynightHelper().isNightModeForMapControls() : !app.getSettings().isLightContent();
 	}
 
 	public abstract int getCardLayoutId();
@@ -76,14 +79,6 @@ public abstract class BaseCard {
 
 	public void setListener(CardListener listener) {
 		this.listener = listener;
-	}
-
-	public CardChartListener getChartListener() {
-		return chartListener;
-	}
-
-	public void setChartListener(CardChartListener chartListener) {
-		this.chartListener = chartListener;
 	}
 
 	public void setLayoutNeeded() {

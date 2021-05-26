@@ -24,6 +24,7 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.FragmentActivity;
+import androidx.fragment.app.FragmentManager;
 
 import net.osmand.AndroidUtils;
 import net.osmand.plus.OsmandApplication;
@@ -75,7 +76,7 @@ public abstract class PointEditorFragment extends BaseOsmAndFragment {
 				dismiss();
 			}
 		});
-		
+
 		int activeColorResId = !editor.isLight() ? R.color.active_color_primary_dark : R.color.active_color_primary_light;
 
 		Button saveButton = (Button) view.findViewById(R.id.save_button);
@@ -136,9 +137,10 @@ public abstract class PointEditorFragment extends BaseOsmAndFragment {
 			@Override
 			public boolean onTouch(final View v, MotionEvent event) {
 				if (event.getAction() == MotionEvent.ACTION_UP) {
+					FragmentManager fragmentManager = getFragmentManager();
 					DialogFragment dialogFragment = createSelectCategoryDialog();
-					if (dialogFragment != null) {
-						dialogFragment.show(getChildFragmentManager(), SelectCategoryDialogFragment.TAG);
+					if (fragmentManager != null && dialogFragment != null) {
+						dialogFragment.show(fragmentManager, SelectFavoriteCategoryBottomSheet.class.getSimpleName());
 					}
 					return true;
 				}
@@ -179,7 +181,7 @@ public abstract class PointEditorFragment extends BaseOsmAndFragment {
 	protected DialogFragment createSelectCategoryDialog() {
 		PointEditor editor = getEditor();
 		if (editor != null) {
-			return SelectCategoryDialogFragment.createInstance(editor.getFragmentTag());
+			return SelectFavoriteCategoryBottomSheet.createInstance(editor.getFragmentTag(), "");
 		} else {
 			return null;
 		}
@@ -361,7 +363,7 @@ public abstract class PointEditorFragment extends BaseOsmAndFragment {
 		if (isPersonalCategoryDisplayName(requireContext(), name)) {
 			return PERSONAL_CATEGORY;
 		}
-		if(name.equals(getDefaultCategoryName())) {
+		if (name.equals(getDefaultCategoryName())) {
 			return "";
 		}
 		return name;

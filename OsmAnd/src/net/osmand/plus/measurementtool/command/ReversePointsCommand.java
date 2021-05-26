@@ -4,12 +4,11 @@ import android.util.Pair;
 
 import net.osmand.GPXUtilities.WptPt;
 import net.osmand.plus.measurementtool.MeasurementEditingContext;
-import net.osmand.plus.measurementtool.MeasurementEditingContext.RoadSegmentData;
+import net.osmand.plus.measurementtool.RoadSegmentData;
 import net.osmand.plus.measurementtool.MeasurementToolLayer;
 import net.osmand.plus.settings.backend.ApplicationMode;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -32,8 +31,22 @@ public class ReversePointsCommand extends MeasurementModeCommand {
 		MeasurementEditingContext editingCtx = getEditingCtx();
 		oldPoints = new ArrayList<>(editingCtx.getPoints());
 		oldRoadSegmentData = editingCtx.getRoadSegmentData();
-		newPoints = new ArrayList<>(oldPoints);
-		Collections.reverse(newPoints);
+		newPoints = new ArrayList<>(oldPoints.size());
+		for (int i = oldPoints.size() - 1; i >= 0; i--) {
+			WptPt point = oldPoints.get(i);
+			WptPt prevPoint = i > 0 ? oldPoints.get(i - 1) : null;
+			WptPt newPoint = new WptPt(point);
+			newPoint.copyExtensions(point);
+			if (prevPoint != null) {
+				String profileType = prevPoint.getProfileType();
+				if (profileType != null) {
+					newPoint.setProfileType(profileType);
+				} else {
+					newPoint.removeProfileType();
+				}
+			}
+			newPoints.add(newPoint);
+		}
 		executeCommand();
 		return true;
 	}
@@ -47,7 +60,7 @@ public class ReversePointsCommand extends MeasurementModeCommand {
 			WptPt lastPoint = newPoints.get(newPoints.size() - 1);
 			editingCtx.setAppMode(ApplicationMode.valueOfStringKey(lastPoint.getProfileType(), DEFAULT_APP_MODE));
 		}
-		editingCtx.updateCacheForSnap();
+		editingCtx.updateSegmentsForSnap();
 	}
 
 	@Override
@@ -57,7 +70,7 @@ public class ReversePointsCommand extends MeasurementModeCommand {
 		editingCtx.addPoints(oldPoints);
 		editingCtx.setAppMode(oldMode);
 		editingCtx.setRoadSegmentData(oldRoadSegmentData);
-		editingCtx.updateCacheForSnap();
+		editingCtx.updateSegmentsForSnap();
 
 	}
 

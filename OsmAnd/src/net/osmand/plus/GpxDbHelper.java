@@ -8,10 +8,10 @@ import androidx.annotation.Nullable;
 
 import net.osmand.GPXUtilities;
 import net.osmand.GPXUtilities.GPXFile;
-import net.osmand.plus.track.GpxSplitType;
 import net.osmand.GPXUtilities.GPXTrackAnalysis;
 import net.osmand.plus.GPXDatabase.GpxDataItem;
 import net.osmand.plus.api.SQLiteAPI.SQLiteConnection;
+import net.osmand.plus.track.GpxSplitType;
 import net.osmand.plus.track.GradientScaleType;
 
 import java.io.File;
@@ -68,9 +68,8 @@ public class GpxDbHelper {
 	}
 
 	public boolean rename(File currentFile, File newFile) {
-		boolean res = db.rename(currentFile, newFile);
-		itemsCache.remove(currentFile);
-		return res;
+		GpxDataItem item = itemsCache.get(currentFile);
+		return db.rename(item, currentFile, newFile);
 	}
 
 	public boolean updateColor(GpxDataItem item, int color) {
@@ -79,8 +78,14 @@ public class GpxDbHelper {
 		return res;
 	}
 
-	public boolean updateGradientScaleColor(@NonNull GpxDataItem item, @NonNull GradientScaleType gradientScaleType, int color) {
-		boolean res = db.updateGradientScaleColor(item, gradientScaleType, color);
+	public boolean updateLastUploadedTime(GpxDataItem item, long fileLastUploadedTime) {
+		boolean res = db.updateLastUploadedTime(item, fileLastUploadedTime);
+		putToCache(item);
+		return res;
+	}
+
+	public boolean updateGradientScalePalette(@NonNull GpxDataItem item, @NonNull GradientScaleType gradientScaleType, int[] palette) {
+		boolean res = db.updateGradientScaleColor(item, gradientScaleType, palette);
 		putToCache(item);
 		return res;
 	}
@@ -239,7 +244,7 @@ public class GpxDbHelper {
 					gpxFile = readingItems.poll();
 					while (gpxFile != null && !isCancelled()) {
 						GpxDataItem item = readingItemsMap.remove(gpxFile);
-						if (item.getFile() == null) {
+						if (item != null && item.getFile() == null) {
 							item = db.getItem(gpxFile, conn);
 						}
 						if (isAnalyseNeeded(gpxFile, item)) {

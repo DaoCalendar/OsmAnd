@@ -18,6 +18,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.SwitchCompat;
@@ -38,11 +39,12 @@ import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.activities.MapActivity;
 import net.osmand.plus.base.BaseOsmAndFragment;
+import net.osmand.plus.dashboard.DashboardOnMap;
 import net.osmand.plus.settings.backend.ApplicationMode;
-import net.osmand.plus.views.layers.MapQuickActionLayer;
 import net.osmand.plus.views.controls.ReorderItemTouchHelperCallback;
 import net.osmand.plus.views.controls.ReorderItemTouchHelperCallback.OnItemMoveCallback;
 import net.osmand.plus.views.controls.ReorderItemTouchHelperCallback.UnmovableItem;
+import net.osmand.plus.views.layers.MapQuickActionLayer;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -100,6 +102,26 @@ public class QuickActionListFragment extends BaseOsmAndFragment
             }
             screenType = savedInstanceState.getInt(SCREEN_TYPE_KEY, SCREEN_TYPE_REORDER);
         }
+        requireMyActivity().getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            public void handleOnBackPressed() {
+                MapActivity mapActivity = getMapActivity();
+                if (mapActivity != null) {
+                    if (isVisible()) {
+                        if (fromDashboard()) {
+                            mapActivity.getDashboard().setDashboardVisibility(true, DashboardOnMap.DashboardType.CONFIGURE_SCREEN, null);
+                        } else {
+                            mapActivity.getMapView().getLayerByClass(MapQuickActionLayer.class).onBackPressed();
+                        }
+                    } else if (mapActivity.getMapView().getLayerByClass(MapQuickActionLayer.class).onBackPressed()) {
+                        return;
+                    }
+                    FragmentManager fragmentManager = mapActivity.getSupportFragmentManager();
+                    if (!fragmentManager.isStateSaved()) {
+                        fragmentManager.popBackStackImmediate();
+                    }
+                }
+            }
+        });
     }
 
     @Nullable
@@ -350,8 +372,7 @@ public class QuickActionListFragment extends BaseOsmAndFragment
     private void updateToolbarSwitch(final boolean isChecked) {
         OsmandApplication app = requireMyApplication();
         ApplicationMode appMode = app.getSettings().getApplicationMode();
-        int profileColor = appMode.getIconColorInfo().getColor(nightMode);
-        int color = ContextCompat.getColor(app, isChecked ? profileColor : R.color.preference_top_switch_off);
+        int color = isChecked ? appMode.getProfileColor(nightMode) : ContextCompat.getColor(app, R.color.preference_top_switch_off);
         AndroidUtils.setBackground(toolbarSwitchContainer, new ColorDrawable(color));
 
         SwitchCompat switchView = toolbarSwitchContainer.findViewById(R.id.switchWidget);
@@ -572,7 +593,13 @@ public class QuickActionListFragment extends BaseOsmAndFragment
                 List<QuickAction> actions = getQuickActions();
                 int actionGlobalPosition = actions.indexOf(action);
                 int actionPosition = actionGlobalPosition % ITEMS_IN_GROUP + 1;
-                h.title.setText(action.getName(app));
+                String name = action.getName(app);
+                if (action.getActionNameRes() != 0 && !name.contains(getString(action.getActionNameRes()))) {
+                    String prefAction = getString(action.getActionNameRes());
+                    h.title.setText(getString(R.string.ltr_or_rtl_combine_via_dash, prefAction, action.getName(app)));
+                } else {
+                    h.title.setText(name);
+                }
                 h.subTitle.setText(getResources().getString(R.string.quick_action_item_action, actionPosition));
                 h.icon.setImageDrawable(getContentIcon(action.getIconRes(app)));
 

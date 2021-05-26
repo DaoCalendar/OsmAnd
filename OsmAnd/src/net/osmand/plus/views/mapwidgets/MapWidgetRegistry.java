@@ -1,9 +1,7 @@
 package net.osmand.plus.views.mapwidgets;
 
 import android.content.Context;
-import android.view.Menu;
-import android.view.MenuInflater;
-import android.view.MenuItem;
+import android.graphics.drawable.Drawable;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.LinearLayout;
@@ -17,7 +15,7 @@ import net.osmand.plus.ContextMenuAdapter;
 import net.osmand.plus.ContextMenuItem;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.settings.backend.OsmandSettings;
-import net.osmand.plus.settings.backend.OsmandSettings.OsmandPreference;
+import net.osmand.plus.settings.backend.OsmandPreference;
 import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.activities.MapActivity;
@@ -29,12 +27,16 @@ import net.osmand.plus.views.layers.MapQuickActionLayer;
 import net.osmand.plus.views.OsmandMapLayer.DrawSettings;
 import net.osmand.plus.views.mapwidgets.widgets.TextInfoWidget;
 import net.osmand.plus.views.mapwidgets.widgetstates.WidgetState;
-import net.osmand.plus.widgets.IconPopupMenu;
+import net.osmand.plus.widgets.popup.PopUpMenuItem;
+import net.osmand.plus.widgets.popup.PopUpMenuHelper;
+import net.osmand.plus.widgets.popup.PopUpMenuHelper.PopUpMenuWidthType;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -63,7 +65,7 @@ public class MapWidgetRegistry {
 	public static String WIDGET_BEARING = "bearing";
 	public static String WIDGET_PLAIN_TIME = "plain_time";
 	public static String WIDGET_BATTERY = "battery";
-	public static String WIDGET_RULER = "ruler";
+	public static String WIDGET_RADIUS_RULER = "ruler";
 
 	public static String WIDGET_STREET_NAME = "street_name";
 
@@ -366,6 +368,13 @@ public class MapWidgetRegistry {
 				.setSelected(settings.SHOW_COORDINATES_WIDGET.get())
 				.setListener(new AppearanceItemClickListener(settings.SHOW_COORDINATES_WIDGET, map))
 				.setLayout(R.layout.list_item_icon_and_switch).createItem());
+
+		cm.addItem(new ContextMenuItem.ItemBuilder().setTitleId(R.string.map_widget_distance_by_tap, map)
+				.setIcon(R.drawable.ic_action_ruler_line)
+				.setSelected(settings.SHOW_DISTANCE_RULER.get())
+				.setListener(new AppearanceItemClickListener(settings.SHOW_DISTANCE_RULER, map))
+				.setLayout(R.layout.list_item_icon_and_switch).createItem());
+
 		cm.addItem(new ContextMenuItem.ItemBuilder().setTitleId(R.string.map_markers, map)
 				.setDescription(settings.MAP_MARKERS_MODE.get().toHumanString(map))
 				.setListener(new ContextMenuAdapter.ItemClickListener() {
@@ -458,8 +467,8 @@ public class MapWidgetRegistry {
 				.setTitleId(R.string.configure_screen_quick_action, mapActivity)
 				.setIcon(R.drawable.ic_quick_action)
 				.setSelected(selected)
-				.setColor(selected ? R.color.osmand_orange : ContextMenuItem.INVALID_ID)
-				.setSecondaryIcon( R.drawable.ic_action_additional_option)
+				.setColor(app, selected ? R.color.osmand_orange : ContextMenuItem.INVALID_ID)
+				.setSecondaryIcon(R.drawable.ic_action_additional_option)
 				.setListener(new ContextMenuAdapter.OnRowItemClick() {
 					@Override
 					public boolean onContextMenuClick(ArrayAdapter<ContextMenuItem> adapter, int itemId, int position, boolean isChecked, int[] viewCoordinates) {
@@ -494,7 +503,7 @@ public class MapWidgetRegistry {
 						}
 						ContextMenuItem item = adapter.getItem(position);
 						item.setSelected(visible);
-						item.setColorRes(visible ? R.color.osmand_orange : ContextMenuItem.INVALID_ID);
+						item.setColor(app, visible ? R.color.osmand_orange : ContextMenuItem.INVALID_ID);
 						adapter.notifyDataSetChanged();
 
 					}
@@ -512,11 +521,11 @@ public class MapWidgetRegistry {
 			final boolean selected = r.visibleCollapsed(mode) || r.visible(mode);
 			final String desc = mapActivity.getString(R.string.shared_string_collapse);
 			final boolean nightMode = app.getDaynightHelper().isNightModeForMapControls();
-			final int currentModeColorRes = mode.getIconColorInfo().getColor(nightMode);
+			final int currentModeColor = mode.getProfileColor(nightMode);
 			ContextMenuItem.ItemBuilder itemBuilder = new ContextMenuItem.ItemBuilder()
 					.setIcon(r.getDrawableMenu())
 					.setSelected(selected)
-					.setColor(selected ? R.color.osmand_orange : ContextMenuItem.INVALID_ID)
+					.setColor(app, selected ? R.color.osmand_orange : ContextMenuItem.INVALID_ID)
 					.setSecondaryIcon(r.widget != null ? R.drawable.ic_action_additional_option : ContextMenuItem.INVALID_ID)
 					.setDescription(r.visibleCollapsed(mode) ? desc : null)
 					.setListener(new ContextMenuAdapter.OnRowItemClick() {
@@ -530,14 +539,8 @@ public class MapWidgetRegistry {
 								return false;
 							}
 							View textWrapper = view.findViewById(R.id.text_wrapper);
-							IconPopupMenu popup = new IconPopupMenu(view.getContext(), textWrapper);
-							MenuInflater inflater = popup.getMenuInflater();
-							final Menu menu = popup.getMenu();
-							inflater.inflate(R.menu.widget_visibility_menu, menu);
+							List<PopUpMenuItem> items = new ArrayList<>();
 							UiUtilities ic = app.getUIUtilities();
-							menu.findItem(R.id.action_show).setIcon(ic.getThemedIcon(R.drawable.ic_action_view));
-							menu.findItem(R.id.action_hide).setIcon(ic.getThemedIcon(R.drawable.ic_action_hide));
-							menu.findItem(R.id.action_collapse).setIcon(ic.getThemedIcon(R.drawable.ic_action_widget_collapse));
 
 							final int[] menuIconIds = r.getDrawableMenuIds();
 							final int[] menuTitleIds = r.getMessageIds();
@@ -549,57 +552,77 @@ public class MapWidgetRegistry {
 								for (int i = 0; i < menuIconIds.length; i++) {
 									int iconId = menuIconIds[i];
 									int titleId = menuTitleIds[i];
-									int id = menuItemIds[i];
-									MenuItem menuItem = menu.add(R.id.single_selection_group, id, i, titleId)
-											.setChecked(id == checkedId);
-									menuItem.setIcon(menuItem.isChecked() && selected
-											? ic.getIcon(iconId, currentModeColorRes) : ic.getThemedIcon(iconId));
+									final int id = menuItemIds[i];
+									boolean isChecked = id == checkedId;
+									String title = app.getString(titleId);
+									Drawable icon = isChecked && selected ? ic.getPaintedIcon(iconId, currentModeColor) : ic.getThemedIcon(iconId);
+									items.add(new PopUpMenuItem.Builder(app)
+											.setTitle(title)
+											.setIcon(icon)
+											.setOnClickListener(new View.OnClickListener() {
+												@Override
+												public void onClick(View v) {
+													r.changeState(id);
+													MapInfoLayer mil = mapActivity.getMapLayers().getMapInfoLayer();
+													if (mil != null) {
+														mil.recreateControls();
+													}
+													ContextMenuItem item = adapter.getItem(pos);
+													item.setIcon(r.getDrawableMenu());
+													if (r.getMessage() != null) {
+														item.setTitle(r.getMessage());
+													} else {
+														item.setTitle(mapActivity.getResources().getString(r.getMessageId()));
+													}
+													adapter.notifyDataSetChanged();
+												}
+											})
+											.showCompoundBtn(currentModeColor)
+											.setSelected(isChecked)
+											.create());
 								}
-								menu.setGroupCheckable(R.id.single_selection_group, true, true);
-								menu.setGroupVisible(R.id.single_selection_group, true);
 							}
 
-							popup.setOnMenuItemClickListener(
-									new IconPopupMenu.OnMenuItemClickListener() {
+							// show
+							items.add(new PopUpMenuItem.Builder(app)
+									.setTitleId(R.string.shared_string_show)
+									.setIcon(ic.getThemedIcon(R.drawable.ic_action_view))
+									.setOnClickListener(new View.OnClickListener() {
 										@Override
-										public boolean onMenuItemClick(MenuItem menuItem) {
-
-											int i = menuItem.getItemId();
-											if (i == R.id.action_show) {
-												setVisibility(adapter, pos, true, false);
-												return true;
-											} else if (i == R.id.action_hide) {
-												setVisibility(adapter, pos, false, false);
-												return true;
-											} else if (i == R.id.action_collapse) {
-												setVisibility(adapter, pos, true, true);
-												return true;
-											} else {
-												if (menuItemIds != null) {
-													for (int menuItemId : menuItemIds) {
-														if (menuItem.getItemId() == menuItemId) {
-															r.changeState(menuItemId);
-															MapInfoLayer mil = mapActivity.getMapLayers().getMapInfoLayer();
-															if (mil != null) {
-																mil.recreateControls();
-															}
-															ContextMenuItem item = adapter.getItem(pos);
-															item.setIcon(r.getDrawableMenu());
-															if (r.getMessage() != null) {
-																item.setTitle(r.getMessage());
-															} else {
-																item.setTitle(mapActivity.getResources().getString(r.getMessageId()));
-															}
-															adapter.notifyDataSetChanged();
-															return true;
-														}
-													}
-												}
-											}
-											return false;
+										public void onClick(View v) {
+											setVisibility(adapter, pos, true, false);
 										}
-									});
-							popup.show();
+									})
+									.create());
+
+							// hide
+							items.add(new PopUpMenuItem.Builder(app)
+									.setTitleId(R.string.shared_string_hide)
+									.setIcon(ic.getThemedIcon(R.drawable.ic_action_hide))
+									.setOnClickListener(new View.OnClickListener() {
+										@Override
+										public void onClick(View v) {
+											setVisibility(adapter, pos, false, false);
+										}
+									})
+									.create());
+
+							// collapse
+							items.add(new PopUpMenuItem.Builder(app)
+									.setTitleId(R.string.shared_string_collapse)
+									.setIcon(ic.getThemedIcon(R.drawable.ic_action_widget_collapse))
+									.setOnClickListener(new View.OnClickListener() {
+										@Override
+										public void onClick(View v) {
+											setVisibility(adapter, pos, true, true);
+										}
+									})
+									.create());
+
+							new PopUpMenuHelper.Builder(textWrapper, items, nightMode)
+									.setWidthType(PopUpMenuWidthType.STANDARD)
+									.show();
+
 							return false;
 						}
 
@@ -621,7 +644,7 @@ public class MapWidgetRegistry {
 							}
 							ContextMenuItem item = adapter.getItem(position);
 							item.setSelected(visible);
-							item.setColorRes(visible ? R.color.osmand_orange : ContextMenuItem.INVALID_ID);
+							item.setColor(app, visible ? R.color.osmand_orange : ContextMenuItem.INVALID_ID);
 							item.setDescription(visible && collapsed ? desc : null);
 							adapter.notifyDataSetChanged();
 						}

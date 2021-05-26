@@ -34,6 +34,7 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -41,6 +42,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -67,6 +69,9 @@ public class SearchUICore {
 	private MapPoiTypes poiTypes;
 
 	private static boolean debugMode = false;
+	
+	private static final Set<String> FILTER_DUPLICATE_POI_SUBTYPE = new TreeSet<String>(
+			Arrays.asList("building", "internet_access_yes"));
 
 	public SearchUICore(MapPoiTypes poiTypes, String locale, boolean transliterate) {
 		this.poiTypes = poiTypes;
@@ -244,12 +249,17 @@ public class SearchUICore {
 						String type2 = a2.getType().getKeyName();
 						String subType1 = a1.getSubType();
 						String subType2 = a2.getSubType();
-						if(a1.getId().longValue() == a2.getId().longValue() && (subType1.equals("building") || subType2.equals("building"))) {
+
+						boolean isEqualId = a1.getId().longValue() == a2.getId().longValue();
+
+						if (isEqualId && (FILTER_DUPLICATE_POI_SUBTYPE.contains(subType1)
+								|| FILTER_DUPLICATE_POI_SUBTYPE.contains(subType2))) {
 							return true;
-						}
-						if (!type1.equals(type2)) {
+
+						} else if (!type1.equals(type2)) {
 							return false;
 						}
+
 						if (type1.equals("natural")) {
 							similarityRadius = 50000;
 						} else if (subType1.equals(subType2)) {
@@ -741,7 +751,7 @@ public class SearchUICore {
 					}
 				}
 				if (Algorithms.isEmpty(object.alternateName) && object.object instanceof Amenity) {
-					for (String value : ((Amenity) object.object).getAdditionalInfo().values()) {
+					for (String value : ((Amenity) object.object).getAdditionalInfoValues(true)) {
 						if (phrase.getFirstUnknownNameStringMatcher().matches(value)) {
 							object.alternateName = value;
 							break;
@@ -944,17 +954,15 @@ public class SearchUICore {
 				break;
 			}
 			case COMPARE_AMENITY_TYPE_ADDITIONAL: {
-				if(o1.object instanceof AbstractPoiType && o2.object instanceof AbstractPoiType ) {
-					boolean additional1 = ((AbstractPoiType) o1.object).isAdditional();
-					boolean additional2 = ((AbstractPoiType) o2.object).isAdditional();
-					if (additional1 != additional2) {
-						// -1 - means 1st is less than 2nd
-						return additional1 ? 1 : -1;
-					}
+				boolean additional1 = o1.object instanceof AbstractPoiType && ((AbstractPoiType) o1.object).isAdditional();
+				boolean additional2 = o2.object instanceof AbstractPoiType && ((AbstractPoiType) o2.object).isAdditional();
+				if (additional1 != additional2) {
+					// -1 - means 1st is less than 2nd
+					return additional1 ? 1 : -1;
 				}
 				break;
 			}
-			case COMPARE_DISTANCE_TO_PARENT_SEARCH_RESULT: 
+			case COMPARE_DISTANCE_TO_PARENT_SEARCH_RESULT:
 				double ps1 = o1.parentSearchResult == null ? 0 : o1.parentSearchResult.getSearchDistance(c.loc);
 				double ps2 = o2.parentSearchResult == null ? 0 : o2.parentSearchResult.getSearchDistance(c.loc);
 				if (ps1 != ps2) {
@@ -987,15 +995,24 @@ public class SearchUICore {
 					// here 2 points are amenity
 					Amenity a1 = (Amenity) o1.object;
 					Amenity a2 = (Amenity) o2.object;
+
 					String type1 = a1.getType().getKeyName();
 					String type2 = a2.getType().getKeyName();
-					int cmp = c.collator.compare(type1, type2);
+					String subType1 = a1.getSubType() == null ? "" : a1.getSubType();
+					String subType2 = a2.getSubType() == null ? "" : a2.getSubType();
+
+					int cmp = 0;
+					boolean subtypeFilter1 = FILTER_DUPLICATE_POI_SUBTYPE.contains(subType1);
+					boolean subtypeFilter2 = FILTER_DUPLICATE_POI_SUBTYPE.contains(subType2);
+					if (subtypeFilter1 != subtypeFilter2) {
+						// to filter second
+						return subtypeFilter1 ? 1 : -1;
+					}
+					cmp = c.collator.compare(type1, type2);
 					if (cmp != 0) {
 						return cmp;
 					}
 
-					String subType1 = a1.getSubType() == null ? "" : a1.getSubType();
-					String subType2 = a2.getSubType() == null ? "" : a2.getSubType();
 					cmp = c.collator.compare(subType1, subType2);
 					if (cmp != 0) {
 						return cmp;
@@ -1023,12 +1040,17 @@ public class SearchUICore {
 
 		@Override
 		public int compare(SearchResult o1, SearchResult o2) {
-			for(ResultCompareStep step : ResultCompareStep.values()) {
+			List<ResultCompareStep> steps = new ArrayList<>();
+			for (ResultCompareStep step : ResultCompareStep.values()) {
 				int r = step.compare(o1, o2, this);
-				if(r != 0) {
+				steps.add(step);
+				if (r != 0) {
+					// debug crashes and identify non-transitive comparision
+					// LOG.debug(String.format("%d: %s o1='%s' o2='%s'", r, steps, o1, o2));
 					return r;
 				}
 			}
+			// LOG.debug(String.format("EQUAL: o1='%s' o2='%s'", o1, o2));
 			return 0;
 		}
 

@@ -30,6 +30,7 @@ import net.osmand.plus.quickaction.actions.NavReplaceDestinationAction;
 import net.osmand.plus.quickaction.actions.NavResumePauseAction;
 import net.osmand.plus.quickaction.actions.NavStartStopAction;
 import net.osmand.plus.quickaction.actions.NavVoiceAction;
+import net.osmand.plus.quickaction.actions.ShowHideCoordinatesWidgetAction;
 import net.osmand.plus.quickaction.actions.ShowHideFavoritesAction;
 import net.osmand.plus.quickaction.actions.ShowHideGpxTracksAction;
 import net.osmand.plus.quickaction.actions.ShowHideMapillaryAction;
@@ -65,6 +66,8 @@ public class QuickActionRegistry {
 			nameRes(R.string.quick_action_add_configure_map).category(QuickActionType.CONFIGURE_MAP);
 	public static final QuickActionType TYPE_NAVIGATION = new QuickActionType(0, "").
 			nameRes(R.string.quick_action_add_navigation).category(QuickActionType.NAVIGATION);
+	public static final QuickActionType TYPE_CONFIGURE_SCREEN = new QuickActionType(0, "").
+			nameRes(R.string.map_widget_config).category(QuickActionType.CONFIGURE_SCREEN);
 
 
 	private final OsmandSettings settings;
@@ -149,6 +152,16 @@ public class QuickActionRegistry {
 		return null;
 	}
 
+	public List<QuickAction> collectQuickActionsByType(QuickActionType type) {
+		List<QuickAction> actions = new ArrayList<>();
+		for (QuickAction action : quickActions) {
+			if (action.getType() == type.getId()) {
+				actions.add(action);
+			}
+		}
+		return actions;
+	}
+
 	public boolean isNameUnique(QuickAction action, Context context) {
 		for (QuickAction a : quickActions) {
 			if (action.id != a.id) {
@@ -214,6 +227,7 @@ public class QuickActionRegistry {
 		quickActionTypes.add(DayNightModeAction.TYPE);
 		quickActionTypes.add(ShowHideTransportLinesAction.TYPE);
 		quickActionTypes.add(ShowHideMapillaryAction.TYPE);
+		quickActionTypes.add(ShowHideCoordinatesWidgetAction.TYPE);
 		// navigation
 		quickActionTypes.add(NavVoiceAction.TYPE);
 		quickActionTypes.add(NavDirectionsFromAction.TYPE);
@@ -246,6 +260,7 @@ public class QuickActionRegistry {
 		filterQuickActions(TYPE_ADD_ITEMS, result);
 		filterQuickActions(TYPE_CONFIGURE_MAP, result);
 		filterQuickActions(TYPE_NAVIGATION, result);
+		filterQuickActions(TYPE_CONFIGURE_SCREEN, result);
 		return result;
 	}
 
@@ -313,7 +328,8 @@ public class QuickActionRegistry {
 				}
 				if (obj.has("params")) {
 					qa.setParams((Map<String, String>) context.deserialize(obj.get("params"),
-							new TypeToken<HashMap<String, String>>() {}.getType())
+							new TypeToken<HashMap<String, String>>() {
+							}.getType())
 					);
 				}
 				return qa;

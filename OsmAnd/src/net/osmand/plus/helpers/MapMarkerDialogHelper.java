@@ -10,7 +10,7 @@ import android.widget.TextView;
 import net.osmand.AndroidUtils;
 import net.osmand.Location;
 import net.osmand.data.LatLon;
-import net.osmand.plus.MapMarkersHelper.MapMarker;
+import net.osmand.plus.mapmarkers.MapMarker;
 import net.osmand.plus.OsmAndFormatter;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
@@ -101,7 +101,7 @@ public class MapMarkerDialogHelper {
 		String desc = OsmAndFormatter.getFormattedDate(app, marker.creationDate);
 		String markerGroupName = marker.groupName;
 		if (markerGroupName != null) {
-			if (markerGroupName.equals("")) {
+			if (markerGroupName.isEmpty()) {
 				markerGroupName = app.getString(R.string.shared_string_favorites);
 			}
 			desc += " • " + markerGroupName;

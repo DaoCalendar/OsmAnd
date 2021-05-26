@@ -14,7 +14,7 @@ import net.osmand.plus.inapp.InAppPurchases.InAppPurchase;
 public class ChoosePlanFreeBannerDialogFragment extends ChoosePlanDialogFragment {
 	public static final String TAG = ChoosePlanFreeBannerDialogFragment.class.getSimpleName();
 
-	private final OsmAndFeature[] osmLiveFeatures = {
+	private final OsmAndFeature[] subscriptionFeatures = {
 			OsmAndFeature.DAILY_MAP_UPDATES,
 			OsmAndFeature.UNLIMITED_DOWNLOADS,
 			OsmAndFeature.WIKIPEDIA_OFFLINE,
@@ -30,15 +30,16 @@ public class ChoosePlanFreeBannerDialogFragment extends ChoosePlanDialogFragment
 
 	private final OsmAndFeature[] planTypeFeatures = {
 			OsmAndFeature.WIKIPEDIA_OFFLINE,
-			OsmAndFeature.WIKIVOYAGE_OFFLINE,
+			OsmAndFeature.CONTOUR_LINES_HILLSHADE_MAPS,
+			OsmAndFeature.SEA_DEPTH_MAPS,
 			OsmAndFeature.UNLIMITED_DOWNLOADS,
 			OsmAndFeature.MONTHLY_MAP_UPDATES,
 	};
 	private final OsmAndFeature[] selectedPlanTypeFeatures = {};
 
 	@Override
-	public OsmAndFeature[] getOsmLiveFeatures() {
-		return osmLiveFeatures;
+	public OsmAndFeature[] getSubscriptionFeatures() {
+		return subscriptionFeatures;
 	}
 
 	@Override
@@ -47,7 +48,7 @@ public class ChoosePlanFreeBannerDialogFragment extends ChoosePlanDialogFragment
 	}
 
 	@Override
-	public OsmAndFeature[] getSelectedOsmLiveFeatures() {
+	public OsmAndFeature[] getSelectedSubscriptionFeatures() {
 		return selectedOsmLiveFeatures;
 	}
 

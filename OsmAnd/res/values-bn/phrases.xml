@@ -60,7 +60,7 @@
     <string name="poi_shoes_type">ধরণ</string>
     <string name="poi_fire_hydrant_type">ধরণ</string>
     <string name="poi_fire_hydrant_position">অবস্থান</string>
-    <string name="poi_fire_hydrant_water_source">পানির উৎস</string>
+    <string name="poi_water_source">পানির উৎস</string>
     <string name="poi_payment_toll_type">অর্থ প্রদানের ধরণ</string>
     <string name="poi_traffic_signals_sound">শব্দ</string>
     <string name="poi_highway_crossing_type">ধরণ</string>
@@ -80,7 +80,7 @@
     <string name="poi_city_capital">রাজধানী</string>
     <string name="poi_service_general">পরিসেবা</string>
     <string name="poi_cash_withdrawal_bank_card">নগদ উত্তোলন</string>
-    <string name="poi_embassy_type">ধরণ</string>
+    <string name="poi_diplomatic_filter">ধরণ</string>
     <string name="poi_animal_training_type">ধরণ</string>
     <string name="poi_telescope_type">ধরণ</string>
     <string name="poi_vending_type">ভেন্ডিং টাইপ</string>

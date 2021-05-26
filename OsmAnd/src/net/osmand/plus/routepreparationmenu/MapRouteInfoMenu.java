@@ -9,6 +9,7 @@ import android.os.Build;
 import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Pair;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
@@ -28,6 +29,8 @@ import androidx.appcompat.content.res.AppCompatResources;
 import androidx.appcompat.widget.AppCompatImageView;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.fragment.app.FragmentManager;
 import androidx.transition.AutoTransition;
 import androidx.transition.Scene;
 import androidx.transition.Transition;
@@ -51,7 +54,6 @@ import net.osmand.plus.GeocodingLookupService;
 import net.osmand.plus.GeocodingLookupService.AddressLookupRequest;
 import net.osmand.plus.GeocodingLookupService.OnAddressLookupResult;
 import net.osmand.plus.GpxSelectionHelper.SelectedGpxFile;
-import net.osmand.plus.MapMarkersHelper.MapMarker;
 import net.osmand.plus.OsmAndLocationProvider;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
@@ -59,18 +61,19 @@ import net.osmand.plus.TargetPointsHelper;
 import net.osmand.plus.TargetPointsHelper.TargetPoint;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.activities.MapActivity;
-import net.osmand.plus.activities.SettingsBaseActivity;
 import net.osmand.plus.activities.actions.AppModeDialog;
 import net.osmand.plus.activities.actions.OsmAndDialogs;
 import net.osmand.plus.base.ContextMenuFragment.MenuState;
 import net.osmand.plus.helpers.AndroidUiHelper;
 import net.osmand.plus.helpers.AvoidSpecificRoads.AvoidRoadInfo;
 import net.osmand.plus.helpers.GpxUiHelper;
+import net.osmand.plus.helpers.WaypointDialogHelper;
 import net.osmand.plus.helpers.WaypointHelper;
 import net.osmand.plus.mapcontextmenu.other.TrackDetailsMenuFragment;
+import net.osmand.plus.mapmarkers.MapMarker;
 import net.osmand.plus.mapmarkers.MapMarkerSelectionFragment;
 import net.osmand.plus.poi.PoiUIFilter;
-import net.osmand.plus.profiles.AppModesBottomSheetDialogFragment;
+import net.osmand.plus.profiles.AppModesBottomSheetDialogFragment.UpdateMapRouteMenuListener;
 import net.osmand.plus.profiles.ConfigureAppModesBottomSheetDialogFragment;
 import net.osmand.plus.routepreparationmenu.RoutingOptionsHelper.AvoidPTTypesRoutingParameter;
 import net.osmand.plus.routepreparationmenu.RoutingOptionsHelper.AvoidRoadsRoutingParameter;
@@ -95,16 +98,20 @@ import net.osmand.plus.routepreparationmenu.cards.PublicTransportNotFoundSetting
 import net.osmand.plus.routepreparationmenu.cards.PublicTransportNotFoundWarningCard;
 import net.osmand.plus.routepreparationmenu.cards.SimpleRouteCard;
 import net.osmand.plus.routepreparationmenu.cards.TracksCard;
+import net.osmand.plus.routing.GPXRouteParams.GPXRouteParamsBuilder;
 import net.osmand.plus.routing.IRouteInformationListener;
 import net.osmand.plus.routing.RouteCalculationResult;
-import net.osmand.plus.routing.RouteProvider.GPXRouteParamsBuilder;
 import net.osmand.plus.routing.RoutingHelper;
+import net.osmand.plus.routing.RoutingHelperUtils;
 import net.osmand.plus.routing.TransportRoutingHelper;
 import net.osmand.plus.search.QuickSearchHelper;
 import net.osmand.plus.settings.backend.ApplicationMode;
+import net.osmand.plus.settings.backend.CommonPreference;
+import net.osmand.plus.settings.backend.OsmandPreference;
 import net.osmand.plus.settings.backend.OsmandSettings;
-import net.osmand.plus.settings.backend.OsmandSettings.CommonPreference;
-import net.osmand.plus.settings.backend.OsmandSettings.OsmandPreference;
+import net.osmand.plus.views.OsmandMapLayer;
+import net.osmand.plus.views.OsmandMapTileView;
+import net.osmand.plus.views.layers.ContextMenuLayer.IContextMenuProvider;
 import net.osmand.plus.widgets.TextViewExProgress;
 import net.osmand.router.GeneralRouter;
 import net.osmand.router.GeneralRouter.RoutingParameter;
@@ -282,7 +289,10 @@ public class MapRouteInfoMenu implements IRouteInformationListener, CardListener
 			if (selectFromMapTouch) {
 				selectFromMapTouch = false;
 				LatLon latLon = tileBox.getLatLonFromPixel(point.x, point.y);
-				choosePointTypeAction(mapActivity, latLon, selectFromMapPointType, null, null);
+				Pair<LatLon, PointDescription> pair = getObjectLocation(mapActivity.getMapView(), point, tileBox);
+				LatLon selectedPoint = pair != null ? pair.first : latLon;
+				PointDescription name = pair != null ? pair.second : null;
+				choosePointTypeAction(mapActivity, selectedPoint, selectFromMapPointType, name, null);
 				if (selectFromMapWaypoints) {
 					WaypointsFragment.showInstance(mapActivity.getSupportFragmentManager(), true);
 				} else {
@@ -292,6 +302,28 @@ public class MapRouteInfoMenu implements IRouteInformationListener, CardListener
 			}
 		}
 		return false;
+	}
+
+	private Pair<LatLon, PointDescription> getObjectLocation(OsmandMapTileView mapView, PointF point, RotatedTileBox tileBox) {
+		List<Object> objects = new ArrayList<>();
+		for (OsmandMapLayer layer : mapView.getLayers()) {
+			if (layer instanceof IContextMenuProvider) {
+				objects.clear();
+				IContextMenuProvider provider = (IContextMenuProvider) layer;
+				provider.collectObjectsFromPoint(point, tileBox, objects, true);
+				for (Object o : objects) {
+					if (provider.isObjectClickable(o)) {
+						LatLon latLon = provider.getObjectLocation(o);
+						PointDescription name = null;
+						if (o instanceof FavouritePoint) {
+							name = ((FavouritePoint) o).getPointDescription(mapView.getApplication());
+						}
+						return new Pair<>(latLon, name);
+					}
+				}
+			}
+		}
+		return null;
 	}
 
 	private void choosePointTypeAction(MapActivity mapActivity, LatLon latLon, PointType pointType, PointDescription pd, String address) {
@@ -840,16 +872,16 @@ public class MapRouteInfoMenu implements IRouteInformationListener, CardListener
 	}
 
 	private void showProfileBottomSheetDialog() {
-		final AppModesBottomSheetDialogFragment fragment = new ConfigureAppModesBottomSheetDialogFragment();
-		fragment.setUsedOnMap(true);
-		fragment.setUpdateMapRouteMenuListener(new AppModesBottomSheetDialogFragment.UpdateMapRouteMenuListener() {
-			@Override
-			public void updateAppModeMenu() {
-				updateApplicationModes();
-			}
-		});
-		getMapActivity().getSupportFragmentManager().beginTransaction()
-				.add(fragment, ConfigureAppModesBottomSheetDialogFragment.TAG).commitAllowingStateLoss();
+		FragmentActivity activity = getMapActivity();
+		if (activity != null) {
+			FragmentManager manager = activity.getSupportFragmentManager();
+			ConfigureAppModesBottomSheetDialogFragment.showInstance(manager, true, new UpdateMapRouteMenuListener() {
+				@Override
+				public void updateAppModeMenu() {
+					updateApplicationModes();
+				}
+			});
+		}
 	}
 
 	private void updateApplicationMode(ApplicationMode mode, ApplicationMode next) {
@@ -863,7 +895,7 @@ public class MapRouteInfoMenu implements IRouteInformationListener, CardListener
 			}
 			routingHelper.setAppMode(next);
 			app.initVoiceCommandPlayer(mapActivity, next, true, null, false, false, true);
-			routingHelper.recalculateRouteDueToSettingsChange();
+			routingHelper.onSettingsChanged(true);
 		}
 	}
 
@@ -1280,7 +1312,7 @@ public class MapRouteInfoMenu implements IRouteInformationListener, CardListener
 					if (mapActivity != null) {
 						OsmandApplication app = mapActivity.getMyApplication();
 						app.getAvoidSpecificRoads().removeImpassableRoad(avoidRoadInfo);
-						app.getRoutingHelper().recalculateRouteDueToSettingsChange();
+						app.getRoutingHelper().onSettingsChanged(true);
 						if (app.getAvoidSpecificRoads().getImpassableRoads().isEmpty() && getAvoidedParameters(app).isEmpty()) {
 							mode.parameters.remove(parameter);
 						}
@@ -1303,7 +1335,7 @@ public class MapRouteInfoMenu implements IRouteInformationListener, CardListener
 		final OsmandSettings settings = mapActivity.getMyApplication().getSettings();
 		for (int i = 0; i < avoidedParameters.size(); i++) {
 			final RoutingParameter routingParameter = avoidedParameters.get(i);
-			final View container = createToolbarSubOptionView(false, SettingsBaseActivity.getRoutingStringPropertyName(app, routingParameter.getId(), routingParameter.getName()), R.drawable.ic_action_remove_dark, i == avoidedParameters.size() - 1, new OnClickListener() {
+			final View container = createToolbarSubOptionView(false, AndroidUtils.getRoutingStringPropertyName(app, routingParameter.getId(), routingParameter.getName()), R.drawable.ic_action_remove_dark, i == avoidedParameters.size() - 1, new OnClickListener() {
 				@Override
 				public void onClick(View v) {
 					OsmandApplication app = getApp();
@@ -1313,7 +1345,7 @@ public class MapRouteInfoMenu implements IRouteInformationListener, CardListener
 					CommonPreference<Boolean> preference = settings.getCustomRoutingBooleanProperty(routingParameter.getId(), routingParameter.getDefaultBoolean());
 					preference.setModeValue(app.getRoutingHelper().getAppMode(), false);
 					avoidedParameters.remove(routingParameter);
-					app.getRoutingHelper().recalculateRouteDueToSettingsChange();
+					app.getRoutingHelper().onSettingsChanged(true);
 					if (app.getAvoidSpecificRoads().getImpassableRoads().isEmpty() && avoidedParameters.isEmpty()) {
 						mode.parameters.remove(parameter);
 					}
@@ -1536,7 +1568,7 @@ public class MapRouteInfoMenu implements IRouteInformationListener, CardListener
 	private void clickRouteParams() {
 		MapActivity mapActivity = getMapActivity();
 		if (mapActivity != null) {
-			RouteOptionsBottomSheet.showInstance(mapActivity.getSupportFragmentManager());
+			RouteOptionsBottomSheet.showInstance(mapActivity);
 		}
 	}
 
@@ -1633,7 +1665,23 @@ public class MapRouteInfoMenu implements IRouteInformationListener, CardListener
 			String via = generateViaDescription();
 			GPXRouteParamsBuilder routeParamsBuilder = app.getRoutingHelper().getCurrentGPXRoute();
 			if (routeParamsBuilder != null) {
-				String fileName = new File(routeParamsBuilder.getFile().path).getName();
+				GPXFile gpxFile = routeParamsBuilder.getFile();
+				String fileName = null;
+				if (!Algorithms.isEmpty(gpxFile.path)) {
+					fileName = new File(gpxFile.path).getName();
+				} else if (!Algorithms.isEmpty(gpxFile.tracks)) {
+					fileName = gpxFile.tracks.get(0).name;
+				}
+				if (Algorithms.isEmpty(fileName)) {
+					fileName = app.getString(R.string.shared_string_gpx_track);
+				}
+				GPXRouteParamsBuilder routeParams = app.getRoutingHelper().getCurrentGPXRoute();
+
+				if (gpxFile.getNonEmptySegmentsCount() > 1 && routeParams != null && routeParams.getSelectedSegment() != -1) {
+					int selectedSegmentCount = routeParams.getSelectedSegment() + 1;
+					int totalSegmentCount = routeParams.getFile().getNonEmptyTrkSegments(false).size();
+					fileName = app.getResources().getString(R.string.of, selectedSegmentCount, totalSegmentCount) + ", " + fileName;
+				}
 				title.setText(GpxUiHelper.getGpxTitle(fileName));
 				description.setText(R.string.follow_track);
 				buttonDescription.setText(R.string.shared_string_add);
@@ -1751,8 +1799,13 @@ public class MapRouteInfoMenu implements IRouteInformationListener, CardListener
 			if (routeParams != null) {
 				TargetPoint target = app.getTargetPointsHelper().getPointToNavigate();
 				if (target != null) {
-					PointDescription pointDescription = target.getOriginalPointDescription();
-					return pointDescription != null && routeParams.getFile().path.equals(pointDescription.getTypeName());
+					List<Location> points = routeParams.getPoints(app);
+					if (!Algorithms.isEmpty(points)) {
+						Location loc = points.get(points.size() - 1);
+						LatLon latLon = new LatLon(loc.getLatitude(), loc.getLongitude());
+						LatLon targetLatLon = new LatLon(target.getLatitude(), target.getLongitude());
+						return latLon.equals(targetLatLon);
+					}
 				}
 			}
 		}
@@ -1778,6 +1831,13 @@ public class MapRouteInfoMenu implements IRouteInformationListener, CardListener
 		});
 
 		FrameLayout fromButton = (FrameLayout) mainView.findViewById(R.id.from_button);
+		boolean isFollowTrack = app.getRoutingHelper().getCurrentGPXRoute() != null;
+
+		if (isFollowTrack) {
+			fromButton.setVisibility(View.GONE);
+		} else {
+			fromButton.setVisibility(View.VISIBLE);
+		}
 		LinearLayout fromButtonContainer = (LinearLayout) mainView.findViewById(R.id.from_button_container);
 		setupButtonBackground(fromButton, fromButtonContainer);
 
@@ -1810,9 +1870,13 @@ public class MapRouteInfoMenu implements IRouteInformationListener, CardListener
 										new PointDescription(PointDescription.POINT_TYPE_MY_LOCATION, mapActivity.getString(R.string.shared_string_my_location)));
 							}
 							if (startPoint != null) {
-								targetPointsHelper.navigateToPoint(startPoint.point, false, -1, startPoint.getPointDescription(mapActivity));
-								targetPointsHelper.setStartPoint(endPoint.point, false, endPoint.getPointDescription(mapActivity));
-								targetPointsHelper.updateRouteAndRefresh(true);
+								int intermediateSize = targetPointsHelper.getIntermediatePoints().size();
+								if (intermediateSize > 1) {
+									WaypointDialogHelper.reverseAllPoints(app, mapActivity, mapActivity.getDashboard().getWaypointDialogHelper());
+								} else {
+									WaypointDialogHelper.switchStartAndFinish(mapActivity.getMyApplication(),
+											mapActivity, mapActivity.getDashboard().getWaypointDialogHelper(), true);
+								}
 							} else {
 								app.showShortToastMessage(R.string.route_add_start_point);
 							}
@@ -2398,7 +2462,7 @@ public class MapRouteInfoMenu implements IRouteInformationListener, CardListener
 			}
 		} else if (routingHelper.isRouteCalculated()) {
 			RouteCalculationResult result = routingHelper.getRoute();
-			QuadRect routeRect = routingHelper.getRouteRect(result);
+			QuadRect routeRect = RoutingHelperUtils.getRouteRect(app, result);
 			if (routeRect != null) {
 				rect = routeRect;
 			}

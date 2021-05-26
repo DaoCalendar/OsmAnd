@@ -1,5 +1,6 @@
 package net.osmand.plus.measurementtool;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.DialogInterface;
 import android.graphics.drawable.Drawable;
@@ -25,7 +26,6 @@ import net.osmand.plus.base.bottomsheetmenu.BottomSheetItemWithDescription;
 import net.osmand.plus.base.bottomsheetmenu.SimpleBottomSheetItem;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.TitleDividerItem;
 import net.osmand.plus.helpers.FontCache;
-import net.osmand.plus.measurementtool.GpxData.ActionType;
 import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.util.MapUtils;
 
@@ -39,6 +39,7 @@ public class SelectedPointBottomSheetDialogFragment extends MenuBottomSheetDialo
 	private static final Log LOG = PlatformUtil.getLog(SelectedPointBottomSheetDialogFragment.class);
 	private MeasurementEditingContext editingCtx;
 
+	@SuppressLint("InflateParams")
 	@Override
 	public void createMenuItems(Bundle savedInstanceState) {
 		MapActivity mapActivity = getMapActivity();
@@ -132,7 +133,7 @@ public class SelectedPointBottomSheetDialogFragment extends MenuBottomSheetDialo
 						dismiss();
 					}
 				})
-				.setDisabled(editingCtx.isFirstPointSelected())
+				.setDisabled(editingCtx.isFirstPointSelected(false))
 				.create();
 		items.add(trimRouteBefore);
 
@@ -151,14 +152,96 @@ public class SelectedPointBottomSheetDialogFragment extends MenuBottomSheetDialo
 						dismiss();
 					}
 				})
-				.setDisabled(editingCtx.isLastPointSelected())
+				.setDisabled(editingCtx.isLastPointSelected(false))
 				.create();
 		items.add(trimRouteAfter);
+
+		if (editingCtx.isFirstPointSelected(true)) {
+			// skip
+		} else if (editingCtx.isLastPointSelected(true)) {
+			items.add(new OptionsDividerItem(getContext()));
+
+			// new segment
+			BaseBottomSheetItem addNewSegment = new BottomSheetItemWithDescription.Builder()
+					.setIcon(getContentIcon(R.drawable.ic_action_new_segment))
+					.setTitle(getString(R.string.plan_route_add_new_segment))
+					.setLayoutId(R.layout.bottom_sheet_item_with_descr_pad_32dp)
+					.setOnClickListener(new View.OnClickListener() {
+						@Override
+						public void onClick(View v) {
+							Fragment targetFragment = getTargetFragment();
+							if (targetFragment instanceof SelectedPointFragmentListener) {
+								((SelectedPointFragmentListener) targetFragment).onSplitPointsAfter();
+							}
+							dismiss();
+						}
+					})
+					.create();
+			items.add(addNewSegment);
+		} else if (editingCtx.isFirstPointSelected(false) || editingCtx.isLastPointSelected(false)) {
+			items.add(new OptionsDividerItem(getContext()));
+
+			// join
+			BaseBottomSheetItem joinSegments = new BottomSheetItemWithDescription.Builder()
+					.setIcon(getContentIcon(R.drawable.ic_action_join_segments))
+					.setTitle(getString(R.string.plan_route_join_segments))
+					.setLayoutId(R.layout.bottom_sheet_item_with_descr_pad_32dp)
+					.setOnClickListener(new View.OnClickListener() {
+						@Override
+						public void onClick(View v) {
+							Fragment targetFragment = getTargetFragment();
+							if (targetFragment instanceof SelectedPointFragmentListener) {
+								((SelectedPointFragmentListener) targetFragment).onJoinPoints();
+							}
+							dismiss();
+						}
+					})
+					.create();
+			items.add(joinSegments);
+		} else {
+			items.add(new OptionsDividerItem(getContext()));
+
+			// split
+			BaseBottomSheetItem splitAfter = new BottomSheetItemWithDescription.Builder()
+					.setIcon(getContentIcon(R.drawable.ic_action_split_after))
+					.setTitle(getString(R.string.plan_route_split_after))
+					.setLayoutId(R.layout.bottom_sheet_item_with_descr_pad_32dp)
+					.setOnClickListener(new View.OnClickListener() {
+						@Override
+						public void onClick(View v) {
+							Fragment targetFragment = getTargetFragment();
+							if (targetFragment instanceof SelectedPointFragmentListener) {
+								((SelectedPointFragmentListener) targetFragment).onSplitPointsAfter();
+							}
+							dismiss();
+						}
+					})
+					.setDisabled(!editingCtx.canSplit(true))
+					.create();
+			items.add(splitAfter);
+
+			BaseBottomSheetItem splitBefore = new BottomSheetItemWithDescription.Builder()
+					.setIcon(getContentIcon(R.drawable.ic_action_split_after))
+					.setTitle(getString(R.string.plan_route_split_before))
+					.setLayoutId(R.layout.bottom_sheet_item_with_descr_pad_32dp)
+					.setOnClickListener(new View.OnClickListener() {
+						@Override
+						public void onClick(View v) {
+							Fragment targetFragment = getTargetFragment();
+							if (targetFragment instanceof SelectedPointFragmentListener) {
+								((SelectedPointFragmentListener) targetFragment).onSplitPointsBefore();
+							}
+							dismiss();
+						}
+					})
+					.setDisabled(!editingCtx.canSplit(false))
+					.create();
+			items.add(splitBefore);
+		}
 
 		items.add(new OptionsDividerItem(getContext()));
 
 		BaseBottomSheetItem changeRouteTypeBefore = new BottomSheetItemWithDescription.Builder()
-				.setDescription(getDescription(true))
 				.setIcon(getRouteTypeIcon(true))
 				.setTitle(getString(R.string.plan_route_change_route_type_before))
 				.setLayoutId(R.layout.bottom_sheet_item_with_descr_pad_32dp)
@@ -172,12 +255,11 @@ public class SelectedPointBottomSheetDialogFragment extends MenuBottomSheetDialo
 						dismiss();
 					}
 				})
-				.setDisabled(editingCtx.isFirstPointSelected())
+				.setDisabled(editingCtx.isFirstPointSelected(false) || editingCtx.isApproximationNeeded())
 				.create();
 		items.add(changeRouteTypeBefore);
 
 		BaseBottomSheetItem changeRouteTypeAfter = new BottomSheetItemWithDescription.Builder()
-				.setDescription(getDescription(false))
 				.setIcon(getRouteTypeIcon(false))
 				.setTitle(getString(R.string.plan_route_change_route_type_after))
 				.setLayoutId(R.layout.bottom_sheet_item_with_descr_pad_32dp)
@@ -191,7 +273,7 @@ public class SelectedPointBottomSheetDialogFragment extends MenuBottomSheetDialo
 						dismiss();
 					}
 				})
-				.setDisabled(editingCtx.isLastPointSelected())
+				.setDisabled(editingCtx.isLastPointSelected(false) || editingCtx.isApproximationNeeded())
 				.create();
 		items.add(changeRouteTypeAfter);
 
@@ -264,11 +346,7 @@ public class SelectedPointBottomSheetDialogFragment extends MenuBottomSheetDialo
 		if (!TextUtils.isEmpty(pointName)) {
 			return pointName;
 		}
-		GpxData gpxData = editingCtx.getGpxData();
-		if (gpxData != null && gpxData.getActionType() == ActionType.ADD_ROUTE_POINTS) {
-			return getString(R.string.route_point) + " - " + (pos + 1);
-		}
-		return getString(R.string.plugin_distance_point) + " - " + (pos + 1);
+		return getString(R.string.ltr_or_rtl_combine_via_dash, getString(R.string.plugin_distance_point), String.valueOf(pos + 1));
 	}
 
 	@NonNull
@@ -305,18 +383,15 @@ public class SelectedPointBottomSheetDialogFragment extends MenuBottomSheetDialo
 			}
 			description.append(OsmAndFormatter.getFormattedDistance(dist, mapActivity.getMyApplication()));
 		}
-		GpxData gpxData = editingCtx.getGpxData();
-		if (gpxData != null && gpxData.getActionType() == ActionType.EDIT_SEGMENT) {
-			double elevation = pt.ele;
-			if (!Double.isNaN(elevation)) {
-				description.append("  ").append((getString(R.string.altitude)).substring(0, 1)).append(": ");
-				description.append(OsmAndFormatter.getFormattedAlt(elevation, mapActivity.getMyApplication()));
-			}
-			float speed = (float) pt.speed;
-			if (speed != 0) {
-				description.append("  ").append((getString(R.string.map_widget_speed)).substring(0, 1)).append(": ");
-				description.append(OsmAndFormatter.getFormattedSpeed(speed, mapActivity.getMyApplication()));
-			}
+		double elevation = pt.ele;
+		if (!Double.isNaN(elevation)) {
+			description.append("  ").append((getString(R.string.altitude)).substring(0, 1)).append(": ");
+			description.append(OsmAndFormatter.getFormattedAlt(elevation, mapActivity.getMyApplication()));
+		}
+		float speed = (float) pt.speed;
+		if (speed != 0) {
+			description.append("  ").append((getString(R.string.map_widget_speed)).substring(0, 1)).append(": ");
+			description.append(OsmAndFormatter.getFormattedSpeed(speed, mapActivity.getMyApplication()));
 		}
 		return description.toString();
 	}
@@ -328,7 +403,7 @@ public class SelectedPointBottomSheetDialogFragment extends MenuBottomSheetDialo
 		if (MeasurementEditingContext.DEFAULT_APP_MODE.equals(routeAppMode)) {
 			icon = getContentIcon(R.drawable.ic_action_split_interval);
 		} else {
-			icon = getIcon(routeAppMode.getIconRes(), routeAppMode.getIconColorInfo().getColor(nightMode));
+			icon = getPaintedIcon(routeAppMode.getIconRes(), routeAppMode.getProfileColor(nightMode));
 		}
 		return icon;
 	}
@@ -359,6 +434,12 @@ public class SelectedPointBottomSheetDialogFragment extends MenuBottomSheetDialo
 		void onTrimRouteBefore();
 
 		void onTrimRouteAfter();
+
+		void onSplitPointsAfter();
+
+		void onSplitPointsBefore();
+
+		void onJoinPoints();
 
 		void onChangeRouteTypeBefore();
 

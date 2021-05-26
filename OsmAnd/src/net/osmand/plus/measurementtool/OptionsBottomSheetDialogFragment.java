@@ -15,6 +15,7 @@ import net.osmand.PlatformUtil;
 import net.osmand.plus.R;
 import net.osmand.plus.base.MenuBottomSheetDialogFragment;
 import net.osmand.plus.base.bottomsheetmenu.BaseBottomSheetItem;
+import net.osmand.plus.base.bottomsheetmenu.BottomSheetItemWithDescription;
 import net.osmand.plus.base.bottomsheetmenu.BottomSheetItemWithDescriptionDifHeight;
 import net.osmand.plus.base.bottomsheetmenu.SimpleBottomSheetItem;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.TitleItem;
@@ -29,6 +30,7 @@ public class OptionsBottomSheetDialogFragment extends MenuBottomSheetDialogFragm
 
 	public static final String TRACK_SNAPPED_TO_ROAD_KEY = "track_snapped_to_road";
 	public static final String SNAP_TO_ROAD_APP_MODE_KEY = "snap_to_road_app_mode";
+	public static final String ADD_NEW_SEGMENT_ALLOWED_KEY = "add_new_segment_allowed";
 
 	private ApplicationMode routeAppMode;
 
@@ -36,8 +38,10 @@ public class OptionsBottomSheetDialogFragment extends MenuBottomSheetDialogFragm
 	public void createMenuItems(Bundle savedInstanceState) {
 		Bundle args = getArguments();
 		boolean trackSnappedToRoad = false;
+		boolean addNewSegmentAllowed = false;
 		if (args != null) {
 			trackSnappedToRoad = args.getBoolean(TRACK_SNAPPED_TO_ROAD_KEY);
+			addNewSegmentAllowed = args.getBoolean(ADD_NEW_SEGMENT_ALLOWED_KEY);
 			routeAppMode = ApplicationMode.valueOfStringKey(args.getString(SNAP_TO_ROAD_APP_MODE_KEY), null);
 		}
 
@@ -51,7 +55,7 @@ public class OptionsBottomSheetDialogFragment extends MenuBottomSheetDialogFragm
 				icon = getContentIcon(R.drawable.ic_action_split_interval);
 			} else {
 				description = routeAppMode.toHumanString();
-				icon = getIcon(routeAppMode.getIconRes(), routeAppMode.getIconColorInfo().getColor(nightMode));
+				icon = getPaintedIcon(routeAppMode.getIconRes(), routeAppMode.getProfileColor(nightMode));
 			}
 		} else {
 			description = getString(R.string.shared_string_undefined);
@@ -77,6 +81,25 @@ public class OptionsBottomSheetDialogFragment extends MenuBottomSheetDialogFragm
 				.create();
 
 		items.add(snapToRoadItem);
+
+		if (addNewSegmentAllowed) {
+			BaseBottomSheetItem addNewSegment = new BottomSheetItemWithDescription.Builder()
+					.setIcon(getContentIcon(R.drawable.ic_action_new_segment))
+					.setTitle(getString(R.string.plan_route_add_new_segment))
+					.setLayoutId(R.layout.bottom_sheet_item_with_descr_pad_32dp)
+					.setOnClickListener(new View.OnClickListener() {
+						@Override
+						public void onClick(View v) {
+							Fragment fragment = getTargetFragment();
+							if (fragment instanceof OptionsFragmentListener) {
+								((OptionsFragmentListener) fragment).addNewSegmentOnClick();
+							}
+							dismiss();
+						}
+					})
+					.create();
+			items.add(addNewSegment);
+		}
 
 		items.add(new OptionsDividerItem(getContext()));
 
@@ -108,7 +131,7 @@ public class OptionsBottomSheetDialogFragment extends MenuBottomSheetDialogFragm
 					public void onClick(View v) {
 						Fragment fragment = getTargetFragment();
 						if (fragment instanceof OptionsFragmentListener) {
-							((OptionsFragmentListener) fragment).addToTheTrackOnClick();
+							((OptionsFragmentListener) fragment).addToTrackOnClick();
 						}
 						dismiss();
 					}
@@ -200,12 +223,13 @@ public class OptionsBottomSheetDialogFragment extends MenuBottomSheetDialogFragm
 	}
 
 	public static void showInstance(@NonNull FragmentManager fm, Fragment targetFragment,
-									boolean trackSnappedToRoad, String routeAppModeStringKey) {
+									boolean trackSnappedToRoad, boolean addNewSegmentAllowed, String routeAppModeStringKey) {
 		try {
 			if (!fm.isStateSaved()) {
 				OptionsBottomSheetDialogFragment fragment = new OptionsBottomSheetDialogFragment();
 				Bundle args = new Bundle();
 				args.putBoolean(TRACK_SNAPPED_TO_ROAD_KEY, trackSnappedToRoad);
+				args.putBoolean(ADD_NEW_SEGMENT_ALLOWED_KEY, addNewSegmentAllowed);
 				args.putString(SNAP_TO_ROAD_APP_MODE_KEY, routeAppModeStringKey);
 				fragment.setArguments(args);
 				fragment.setTargetFragment(targetFragment,0);
@@ -225,11 +249,13 @@ public class OptionsBottomSheetDialogFragment extends MenuBottomSheetDialogFragm
 
 		void snapToRoadOnCLick();
 
+		void addNewSegmentOnClick();
+
 		void saveChangesOnClick();
 
 		void saveAsNewTrackOnClick();
 
-		void addToTheTrackOnClick();
+		void addToTrackOnClick();
 
 		void directionsOnClick();
 

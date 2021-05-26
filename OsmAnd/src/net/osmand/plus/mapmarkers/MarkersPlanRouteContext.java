@@ -4,10 +4,10 @@ import android.util.Pair;
 
 import net.osmand.Location;
 import net.osmand.data.LatLon;
+import net.osmand.plus.routing.RouteCalculationProgressCallback;
 import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.GPXUtilities.TrkSegment;
 import net.osmand.GPXUtilities.WptPt;
-import net.osmand.plus.MapMarkersHelper;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.routing.RouteCalculationParams;
 import net.osmand.plus.routing.RouteCalculationResult;
@@ -128,7 +128,7 @@ public class MarkersPlanRouteContext {
 		findPairsToCalculate(points);
 		RoutingHelper routingHelper = app.getRoutingHelper();
 		if (!snapToRoadPairsToCalculate.isEmpty() && !routingHelper.isRouteBeingCalculated()) {
-			routingHelper.startRouteCalculationThread(getParams(), true, true);
+			routingHelper.startRouteCalculationThread(getParams());
 			app.runInUIThread(new Runnable() {
 				@Override
 				public void run() {
@@ -218,7 +218,7 @@ public class MarkersPlanRouteContext {
 		params.mode = snappedMode;
 		params.ctx = app;
 		params.calculationProgress = calculationProgress = new RouteCalculationProgress();
-		params.calculationProgressCallback = new RoutingHelper.RouteCalculationProgressCallback() {
+		params.calculationProgressCallback = new RouteCalculationProgressCallback() {
 
 			@Override
 			public void start() {
@@ -266,7 +266,7 @@ public class MarkersPlanRouteContext {
 					}
 				});
 				if (!snapToRoadPairsToCalculate.isEmpty()) {
-					app.getRoutingHelper().startRouteCalculationThread(getParams(), true, true);
+					app.getRoutingHelper().startRouteCalculationThread(getParams());
 				} else {
 					app.runInUIThread(new Runnable() {
 						@Override

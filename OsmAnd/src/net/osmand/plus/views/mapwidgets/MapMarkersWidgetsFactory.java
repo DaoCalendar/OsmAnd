@@ -8,14 +8,14 @@ import android.widget.TextView;
 import net.osmand.Location;
 import net.osmand.data.LatLon;
 import net.osmand.data.PointDescription;
-import net.osmand.plus.UiUtilities;
-import net.osmand.plus.MapMarkersHelper;
-import net.osmand.plus.MapMarkersHelper.MapMarker;
 import net.osmand.plus.OsmAndFormatter;
 import net.osmand.plus.R;
+import net.osmand.plus.UiUtilities;
 import net.osmand.plus.activities.MapActivity;
 import net.osmand.plus.helpers.AndroidUiHelper;
+import net.osmand.plus.mapmarkers.MapMarker;
 import net.osmand.plus.mapmarkers.MapMarkersDialogFragment;
+import net.osmand.plus.mapmarkers.MapMarkersHelper;
 import net.osmand.plus.views.AnimateDraggingMapThread;
 import net.osmand.plus.views.DirectionDrawable;
 import net.osmand.plus.views.OsmandMapLayer.DrawSettings;
@@ -33,11 +33,9 @@ public class MapMarkersWidgetsFactory {
 
 	private final MapActivity map;
 	private MapMarkersHelper helper;
-	private int screenOrientation;
 	private boolean portraitMode;
 
 	private View topBar;
-	private View addressTopBar;
 	private View topBar2nd;
 	private View rowView;
 	private View rowView2nd;
@@ -59,10 +57,8 @@ public class MapMarkersWidgetsFactory {
 	public MapMarkersWidgetsFactory(final MapActivity map) {
 		this.map = map;
 		helper = map.getMyApplication().getMapMarkersHelper();
-		screenOrientation = map.getMyApplication().getUIUtilities().getScreenOrientation();
 		portraitMode = AndroidUiHelper.isOrientationPortrait(map);
 
-		addressTopBar = map.findViewById(R.id.map_top_bar);
 		topBar = map.findViewById(R.id.map_markers_top_bar);
 		topBar2nd = map.findViewById(R.id.map_markers_top_bar_2nd);
 		rowView = map.findViewById(R.id.map_marker_row);
@@ -183,17 +179,8 @@ public class MapMarkersWidgetsFactory {
 		}
 
 		List<MapMarker> markers = helper.getMapMarkers();
-		if (zoom < 3 || markers.size() == 0
-				|| !map.getMyApplication().getSettings().MARKERS_DISTANCE_INDICATION_ENABLED.get()
-				|| !map.getMyApplication().getSettings().MAP_MARKERS_MODE.get().isToolbar()
-				|| map.getMyApplication().getRoutingHelper().isFollowingMode()
-				|| map.getMyApplication().getRoutingHelper().isRoutePlanningMode()
-				|| map.getMapRouteInfoMenu().isVisible()
-				|| addressTopBar.getVisibility() == View.VISIBLE
-				|| map.isTopToolbarActive()
-				|| !map.getContextMenu().shouldShowTopControls()
-				|| map.getMapLayers().getGpxLayer().isInTrackAppearanceMode()
-				|| map.getMapLayers().getMapMarkersLayer().isInPlanRouteMode()) {
+		WidgetsVisibilityHelper vh = map.getWidgetsVisibilityHelper();
+		if (zoom < 3 || markers.size() == 0 || vh.shouldHideMapMarkersWidget()) {
 			updateVisibility(false);
 			return;
 		}
@@ -245,7 +232,7 @@ public class MapMarkersWidgetsFactory {
 		}
 		dd.setImage(R.drawable.ic_arrow_marker_diretion, MapMarker.getColorId(marker.colorIndex));
 		if (heading != null && loc != null) {
-			dd.setAngle(mes[1] - heading + 180 + screenOrientation);
+			dd.setAngle(mes[1] - heading + 180);
 		}
 		if (newImage) {
 			arrowImg.setImageDrawable(dd);

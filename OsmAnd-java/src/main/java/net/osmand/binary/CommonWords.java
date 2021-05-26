@@ -34,7 +34,7 @@ public class CommonWords {
 		}
 		return i.intValue();
 	}
-	
+
 	public static int getCommonGeocoding(String name) {
 		Integer i = commonWordsDictionary.get(name);
 		return i == null ? -1 : i.intValue();
@@ -764,6 +764,7 @@ public class CommonWords {
 		addFrequentlyUsed("martiri");
 		addFrequentlyUsed("verdi");
 		addFrequentlyUsed("augusta");
+		addFrequentlyUsed("neuburger");
 
 
 
@@ -838,8 +839,8 @@ public class CommonWords {
 		addCommon("un");
 		addCommon("nw");
 
-		
-		
+
+
 		addCommon("van");
 		addCommon("road");
 		addCommon("street");
@@ -867,7 +868,7 @@ public class CommonWords {
 		addCommon("circle");
 		addCommon("close");
 		addCommon("highway");
-		
+
 		addCommon("strada");
 		addCommon("impasse");
 		addCommon("utca");
@@ -881,17 +882,17 @@ public class CommonWords {
 
 		addCommon("terrace");
 		addCommon("jalan");
-		
+
 		addCommon("parkway");
 		addCommon("переулок");
-		
+
 		addCommon("carretera");
 		addCommon("valley");
-		
+
 		addCommon("camino");
 		addCommon("viale");
 		addCommon("loop");
-		
+
 		addCommon("bridge");
 		addCommon("embankment");
 		addCommon("township");
@@ -899,7 +900,7 @@ public class CommonWords {
 		addCommon("village");
 		addCommon("piazza");
 		addCommon("della");
-		
+
 		addCommon("plaza");
 		addCommon("pasaje");
 		addCommon("expressway");
@@ -907,18 +908,18 @@ public class CommonWords {
 		addCommon("square");
 		addCommon("freeway");
 		addCommon("line");
-		
+
 		addCommon("track");
-		
+
 		addCommon("zum");
 		addCommon("rodovia");
 		addCommon("sokak");
 		addCommon("sur");
 		addCommon("path");
 		addCommon("das");
-		
+
 		addCommon("yolu");
-		
+
 		addCommon("проспект");
 
 		addCommon("auf");
@@ -931,7 +932,7 @@ public class CommonWords {
 		addCommon("autovía");
 		addCommon("d");
 		addCommon("ulica");
-		
+
 		addCommon("na");
 		addCommon("проезд");
 		addCommon("n");
@@ -959,18 +960,18 @@ public class CommonWords {
 		addCommon("rúa");
 		addCommon("crest");
 		addCommon("ave");
-		
+
 		addCommon("turnpike");
 
 		addCommon("autoroute");
 		addCommon("crossing");
 		addCommon("camí");
 		addCommon("bend");
-		
+
 		addCommon("end");
 		addCommon("caddesi");
 		addCommon("bis");
-		
+
 		addCommon("ქუჩა");
 		addCommon("kalea");
 		addCommon("pass");
@@ -1002,7 +1003,7 @@ public class CommonWords {
 		addCommon("chaussee");
 		addCommon("row");
 		addCommon("link");
-	
+
 		addCommon("travesía");
 		addCommon("degli");
 		addCommon("piazzale");
@@ -1022,7 +1023,7 @@ public class CommonWords {
 		addCommon("pré");
 		addCommon("plac");
 		addCommon("fairway");
-	
+
 // 		addCommon("farm-to-market");
 
 		addCommon("набережная");
@@ -1258,5 +1259,5 @@ public class CommonWords {
 	}
 
 
-	
+
 }

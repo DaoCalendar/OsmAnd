@@ -16,33 +16,31 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.AppCompatCheckedTextView;
 import androidx.core.content.ContextCompat;
 
+import net.osmand.AndroidUtils;
 import net.osmand.CallbackWithObject;
-import net.osmand.GPXUtilities;
-import net.osmand.GPXUtilities.WptPt;
 import net.osmand.IndexConstants;
 import net.osmand.Location;
 import net.osmand.data.LatLon;
-import net.osmand.data.PointDescription;
 import net.osmand.plus.ContextMenuAdapter;
 import net.osmand.plus.ContextMenuItem;
 import net.osmand.plus.DialogListItemAdapter;
 import net.osmand.plus.OsmandApplication;
+import net.osmand.plus.settings.backend.CommonPreference;
+import net.osmand.plus.settings.backend.OsmandPreference;
+import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.plus.R;
 import net.osmand.plus.TargetPointsHelper;
 import net.osmand.plus.TargetPointsHelper.TargetPoint;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.activities.MapActivity;
-import net.osmand.plus.activities.SettingsBaseActivity;
 import net.osmand.plus.dashboard.DashboardOnMap;
 import net.osmand.plus.download.DownloadActivity;
 import net.osmand.plus.download.DownloadActivityType;
 import net.osmand.plus.helpers.FileNameTranslationHelper;
-import net.osmand.plus.routing.RouteProvider;
-import net.osmand.plus.routing.RouteProvider.GPXRouteParamsBuilder;
-import net.osmand.plus.routing.RouteProvider.RouteService;
+import net.osmand.plus.routing.GPXRouteParams.GPXRouteParamsBuilder;
+import net.osmand.plus.routing.RouteService;
 import net.osmand.plus.routing.RoutingHelper;
 import net.osmand.plus.settings.backend.ApplicationMode;
-import net.osmand.plus.settings.backend.OsmandSettings;
 import net.osmand.plus.voice.JSMediaCommandPlayerImpl;
 import net.osmand.plus.voice.JSTTSCommandPlayerImpl;
 import net.osmand.plus.voice.MediaCommandPlayerImpl;
@@ -54,7 +52,6 @@ import net.osmand.util.MapUtils;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -115,7 +112,7 @@ public class RoutingOptionsHelper {
 	public void selectRestrictedRoads(final MapActivity mapActivity) {
 		mapActivity.getDashboard().setDashboardVisibility(false, DashboardOnMap.DashboardType.ROUTE_PREFERENCES);
 		mapActivity.getMapRouteInfoMenu().hide();
-		mapActivity.getMyApplication().getAvoidSpecificRoads().showDialog(mapActivity);
+		mapActivity.getMyApplication().getAvoidSpecificRoads().showDialog(mapActivity, null);
 	}
 
 	public void selectVoiceGuidance(final MapActivity mapActivity, final CallbackWithObject<String> callback, ApplicationMode applicationMode) {
@@ -155,7 +152,7 @@ public class RoutingOptionsHelper {
 		Context themedContext = UiUtilities.getThemedContext(mapActivity, nightMode);
 		int themeRes = getThemeRes(app);
 		ApplicationMode selectedAppMode = app.getRoutingHelper().getAppMode();
-		int selectedModeColor = ContextCompat.getColor(app, selectedAppMode.getIconColorInfo().getColor(nightMode));
+		int selectedModeColor = selectedAppMode.getProfileColor(nightMode);
 		DialogListItemAdapter dialogAdapter = DialogListItemAdapter.createSingleChoiceAdapter(
 				entries, nightMode, selected, app, selectedModeColor, themeRes, new View.OnClickListener() {
 					@Override
@@ -192,7 +189,7 @@ public class RoutingOptionsHelper {
 	public void applyVoiceProvider(MapActivity mapActivity, String provider, boolean applyAllModes) {
 		OsmandApplication app = mapActivity.getMyApplication();
 		ApplicationMode selectedAppMode = app.getRoutingHelper().getAppMode();
-		OsmandSettings.OsmandPreference<String> VP = app.getSettings().VOICE_PROVIDER;
+		OsmandPreference<String> VP = app.getSettings().VOICE_PROVIDER;
 		if (applyAllModes) {
 			for (ApplicationMode mode : ApplicationMode.allPossibleValues()) {
 				VP.setModeValue(mode, provider);
@@ -232,7 +229,7 @@ public class RoutingOptionsHelper {
 		if (rp instanceof OtherLocalRoutingParameter) {
 			updateGpxRoutingParameter((OtherLocalRoutingParameter) rp);
 		}
-		routingHelper.recalculateRouteDueToSettingsChange();
+		routingHelper.onSettingsChanged(rp.getApplicationMode(), true);
 	}
 
 	public void updateGpxRoutingParameter(OtherLocalRoutingParameter gpxParam) {
@@ -245,24 +242,31 @@ public class RoutingOptionsHelper {
 				TargetPointsHelper tg = app.getTargetPointsHelper();
 				List<Location> ps = rp.getPoints(app);
 				if (ps.size() > 0) {
+					TargetPoint pointToStart = tg.getPointToStart();
+					TargetPoint pointToNavigate = tg.getPointToNavigate();
 					if (rp.getFile().hasRoute()) {
-						tg.clearStartPoint(false);
-						Location finishLoc = ps.get(ps.size() - 1);
-						TargetPoint pn = tg.getPointToNavigate();
-						tg.navigateToPoint(new LatLon(finishLoc.getLatitude(), finishLoc.getLongitude()), false, -1, pn != null ? pn.getOriginalPointDescription() : null);
+						TargetPoint endPoint = selected ? pointToStart : null;
+						Location lastLoc = ps.get(ps.size() - 1);
+						Location firstLoc = ps.get(0);
+						LatLon firstLatLon = new LatLon(firstLoc.getLatitude(), firstLoc.getLongitude());
+						LatLon endLocation = endPoint != null ? endPoint.point : new LatLon(lastLoc.getLatitude(), lastLoc.getLongitude());
+						LatLon startLocation = selected ? firstLatLon : (pointToNavigate != null ? pointToNavigate.point : firstLatLon);
+						tg.navigateToPoint(endLocation, false, -1);
+						if (pointToStart != null) {
+							tg.setStartPoint(startLocation, false, null);
+						}
 						tg.updateRouteAndRefresh(true);
 					} else {
 						Location first = ps.get(0);
 						Location end = ps.get(ps.size() - 1);
-						TargetPoint pn = tg.getPointToNavigate();
 						boolean update = false;
-						if (pn == null
-								|| MapUtils.getDistance(pn.point, new LatLon(first.getLatitude(), first.getLongitude())) < 10) {
+						if (pointToNavigate == null
+								|| MapUtils.getDistance(pointToNavigate.point, new LatLon(first.getLatitude(), first.getLongitude())) < 10) {
 							tg.navigateToPoint(new LatLon(end.getLatitude(), end.getLongitude()), false, -1);
 							update = true;
 						}
-						if (tg.getPointToStart() == null
-								|| MapUtils.getDistance(tg.getPointToStart().point,
+						if (pointToStart == null
+								|| MapUtils.getDistance(pointToStart.point,
 								new LatLon(end.getLatitude(), end.getLongitude())) < 10) {
 							tg.setStartPoint(new LatLon(first.getLatitude(), first.getLongitude()), false, null);
 							update = true;
@@ -336,7 +340,7 @@ public class RoutingOptionsHelper {
 		final boolean nightMode = isNightMode(app);
 		Context themedContext = UiUtilities.getThemedContext(mapActivity, nightMode);
 		ApplicationMode selectedAppMode = app.getRoutingHelper().getAppMode();
-		final int selectedModeColor = ContextCompat.getColor(app, selectedAppMode.getIconColorInfo().getColor(nightMode));
+		final int selectedModeColor = selectedAppMode.getProfileColor(nightMode);
 		AlertDialog.Builder builder = new AlertDialog.Builder(themedContext);
 		final int layout = R.layout.list_menu_item_native_singlechoice;
 
@@ -379,7 +383,7 @@ public class RoutingOptionsHelper {
 								LocalRoutingParameter rp = group.getRoutingParameters().get(i);
 								rp.setSelected(settings, i == position);
 							}
-							mapActivity.getRoutingHelper().recalculateRouteDueToSettingsChange();
+							mapActivity.getRoutingHelper().onSettingsChanged(true);
 							if (listener != null) {
 								listener.onClick();
 							}
@@ -460,7 +464,7 @@ public class RoutingOptionsHelper {
 	public List<LocalRoutingParameter> getOsmandRouterParameters(ApplicationMode am) {
 		OsmandSettings settings = app.getSettings();
 		List<LocalRoutingParameter> list = new ArrayList<LocalRoutingParameter>();
-		boolean osmandRouter = am.getRouteService() == RouteProvider.RouteService.OSMAND;
+		boolean osmandRouter = am.getRouteService() == RouteService.OSMAND;
 		if (!osmandRouter) {
 			list.add(new OtherLocalRoutingParameter(R.string.calculate_osmand_route_without_internet,
 					app.getString(R.string.calculate_osmand_route_without_internet), settings.GPX_ROUTE_CALC_OSMAND_PARTS.get()));
@@ -492,7 +496,7 @@ public class RoutingOptionsHelper {
 	}
 
 	public List<LocalRoutingParameter> getRoutingParametersInner(ApplicationMode am) {
-		boolean osmandRouter = am.getRouteService() == RouteProvider.RouteService.OSMAND;
+		boolean osmandRouter = am.getRouteService() == RouteService.OSMAND;
 		if (!osmandRouter) {
 			return getOsmandRouterParameters(am);
 		}
@@ -544,8 +548,8 @@ public class RoutingOptionsHelper {
 				rp.disabledIconId = R.drawable.ic_action_fuel;
 				break;
 			case GeneralRouter.USE_HEIGHT_OBSTACLES:
-				rp.activeIconId = R.drawable.ic_action_elevation;
-				rp.disabledIconId = R.drawable.ic_action_elevation;
+				rp.activeIconId = R.drawable.ic_action_altitude_average;
+				rp.disabledIconId = R.drawable.ic_action_altitude_average;
 				break;
 			case GeneralRouter.AVOID_FERRIES:
 				rp.activeIconId = R.drawable.ic_action_fuel;
@@ -663,12 +667,12 @@ public class RoutingOptionsHelper {
 		}
 
 		public String getText(MapActivity mapActivity) {
-			return SettingsBaseActivity.getRoutingStringPropertyName(mapActivity, routingParameter.getId(),
+			return AndroidUtils.getRoutingStringPropertyName(mapActivity, routingParameter.getId(),
 					routingParameter.getName());
 		}
 
 		public boolean isSelected(OsmandSettings settings) {
-			final OsmandSettings.CommonPreference<Boolean> property =
+			final CommonPreference<Boolean> property =
 					settings.getCustomRoutingBooleanProperty(routingParameter.getId(), routingParameter.getDefaultBoolean());
 			if (am != null) {
 				return property.getModeValue(am);
@@ -678,7 +682,7 @@ public class RoutingOptionsHelper {
 		}
 
 		public void setSelected(OsmandSettings settings, boolean isChecked) {
-			final OsmandSettings.CommonPreference<Boolean> property =
+			final CommonPreference<Boolean> property =
 					settings.getCustomRoutingBooleanProperty(routingParameter.getId(), routingParameter.getDefaultBoolean());
 			if (am != null) {
 				property.setModeValue(am, isChecked);
@@ -727,7 +731,7 @@ public class RoutingOptionsHelper {
 
 		@Override
 		public String getText(MapActivity mapActivity) {
-			return SettingsBaseActivity.getRoutingStringPropertyName(mapActivity, groupName,
+			return AndroidUtils.getRoutingStringPropertyName(mapActivity, groupName,
 					Algorithms.capitalizeFirstLetterAndLowercase(groupName.replace('_', ' ')));
 		}
 
@@ -1063,7 +1067,7 @@ public class RoutingOptionsHelper {
 
 	private List<String> getRoutingParametersForProfileType(ApplicationMode appMode) {
 		if (appMode != null) {
-			boolean osmandRouter = appMode.getRouteService() == RouteProvider.RouteService.OSMAND;
+			boolean osmandRouter = appMode.getRouteService() == RouteService.OSMAND;
 			if (!osmandRouter) {
 				return PermanentAppModeOptions.OTHER.routingParameters;
 			} else if (appMode.isDerivedRoutingFrom(ApplicationMode.CAR)) {

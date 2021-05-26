@@ -10,8 +10,9 @@ import net.osmand.data.LatLon;
 import net.osmand.data.LocationPoint;
 import net.osmand.data.PointDescription;
 import net.osmand.plus.GeocodingLookupService.AddressLookupRequest;
-import net.osmand.plus.routing.RouteProvider.RouteService;
+import net.osmand.plus.routing.RouteService;
 import net.osmand.plus.routing.RoutingHelper;
+import net.osmand.plus.routing.RoutingHelperUtils;
 import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.plus.settings.backend.OsmAndAppCustomization.OsmAndAppCustomizationListener;
 import net.osmand.plus.settings.backend.OsmandSettings;
@@ -309,9 +310,7 @@ public class TargetPointsHelper {
 	public List<TargetPoint> getIntermediatePointsNavigation() {
 		List<TargetPoint> intermediatePoints = new ArrayList<>();
 		if (settings.USE_INTERMEDIATE_POINTS_NAVIGATION.get()) {
-			for (TargetPoint t : this.intermediatePoints) {
-				intermediatePoints.add(t);
-			}
+			intermediatePoints.addAll(this.intermediatePoints);
 		}
 		return intermediatePoints;
 	}
@@ -347,8 +346,7 @@ public class TargetPointsHelper {
 	}
 
 	public List<TargetPoint> getIntermediatePointsWithTarget() {
-		List<TargetPoint> res = new ArrayList<>();
-		res.addAll(this.intermediatePoints);
+		List<TargetPoint> res = new ArrayList<>(this.intermediatePoints);
 		if(pointToNavigate != null) {
 			res.add(pointToNavigate);
 		}
@@ -447,7 +445,7 @@ public class TargetPointsHelper {
 			Location lastKnownLocation = ctx.getLocationProvider().getLastKnownLocation();
 			LatLon latLon = lastKnownLocation != null ?
 					new LatLon(lastKnownLocation.getLatitude(), lastKnownLocation.getLongitude()) : null;
-			routingHelper.checkAndUpdateStartLocation(latLon);
+			RoutingHelperUtils.checkAndUpdateStartLocation(ctx, latLon, false);
 			setMyLocationPoint(latLon, false, null);
 		}
 	}
@@ -558,6 +556,22 @@ public class TargetPointsHelper {
 		updateRouteAndRefresh(updateRoute);
 	}
 
+	public void reorderIntermediatePoints(List<TargetPoint> points, boolean updateRoute) {
+		cancelAllIntermediatePointsAddressRequests();
+		if (points.size() > 0) {
+			ArrayList<String> names = new ArrayList<>(points.size());
+			ArrayList<LatLon> ls = new ArrayList<>(points.size());
+			for (int i = 0; i < points.size(); i++) {
+				names.add(PointDescription.serializeToString(points.get(i).pointDescription));
+				ls.add(points.get(i).point);
+			}
+			settings.saveIntermediatePoints(ls, names);
+		} else {
+			settings.clearIntermediatePoints();
+		}
+		readFromSettings();
+		updateRouteAndRefresh(updateRoute);
+	}
 
 	public boolean hasTooLongDistanceToNavigate() {
 		if (routingHelper.getAppMode().getRouteService() != RouteService.OSMAND) {

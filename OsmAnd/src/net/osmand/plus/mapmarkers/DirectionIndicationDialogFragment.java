@@ -30,10 +30,10 @@ import com.github.ksoichiro.android.observablescrollview.ObservableScrollViewCal
 import com.github.ksoichiro.android.observablescrollview.ScrollState;
 
 import net.osmand.AndroidUtils;
+import net.osmand.plus.mapmarkers.MapMarkersMode;
 import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.plus.settings.backend.OsmandSettings;
-import net.osmand.plus.settings.backend.OsmandSettings.MapMarkersMode;
-import net.osmand.plus.settings.backend.OsmandSettings.OsmandPreference;
+import net.osmand.plus.settings.backend.OsmandPreference;
 import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.activities.MapActivity;
@@ -278,7 +278,7 @@ public class DirectionIndicationDialogFragment extends BaseOsmAndDialogFragment 
 				}
 			}
 			((ImageView) mainView.findViewById(R.id.action_bar_image))
-					.setImageDrawable(new LayerDrawable(imgList.toArray(new Drawable[imgList.size()])));
+					.setImageDrawable(new LayerDrawable(imgList.toArray(new Drawable[0])));
 		} else {
 			mainView.findViewById(R.id.action_bar_image_container).setVisibility(View.GONE);
 		}

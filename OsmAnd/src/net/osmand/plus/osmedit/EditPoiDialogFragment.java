@@ -90,6 +90,8 @@ import java.util.Set;
 
 import studio.carbonylgroup.textfieldboxes.ExtendedEditText;
 
+import static net.osmand.osm.edit.Entity.POI_TYPE_TAG;
+
 public class EditPoiDialogFragment extends BaseOsmAndDialogFragment {
 	public static final String TAG = EditPoiDialogFragment.class.getSimpleName();
 	private static final Log LOG = PlatformUtil.getLog(EditPoiDialogFragment.class);
@@ -425,8 +427,6 @@ public class EditPoiDialogFragment extends BaseOsmAndDialogFragment {
 			f.setArguments(args);
 			f.show(getChildFragmentManager(), "exceedDialog");
 		} else if (TextUtils.isEmpty(poiTypeEditText.getText())) {
-			HashSet<String> tagsCopy = new HashSet<>();
-			tagsCopy.addAll(editPoiData.getTagValues().keySet());
 			if (Algorithms.isEmpty(editPoiData.getTag(OSMSettings.OSMTagKey.ADDR_HOUSE_NUMBER.getValue()))) {
 				SaveExtraValidationDialogFragment f = new SaveExtraValidationDialogFragment();
 				Bundle args = new Bundle();
@@ -499,21 +499,25 @@ public class EditPoiDialogFragment extends BaseOsmAndDialogFragment {
 
 		Action action = entity.getId() < 0 ? Action.CREATE : Action.MODIFY;
 		for (Map.Entry<String, String> tag : editPoiData.getTagValues().entrySet()) {
-			if (!Algorithms.isEmpty(tag.getKey()) && !Algorithms.isEmpty(tag.getValue()) && 
-					!tag.getKey().equals(EditPoiData.POI_TYPE_TAG)) {
+			if (!Algorithms.isEmpty(tag.getKey()) && !Algorithms.isEmpty(tag.getValue()) &&
+					!tag.getKey().equals(POI_TYPE_TAG)) {
 				entity.putTagNoLC(tag.getKey(), tag.getValue());
 			}
 		}
-		String poiTypeTag = editPoiData.getTagValues().get(EditPoiData.POI_TYPE_TAG);
+		String poiTypeTag = editPoiData.getTagValues().get(POI_TYPE_TAG);
 		String comment = "";
 		if (poiTypeTag != null) {
 			final PoiType poiType = editPoiData.getAllTranslatedSubTypes().get(poiTypeTag.trim().toLowerCase());
 			if (poiType != null) {
 				entity.putTagNoLC(poiType.getEditOsmTag(), poiType.getEditOsmValue());
-				entity.removeTag(EditPoiData.REMOVE_TAG_PREFIX + poiType.getEditOsmTag());
+				entity.removeTag(Entity.REMOVE_TAG_PREFIX + poiType.getEditOsmTag());
 				if (poiType.getOsmTag2() != null) {
 					entity.putTagNoLC(poiType.getOsmTag2(), poiType.getOsmValue2());
-					entity.removeTag(EditPoiData.REMOVE_TAG_PREFIX + poiType.getOsmTag2());
+					entity.removeTag(Entity.REMOVE_TAG_PREFIX + poiType.getOsmTag2());
+				}
+				if (poiType.getEditOsmTag2() != null) {
+					entity.putTagNoLC(poiType.getEditOsmTag2(), poiType.getEditOsmValue2());
+					entity.removeTag(Entity.REMOVE_TAG_PREFIX + poiType.getEditOsmTag2());
 				}
 			} else if (!Algorithms.isEmpty(poiTypeTag)) {
 				PoiCategory category = editPoiData.getPoiCategory();
@@ -522,7 +526,7 @@ public class EditPoiDialogFragment extends BaseOsmAndDialogFragment {
 				}
 			}
 			if (offlineEdit && !Algorithms.isEmpty(poiTypeTag)) {
-				entity.putTagNoLC(EditPoiData.POI_TYPE_TAG, poiTypeTag);
+				entity.putTagNoLC(POI_TYPE_TAG, poiTypeTag);
 			}
 			String actionString = action == Action.CREATE ? getString(R.string.default_changeset_add) : getString(R.string.default_changeset_edit);
 			comment = actionString + " " + poiTypeTag;
@@ -542,6 +546,7 @@ public class EditPoiDialogFragment extends BaseOsmAndDialogFragment {
 									mapActivity.getContextMenu().showOrUpdate(
 											new LatLon(point.getLatitude(), point.getLongitude()),
 											plugin.getOsmEditsLayer(mapActivity).getObjectName(point), point);
+									mapActivity.getMapLayers().getContextMenuLayer().updateContextMenu();
 								}
 							}
 
@@ -869,6 +874,7 @@ public class EditPoiDialogFragment extends BaseOsmAndDialogFragment {
 										mapActivity.getContextMenu().showOrUpdate(
 												new LatLon(point.getLatitude(), point.getLongitude()),
 												plugin.getOsmEditsLayer(mapActivity).getObjectName(point), point);
+										mapActivity.getMapLayers().getContextMenuLayer().updateContextMenu();
 									}
 								} else {
 									Toast.makeText(activity, R.string.poi_remove_success, Toast.LENGTH_LONG)

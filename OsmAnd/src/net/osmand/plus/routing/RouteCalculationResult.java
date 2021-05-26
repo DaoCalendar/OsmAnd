@@ -15,7 +15,6 @@ import net.osmand.data.QuadRect;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
 import net.osmand.plus.routing.AlarmInfo.AlarmInfoType;
-import net.osmand.plus.routing.RouteProvider.RouteService;
 import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.router.ExitInfo;
 import net.osmand.router.RouteSegmentResult;
@@ -291,12 +290,16 @@ public class RouteCalculationResult {
 	}
 
 	public List<RouteSegmentResult> getOriginalRoute(int startIndex) {
+		return getOriginalRoute(startIndex, segments.size());
+	}
+
+	public List<RouteSegmentResult> getOriginalRoute(int startIndex, int endIndex) {
 		if (segments.size() == 0) {
 			return null;
 		}
-		List<RouteSegmentResult> list = new ArrayList<RouteSegmentResult>();
+		List<RouteSegmentResult> list = new ArrayList<>();
 		list.add(segments.get(startIndex++));
-		for (int i = startIndex; i < segments.size(); i++) {
+		for (int i = startIndex; i < endIndex; i++) {
 			if (segments.get(i - 1) != segments.get(i)) {
 				list.add(segments.get(i));
 			}
@@ -337,13 +340,14 @@ public class RouteCalculationResult {
 				tunnelAlarm = null;
 			}
 			while (true) {
+				if (i == s.getEndPointIndex() && routeInd != list.size() - 1) {
+					break;
+				}
 				Location n = new Location(""); //$NON-NLS-1$
 				LatLon point = s.getPoint(i);
 				n.setLatitude(point.getLatitude());
 				n.setLongitude(point.getLongitude());
-				if (i == s.getEndPointIndex() && routeInd != list.size() - 1) {
-					break;
-				}
+				n.setSpeed(s.getSegmentSpeed());
 				if (vls != null && i * 2 + 1 < vls.length) {
 					float h = vls[2 * i + 1];
 					n.setAltitude(h);
@@ -359,7 +363,7 @@ public class RouteCalculationResult {
 				locations.add(n);
 				attachAlarmInfo(alarms, s, i, locations.size());
 				segmentsToPopulate.add(s);
-				if (i == s.getEndPointIndex() ) {
+				if (i == s.getEndPointIndex()) {
 					break;
 				}
 				if (plus) {
@@ -435,7 +439,7 @@ public class RouteCalculationResult {
 					}
 				}
 
-				String description = toString(turn, ctx, false) + " " + RoutingHelper.formatStreetName(info.getStreetName(),
+				String description = toString(turn, ctx, false) + " " + RoutingHelperUtils.formatStreetName(info.getStreetName(),
 						info.getRef(), info.getDestinationName(), ctx.getString(R.string.towards));
 				description = description.trim();
 				String[] pointNames = s.getObject().getPointNames(s.getStartPointIndex());

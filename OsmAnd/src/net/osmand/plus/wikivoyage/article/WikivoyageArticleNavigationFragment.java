@@ -1,7 +1,9 @@
 package net.osmand.plus.wikivoyage.article;
 
+import android.app.Activity;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -20,36 +22,42 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 
+import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
 import net.osmand.plus.activities.OsmandBaseExpandableListAdapter;
 import net.osmand.plus.base.MenuBottomSheetDialogFragment;
+import net.osmand.plus.base.bottomsheetmenu.BaseBottomSheetItem;
 import net.osmand.plus.base.bottomsheetmenu.SimpleBottomSheetItem;
+import net.osmand.plus.base.bottomsheetmenu.simpleitems.ProgressItem;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.TitleItem;
 import net.osmand.plus.wikivoyage.data.TravelArticle;
+import net.osmand.plus.wikivoyage.data.TravelArticle.TravelArticleIdentifier;
 import net.osmand.plus.wikivoyage.data.WikivoyageSearchResult;
+import net.osmand.util.Algorithms;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class WikivoyageArticleNavigationFragment extends MenuBottomSheetDialogFragment {
 
 	public static final String TAG = WikivoyageArticleNavigationFragment.class.getSimpleName();
 
-	public static final String TRIP_ID_KEY = "trip_id_key";
-	public static final String SELECTED_LANG_KEY = "selected_lang_key";
+	public static final String ARTICLE_ID_KEY = "article_id";
+	public static final String SELECTED_LANG_KEY = "selected_lang";
 
 	public static final int OPEN_ARTICLE_REQUEST_CODE = 2;
 
 	private static final long UNDEFINED = -1;
 
-	private long cityId = UNDEFINED;
+	private TravelArticleIdentifier articleId;
 	private String selectedLang;
 	private TravelArticle article;
 	private List<String> parentsList;
 
 	private ExpandableListView expListView;
+	private Map<WikivoyageSearchResult, List<WikivoyageSearchResult>> navigationMap;
 
 	@Override
 	public void createMenuItems(Bundle savedInstanceState) {
@@ -60,80 +68,48 @@ public class WikivoyageArticleNavigationFragment extends MenuBottomSheetDialogFr
 
 		if (savedInstanceState != null) {
 			selectedLang = savedInstanceState.getString(SELECTED_LANG_KEY);
-			cityId = savedInstanceState.getLong(TRIP_ID_KEY);
+			articleId = savedInstanceState.getParcelable(ARTICLE_ID_KEY);
 		} else {
 			Bundle args = getArguments();
 			if (args != null) {
 				selectedLang = args.getString(SELECTED_LANG_KEY);
-				cityId = args.getLong(TRIP_ID_KEY);
+				articleId = args.getParcelable(ARTICLE_ID_KEY);
 			}
 		}
 
-		if (cityId == UNDEFINED || TextUtils.isEmpty(selectedLang)) {
+		if (articleId == null || TextUtils.isEmpty(selectedLang)) {
 			return;
 		}
 
-		article = getMyApplication().getTravelDbHelper().getArticle(cityId, selectedLang);
+		OsmandApplication app = requiredMyApplication();
+		article = app.getTravelHelper().getArticleById(articleId, selectedLang, false, null);
 		if (article == null) {
 			return;
 		}
 		parentsList = new ArrayList<>(Arrays.asList(article.getAggregatedPartOf().split(",")));
 
-		LinkedHashMap<WikivoyageSearchResult, List<WikivoyageSearchResult>> navigationMap = getMyApplication().getTravelDbHelper().getNavigationMap(article);
-
 		items.add(new TitleItem(getString(R.string.shared_string_navigation)));
 
-		expListView = new ExpandableListView(ctx);
-		final ExpandableListAdapter listAdapter = new ExpandableListAdapter(ctx, navigationMap);
+		if (navigationMap == null) {
+			items.add(new ProgressItem());
+			new BuildNavigationTask(app).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+		} else {
+			final ExpandableListAdapter listAdapter = createNavigationListView(navigationMap);
+			LinearLayout container = new LinearLayout(ctx);
+			container.addView(expListView);
 
-		expListView.setAdapter(listAdapter);
-		Drawable transparent = AppCompatResources.getDrawable(ctx, R.color.color_transparent);
-		expListView.setDivider(transparent);
-		expListView.setGroupIndicator(transparent);
-		expListView.setSelector(transparent);
-		expListView.setLayoutParams(new LinearLayout.LayoutParams(
-				LinearLayout.LayoutParams.MATCH_PARENT,
-				LinearLayout.LayoutParams.MATCH_PARENT)
-		);
+			items.add(new SimpleBottomSheetItem.Builder().setCustomView(container).create());
 
-		expListView.setOnChildClickListener(new ExpandableListView.OnChildClickListener() {
-			@Override
-			public boolean onChildClick(ExpandableListView parent, View v,
-										int groupPosition, int childPosition, long id) {
-				WikivoyageSearchResult articleItem = listAdapter.getArticleItem(groupPosition, childPosition);
-				sendResults(articleItem.getTripId());
-				dismiss();
-				return true;
+			if (listAdapter.getGroupCount() > 0) {
+				expListView.expandGroup(listAdapter.getGroupCount() - 1);
 			}
-		});
-		expListView.setOnGroupClickListener(new ExpandableListView.OnGroupClickListener() {
-			@Override
-			public boolean onGroupClick(ExpandableListView parent, View v, int groupPosition, long id) {
-				WikivoyageSearchResult articleItem = (WikivoyageSearchResult) listAdapter.getGroup(groupPosition);
-				if (articleItem.getTripId() == UNDEFINED) {
-					Toast.makeText(getContext(), R.string.wiki_article_not_found, Toast.LENGTH_LONG).show();
-				} else {
-					sendResults(articleItem.getTripId());
-					dismiss();
-				}
-				return true;
-			}
-		});
-
-		LinearLayout container = new LinearLayout(ctx);
-		container.addView(expListView);
-
-		items.add(new SimpleBottomSheetItem.Builder().setCustomView(container).create());
-
-		if (listAdapter.getGroupCount() > 0) {
-			expListView.expandGroup(listAdapter.getGroupCount() - 1);
 		}
 	}
 
 	@Override
 	public void onSaveInstanceState(Bundle outState) {
 		super.onSaveInstanceState(outState);
-		outState.putLong(TRIP_ID_KEY, cityId);
+		outState.putParcelable(ARTICLE_ID_KEY, articleId);
 		outState.putString(SELECTED_LANG_KEY, selectedLang);
 	}
 
@@ -147,17 +123,17 @@ public class WikivoyageArticleNavigationFragment extends MenuBottomSheetDialogFr
 		return nightMode ? R.color.wikivoyage_bottom_bar_bg_dark : R.color.list_background_color_light;
 	}
 
-	private void sendResults(long cityId) {
-		WikivoyageArticleDialogFragment.showInstance(getMyApplication(), getFragmentManager(), cityId, selectedLang);
+	private void sendResults(String title) {
+		WikivoyageArticleDialogFragment.showInstanceByTitle(getMyApplication(), getFragmentManager(), title, selectedLang);
 	}
 
 	public static boolean showInstance(@NonNull FragmentManager fm,
-									   @Nullable Fragment targetFragment,
-									   long cityId,
-									   @NonNull String selectedLang) {
+	                                   @Nullable Fragment targetFragment,
+	                                   @NonNull TravelArticleIdentifier articleId,
+	                                   @NonNull String selectedLang) {
 		try {
 			Bundle args = new Bundle();
-			args.putLong(TRIP_ID_KEY, cityId);
+			args.putParcelable(ARTICLE_ID_KEY, articleId);
 			args.putString(SELECTED_LANG_KEY, selectedLang);
 			WikivoyageArticleNavigationFragment fragment = new WikivoyageArticleNavigationFragment();
 			if (targetFragment != null) {
@@ -175,13 +151,13 @@ public class WikivoyageArticleNavigationFragment extends MenuBottomSheetDialogFr
 
 		private Context context;
 
-		private LinkedHashMap<WikivoyageSearchResult, List<WikivoyageSearchResult>> navigationMap;
+		private Map<WikivoyageSearchResult, List<WikivoyageSearchResult>> navigationMap;
 		private List<WikivoyageSearchResult> headers;
 
 		private Drawable itemGroupIcon;
 		private Drawable itemChildIcon;
 
-		ExpandableListAdapter(Context context, LinkedHashMap<WikivoyageSearchResult, List<WikivoyageSearchResult>> navigationMap) {
+		ExpandableListAdapter(Context context, Map<WikivoyageSearchResult, List<WikivoyageSearchResult>> navigationMap) {
 			this.context = context;
 			this.navigationMap = navigationMap;
 			headers = new ArrayList<>(navigationMap.keySet());
@@ -203,7 +179,7 @@ public class WikivoyageArticleNavigationFragment extends MenuBottomSheetDialogFr
 
 		@Override
 		public Object getChild(int groupPosition, int childPosititon) {
-			return getArticleItem(groupPosition, childPosititon).getArticleTitles().get(0);
+			return getArticleItem(groupPosition, childPosititon).getArticleTitle();
 		}
 
 		@Override
@@ -235,8 +211,8 @@ public class WikivoyageArticleNavigationFragment extends MenuBottomSheetDialogFr
 		public View getChildView(int groupPosition, final int childPosition,
 								 boolean isLastChild, View convertView, ViewGroup parent) {
 			WikivoyageSearchResult articleItem = getArticleItem(groupPosition, childPosition);
-			String childTitle = articleItem.getArticleTitles().get(0);
-			boolean selected = cityId == articleItem.getTripId() || parentsList.contains(childTitle);
+			String childTitle = articleItem.getArticleTitle();
+			boolean selected = childTitle.equals(article.getTitle()) || parentsList.contains(childTitle);
 
 			if (convertView == null) {
 				convertView = LayoutInflater.from(context)
@@ -262,7 +238,7 @@ public class WikivoyageArticleNavigationFragment extends MenuBottomSheetDialogFr
 		@Override
 		public View getGroupView(final int groupPosition, final boolean isExpanded,
 								 View convertView, ViewGroup parent) {
-			String groupTitle = ((WikivoyageSearchResult) getGroup(groupPosition)).getArticleTitles().get(0);
+			String groupTitle = ((WikivoyageSearchResult) getGroup(groupPosition)).getArticleTitle();
 			boolean selected = parentsList.contains(groupTitle) || article.getTitle().equals(groupTitle);
 			if (convertView == null) {
 				convertView = LayoutInflater.from(context)
@@ -302,6 +278,86 @@ public class WikivoyageArticleNavigationFragment extends MenuBottomSheetDialogFr
 		@Override
 		public boolean isChildSelectable(int groupPosition, int childPosition) {
 			return true;
+		}
+	}
+
+	public void updateMenu() {
+		Activity activity = getActivity();
+		View mainView = getView();
+		if (activity != null && mainView != null) {
+			LinearLayout itemsContainer = (LinearLayout) mainView.findViewById(useScrollableItemsContainer()
+					? R.id.scrollable_items_container : R.id.non_scrollable_items_container);
+			if (itemsContainer != null) {
+				itemsContainer.removeAllViews();
+			}
+			items.clear();
+			createMenuItems(null);
+			for (BaseBottomSheetItem item : items) {
+				item.inflate(activity, itemsContainer, nightMode);
+			}
+			setupHeightAndBackground(mainView);
+		}
+	}
+
+	private ExpandableListAdapter createNavigationListView(Map<WikivoyageSearchResult, List<WikivoyageSearchResult>> navigationMap) {
+		final Context ctx = requireContext();
+
+		expListView = new ExpandableListView(ctx);
+		final ExpandableListAdapter listAdapter = new ExpandableListAdapter(ctx, navigationMap);
+
+		expListView.setAdapter(listAdapter);
+		Drawable transparent = AppCompatResources.getDrawable(ctx, R.color.color_transparent);
+		expListView.setDivider(transparent);
+		expListView.setGroupIndicator(transparent);
+		expListView.setSelector(transparent);
+		expListView.setLayoutParams(new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT,
+				LinearLayout.LayoutParams.MATCH_PARENT)
+		);
+
+		expListView.setOnChildClickListener(new ExpandableListView.OnChildClickListener() {
+			@Override
+			public boolean onChildClick(ExpandableListView parent, View v,
+										int groupPosition, int childPosition, long id) {
+				WikivoyageSearchResult articleItem = listAdapter.getArticleItem(groupPosition, childPosition);
+				sendResults(articleItem.getArticleTitle());
+				dismiss();
+				return true;
+			}
+		});
+		expListView.setOnGroupClickListener(new ExpandableListView.OnGroupClickListener() {
+			@Override
+			public boolean onGroupClick(ExpandableListView parent, View v, int groupPosition, long id) {
+				WikivoyageSearchResult articleItem = (WikivoyageSearchResult) listAdapter.getGroup(groupPosition);
+				if (Algorithms.isEmpty(articleItem.getArticleTitle())) {
+					Toast.makeText(ctx, R.string.wiki_article_not_found, Toast.LENGTH_LONG).show();
+				} else {
+					sendResults(articleItem.getArticleTitle());
+					dismiss();
+				}
+				return true;
+			}
+		});
+		return listAdapter;
+	}
+
+	private class BuildNavigationTask extends AsyncTask<Void, Void, Map<WikivoyageSearchResult, List<WikivoyageSearchResult>>> {
+
+		private final OsmandApplication app;
+
+		public BuildNavigationTask(@NonNull OsmandApplication app) {
+			this.app = app;
+		}
+
+		@Override
+		protected Map<WikivoyageSearchResult, List<WikivoyageSearchResult>> doInBackground(Void... voids) {
+			return app.getTravelHelper().getNavigationMap(article);
+		}
+
+		@Override
+		protected void onPostExecute(Map<WikivoyageSearchResult, List<WikivoyageSearchResult>> navigationMap) {
+			WikivoyageArticleNavigationFragment.this.navigationMap = navigationMap;
+			updateMenu();
 		}
 	}
 }

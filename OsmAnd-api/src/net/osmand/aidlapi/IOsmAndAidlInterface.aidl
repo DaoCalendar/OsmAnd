@@ -2,6 +2,7 @@ package net.osmand.aidlapi;
 
 import net.osmand.aidlapi.map.ALatLon;
 import net.osmand.aidlapi.map.SetMapLocationParams;
+import net.osmand.aidlapi.map.SetLocationParams;
 
 import net.osmand.aidlapi.favorite.group.AFavoriteGroup;
 import net.osmand.aidlapi.favorite.group.AddFavoriteGroupParams;
@@ -19,6 +20,8 @@ import net.osmand.aidlapi.mapmarker.RemoveMapMarkerParams;
 import net.osmand.aidlapi.mapmarker.UpdateMapMarkerParams;
 
 import net.osmand.aidlapi.calculateroute.CalculateRouteParams;
+
+import net.osmand.aidlapi.profile.ExportProfileParams;
 
 import net.osmand.aidlapi.gpx.ImportGpxParams;
 import net.osmand.aidlapi.gpx.ShowGpxParams;
@@ -75,6 +78,9 @@ import net.osmand.aidlapi.customization.OsmandSettingsInfoParams;
 import net.osmand.aidlapi.customization.CustomizationInfoParams;
 import net.osmand.aidlapi.customization.ProfileSettingsParams;
 import net.osmand.aidlapi.customization.MapMarginsParams;
+import net.osmand.aidlapi.customization.CustomPluginParams;
+import net.osmand.aidlapi.customization.SelectProfileParams;
+import net.osmand.aidlapi.customization.AProfile;
 
 import net.osmand.aidlapi.gpx.AGpxFile;
 import net.osmand.aidlapi.gpx.AGpxFileDetails;
@@ -87,6 +93,9 @@ import net.osmand.aidlapi.copyfile.CopyFileParams;
 
 import net.osmand.aidlapi.navigation.ANavigationUpdateParams;
 import net.osmand.aidlapi.navigation.ANavigationVoiceRouterMessageParams;
+import net.osmand.aidlapi.navigation.ABlockedRoad;
+import net.osmand.aidlapi.navigation.AddBlockedRoadParams;
+import net.osmand.aidlapi.navigation.RemoveBlockedRoadParams;
 
 import net.osmand.aidlapi.contextmenu.ContextMenuButtonsParams;
 import net.osmand.aidlapi.contextmenu.UpdateContextMenuButtonsParams;
@@ -102,6 +111,8 @@ import net.osmand.aidlapi.lock.SetLockStateParams;
 import net.osmand.aidlapi.events.AKeyEventsParams;
 
 import net.osmand.aidlapi.info.AppInfoParams;
+
+import net.osmand.aidlapi.profile.ExportProfileParams;
 
 // NOTE: Add new methods at the end of file!!!
 
@@ -867,4 +878,30 @@ interface IOsmAndAidlInterface {
     AppInfoParams getAppInfo();
 
     boolean setMapMargins(in MapMarginsParams params);
+
+    boolean exportProfile(in ExportProfileParams params);
+
+     /**
+     * Is any fragment open.
+     */
+    boolean isFragmentOpen();
+
+    /**
+    * Is contect menu open.
+    */
+    boolean isMenuOpen();
+
+    int getPluginVersion(in CustomPluginParams params);
+
+    boolean selectProfile(in SelectProfileParams params);
+
+    boolean getProfiles(out List<AProfile> profiles);
+
+    boolean getBlockedRoads(out List<ABlockedRoad> blockedRoads);
+
+    boolean addRoadBlock(in AddBlockedRoadParams params);
+
+    boolean removeRoadBlock(in RemoveBlockedRoadParams params);
+
+    boolean setLocation(in SetLocationParams params);
 }

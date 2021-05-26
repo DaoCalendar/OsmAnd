@@ -1,6 +1,5 @@
 package net.osmand.plus.wikivoyage.explore;
 
-import android.app.Activity;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -8,6 +7,7 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -17,12 +17,15 @@ import net.osmand.PlatformUtil;
 import net.osmand.plus.OsmandApplication;
 import net.osmand.plus.R;
 import net.osmand.plus.base.BaseOsmAndFragment;
+import net.osmand.plus.track.TrackMenuFragment;
 import net.osmand.plus.wikivoyage.article.WikivoyageArticleDialogFragment;
 import net.osmand.plus.wikivoyage.data.TravelArticle;
+import net.osmand.plus.wikivoyage.data.TravelGpx;
 import net.osmand.plus.wikivoyage.data.TravelLocalDataHelper;
 
 import org.apache.commons.logging.Log;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -40,7 +43,7 @@ public class SavedArticlesTabFragment extends BaseOsmAndFragment implements Trav
 	@Override
 	public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
 		final OsmandApplication app = requireMyApplication();
-		dataHelper = app.getTravelDbHelper().getLocalDataHelper();
+		dataHelper = app.getTravelHelper().getBookmarksHelper();
 
 		final View mainView = inflater.inflate(R.layout.fragment_saved_articles_tab, container, false);
 
@@ -48,9 +51,17 @@ public class SavedArticlesTabFragment extends BaseOsmAndFragment implements Trav
 		adapter.setListener(new SavedArticlesRvAdapter.Listener() {
 			@Override
 			public void openArticle(TravelArticle article) {
-				FragmentManager fm = getFragmentManager();
-				if (fm != null) {
-					WikivoyageArticleDialogFragment.showInstance(app, fm, article.getTitle(), article.getLang());
+				if (article instanceof TravelGpx) {
+					FragmentActivity activity = getActivity();
+					if (activity != null) {
+						File file = app.getTravelHelper().createGpxFile(article);
+						TrackMenuFragment.openTrack(getActivity(), file, null);
+					}
+				} else {
+					FragmentManager fm = getFragmentManager();
+					if (fm != null) {
+						WikivoyageArticleDialogFragment.showInstance(app, fm, article.generateIdentifier(), article.getLang());
+					}
 				}
 			}
 		});
@@ -67,10 +78,6 @@ public class SavedArticlesTabFragment extends BaseOsmAndFragment implements Trav
 		super.onResume();
 		if (dataHelper != null) {
 			dataHelper.addListener(this);
-		}
-		WikivoyageExploreActivity exploreActivity = getExploreActivity();
-		if (exploreActivity != null) {
-			exploreActivity.onTabFragmentResume(this);
 		}
 	}
 
@@ -90,16 +97,6 @@ public class SavedArticlesTabFragment extends BaseOsmAndFragment implements Trav
 			DiffUtil.DiffResult diffRes = DiffUtil.calculateDiff(diffCallback);
 			adapter.setItems(newItems);
 			diffRes.dispatchUpdatesTo(adapter);
-		}
-	}
-
-	@Nullable
-	private WikivoyageExploreActivity getExploreActivity() {
-		Activity activity = getActivity();
-		if (activity != null && activity instanceof WikivoyageExploreActivity) {
-			return (WikivoyageExploreActivity) activity;
-		} else {
-			return null;
 		}
 	}
 
@@ -161,7 +158,8 @@ public class SavedArticlesTabFragment extends BaseOsmAndFragment implements Trav
 				}
 				TravelArticle oldArticle = (TravelArticle) oldItem;
 				TravelArticle newArticle = (TravelArticle) newItem;
-				return oldArticle.getTripId() == newArticle.getTripId()
+				return oldArticle.getRouteId() != null && oldArticle.getLang() != null &&
+						oldArticle.getRouteId().equals(newArticle.getRouteId())
 						&& oldArticle.getLang().equals(newArticle.getLang());
 			}
 			return false;

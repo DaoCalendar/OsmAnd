@@ -13,6 +13,7 @@ import android.util.DisplayMetrics;
 import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import net.osmand.IndexConstants;
 import net.osmand.binary.BinaryMapDataObject;
@@ -253,7 +254,9 @@ public class DownloadedRegionsLayer extends OsmandMapLayer implements IContextMe
 		lastCheckMapZoom = zoom;
 
 		if (app.getSettings().SHOW_DOWNLOAD_MAP_DIALOG.get()
-				&& zoom >= ZOOM_MIN_TO_SHOW_DOWNLOAD_DIALOG && zoom <= ZOOM_MAX_TO_SHOW_DOWNLOAD_DIALOG
+				&& zoom >= ZOOM_MIN_TO_SHOW_DOWNLOAD_DIALOG
+				&& zoom <= ZOOM_MAX_TO_SHOW_DOWNLOAD_DIALOG
+				&& !view.isAnimatingMapMove()
 				&& currentObjects != null) {
 
 			Map<WorldRegion, BinaryMapDataObject> selectedObjects = new LinkedHashMap<>();
@@ -564,7 +567,7 @@ public class DownloadedRegionsLayer extends OsmandMapLayer implements IContextMe
 	}
 
 	@Override
-	public boolean disableLongPressOnMap() {
+	public boolean disableLongPressOnMap(PointF point, RotatedTileBox tileBox) {
 		return false;
 	}
 
@@ -575,6 +578,11 @@ public class DownloadedRegionsLayer extends OsmandMapLayer implements IContextMe
 
 	@Override
 	public boolean runExclusiveAction(Object o, boolean unknownLocation) {
+		return false;
+	}
+
+	@Override
+	public boolean showMenuAction(@Nullable Object o) {
 		return false;
 	}
 

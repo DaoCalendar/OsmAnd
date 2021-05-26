@@ -7,8 +7,6 @@ import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.TypedValue;
-import android.view.ContextMenu;
-import android.view.ContextMenu.ContextMenuInfo;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -19,7 +17,6 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.ExpandableListView;
-import android.widget.ExpandableListView.ExpandableListContextMenuInfo;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -32,6 +29,7 @@ import androidx.appcompat.view.ActionMode;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.MenuItemCompat;
+import androidx.fragment.app.FragmentActivity;
 
 import net.osmand.AndroidUtils;
 import net.osmand.Collator;
@@ -45,7 +43,6 @@ import net.osmand.plus.ContextMenuAdapter;
 import net.osmand.plus.ContextMenuAdapter.ItemClickListener;
 import net.osmand.plus.ContextMenuItem;
 import net.osmand.plus.OsmandApplication;
-import net.osmand.plus.OsmandPlugin;
 import net.osmand.plus.R;
 import net.osmand.plus.SQLiteTileSource;
 import net.osmand.plus.UiUtilities;
@@ -58,6 +55,7 @@ import net.osmand.plus.dialogs.DirectionsDialogs;
 import net.osmand.plus.download.DownloadActivity;
 import net.osmand.plus.download.DownloadIndexesThread.DownloadEvents;
 import net.osmand.plus.download.IndexItem;
+import net.osmand.plus.download.SrtmDownloadItem;
 import net.osmand.plus.helpers.FileNameTranslationHelper;
 import net.osmand.plus.inapp.InAppPurchaseHelper;
 import net.osmand.plus.mapsource.EditMapSourceDialogFragment.OnMapSourceUpdateListener;
@@ -77,8 +75,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+
 public class LocalIndexesFragment extends OsmandExpandableListFragment implements DownloadEvents,
-		OnMapSourceUpdateListener {
+		OnMapSourceUpdateListener, RenameCallback {
 	private LoadLocalIndexTask asyncLoader;
 	private Map<String, IndexItem> filesToUpdate = new HashMap<>();
 	private LocalIndexesAdapter listAdapter;
@@ -127,19 +126,6 @@ public class LocalIndexesFragment extends OsmandExpandableListFragment implement
 		if (asyncLoader == null || asyncLoader.getResult() == null) {
 			reloadData();
 		}
-
-		getExpandableListView().setOnCreateContextMenuListener(new View.OnCreateContextMenuListener() {
-			@Override
-			public void onCreateContextMenu(ContextMenu menu, View v, ContextMenuInfo menuInfo) {
-				long packedPos = ((ExpandableListContextMenuInfo) menuInfo).packedPosition;
-				int group = ExpandableListView.getPackedPositionGroup(packedPos);
-				int child = ExpandableListView.getPackedPositionChild(packedPos);
-				if (child >= 0 && group >= 0) {
-					final LocalIndexInfo point = listAdapter.getChild(group, child);
-					showContextMenu(point);
-				}
-			}
-		});
 	}
 
 	public void reloadData() {
@@ -156,71 +142,13 @@ public class LocalIndexesFragment extends OsmandExpandableListFragment implement
 		}
 	}
 
-	private void showContextMenu(final LocalIndexInfo info) {
-		AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-		final ContextMenuAdapter adapter = new ContextMenuAdapter(getMyApplication());
-		basicFileOperation(info, adapter);
-		OsmandPlugin.onContextMenuActivity(getActivity(), null, info, adapter);
-
-		String[] values = adapter.getItemNames();
-		builder.setItems(values, new DialogInterface.OnClickListener() {
-			@Override
-			public void onClick(DialogInterface dialog, int which) {
-				ContextMenuItem item = adapter.getItem(which);
-				if (item.getItemClickListener() != null) {
-					item.getItemClickListener().onContextMenuClick(null,
-							item.getTitleId(), which, false, null);
-				}
-			}
-
-		});
-		builder.show();
-	}
-
-	private void basicFileOperation(final LocalIndexInfo info, ContextMenuAdapter adapter) {
-		ItemClickListener listener = new ItemClickListener() {
-			@Override
-			public boolean onContextMenuClick(ArrayAdapter<ContextMenuItem> adapter, int resId, int pos, boolean isChecked, int[] viewCoordinates) {
-				return performBasicOperation(resId, info);
-			}
-		};
-		if (info.getType() == LocalIndexType.MAP_DATA || info.getType() == LocalIndexType.SRTM_DATA ||
-				info.getType() == LocalIndexType.WIKI_DATA ) {
-			if (!info.isBackupedData()) {
-				adapter.addItem(new ContextMenuItem.ItemBuilder()
-						.setTitleId(R.string.local_index_mi_backup, getContext())
-						.setListener(listener)
-						.createItem());
-			}
-		}
-		if (info.isBackupedData()) {
-			adapter.addItem(new ContextMenuItem.ItemBuilder()
-					.setTitleId(R.string.local_index_mi_restore, getContext())
-					.setListener(listener)
-					.createItem());
-		}
-		if (info.getType() != LocalIndexType.TTS_VOICE_DATA && info.getType() != LocalIndexType.VOICE_DATA
-				&& info.getType() != LocalIndexType.FONT_DATA) {
-			adapter.addItem(new ContextMenuItem.ItemBuilder()
-					.setTitleId(R.string.shared_string_rename, getContext())
-					.setListener(listener)
-					.createItem());
-		}
-		adapter.addItem(new ContextMenuItem.ItemBuilder()
-				.setTitleId(R.string.shared_string_delete, getContext())
-				.setListener(listener)
-				.createItem());
-	}
-
 	private boolean performBasicOperation(int resId, final LocalIndexInfo info) {
 		if (resId == R.string.shared_string_rename) {
-			FileUtils.renameFile(getActivity(), new File(info.getPathToData()), new RenameCallback() {
-
-				@Override
-				public void renamedTo(File file) {
-					getDownloadActivity().reloadLocalIndexes();
-				}
-			});
+			FragmentActivity activity = getActivity();
+			if (activity != null) {
+				File file = new File(info.getPathToData());
+				FileUtils.renameFile(activity, file, this, false);
+			}
 		} else if (resId == R.string.clear_tile_data) {
 			AlertDialog.Builder confirm = new AlertDialog.Builder(getActivity());
 			confirm.setPositiveButton(R.string.shared_string_yes, new DialogInterface.OnClickListener() {
@@ -261,7 +189,19 @@ public class LocalIndexesFragment extends OsmandExpandableListFragment implement
 
 	@Override
 	public void onMapSourceUpdated() {
-		getDownloadActivity().reloadLocalIndexes();
+		reloadLocalIndexes();
+	}
+
+	@Override
+	public void renamedTo(File file) {
+		reloadLocalIndexes();
+	}
+
+	private void reloadLocalIndexes() {
+		DownloadActivity activity = getDownloadActivity();
+		if (activity != null) {
+			activity.reloadLocalIndexes();
+		}
 	}
 
 	public class LoadLocalIndexTask extends AsyncTask<Void, LocalIndexInfo, List<LocalIndexInfo>>
@@ -413,10 +353,10 @@ public class LocalIndexesFragment extends OsmandExpandableListFragment implement
 							getMyApplication().getResourceManager().closeFile(info.getFileName());
 							File tShm = new File(f.getParentFile(), f.getName() + "-shm");
 							File tWal = new File(f.getParentFile(), f.getName() + "-wal");
-							if(tShm.exists()) {
+							if (tShm.exists()) {
 								Algorithms.removeAllFiles(tShm);
 							}
-							if(tWal.exists()) {
+							if (tWal.exists()) {
 								Algorithms.removeAllFiles(tWal);
 							}
 						}
@@ -432,8 +372,8 @@ public class LocalIndexesFragment extends OsmandExpandableListFragment implement
 							getMyApplication().getResourceManager().closeFile(info.getFileName());
 						}
 					} else if (operation == CLEAR_TILES_OPERATION) {
-						ITileSource src =  (ITileSource) info.getAttachedObject();
-						if(src != null) {
+						ITileSource src = (ITileSource) info.getAttachedObject();
+						if (src != null) {
 							src.deleteTiles(info.getPathToData());
 						}
 					}
@@ -481,10 +421,10 @@ public class LocalIndexesFragment extends OsmandExpandableListFragment implement
 		@Override
 		protected void onPostExecute(String result) {
 			a.setProgressBarIndeterminateVisibility(false);
-			if(result != null && result.length() > 0) {
+			if (result != null && result.length() > 0) {
 				Toast.makeText(a, result, Toast.LENGTH_LONG).show();
 			}
-			
+
 			if (operation == RESTORE_OPERATION || operation == BACKUP_OPERATION || operation == CLEAR_TILES_OPERATION) {
 				a.reloadLocalIndexes();
 			} else {
@@ -569,7 +509,7 @@ public class LocalIndexesFragment extends OsmandExpandableListFragment implement
 		ItemClickListener listener = new ContextMenuAdapter.ItemClickListener() {
 			@Override
 			public boolean onContextMenuClick(ArrayAdapter<ContextMenuItem> adapter,
-											  int itemId, int pos, boolean isChecked, int[] viewCoordinates) {
+			                                  int itemId, int pos, boolean isChecked, int[] viewCoordinates) {
 				localOptionsMenu(itemId);
 				return true;
 			}
@@ -578,13 +518,13 @@ public class LocalIndexesFragment extends OsmandExpandableListFragment implement
 				.setTitleId(R.string.shared_string_refresh, getContext())
 				.setIcon(R.drawable.ic_action_refresh_dark)
 				.setListener(listener)
-				.setColor(iconColorResId)
+				.setColor(getContext(), iconColorResId)
 				.createItem());
 		optionsMenuAdapter.addItem(new ContextMenuItem.ItemBuilder()
 				.setTitleId(R.string.shared_string_delete, getContext())
 				.setIcon(R.drawable.ic_action_delete_dark)
 				.setListener(listener)
-				.setColor(iconColorResId)
+				.setColor(getContext(), iconColorResId)
 				.createItem());
 		optionsMenuAdapter.addItem(new ContextMenuItem.ItemBuilder()
 				.setTitleId(R.string.local_index_mi_backup, getContext())
@@ -616,7 +556,7 @@ public class LocalIndexesFragment extends OsmandExpandableListFragment implement
 				MenuItemCompat.setShowAsAction(item, MenuItemCompat.SHOW_AS_ACTION_ALWAYS);
 			}
 			if (contextMenuItem.getIcon() != -1) {
-				Drawable icMenuItem = getMyApplication().getUIUtilities().getIcon(contextMenuItem.getIcon(), contextMenuItem.getColorRes());
+				Drawable icMenuItem = getMyApplication().getUIUtilities().getPaintedIcon(contextMenuItem.getIcon(), contextMenuItem.getColor());
 				item.setIcon(icMenuItem);
 			}
 
@@ -655,7 +595,7 @@ public class LocalIndexesFragment extends OsmandExpandableListFragment implement
 			operationTask = null;
 		}
 		if (operationTask != null) {
-			operationTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, selectedItems.toArray(new LocalIndexInfo[selectedItems.size()]));
+			operationTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, selectedItems.toArray(new LocalIndexInfo[0]));
 		}
 		if (actionMode != null) {
 			actionMode.finish();
@@ -670,7 +610,7 @@ public class LocalIndexesFragment extends OsmandExpandableListFragment implement
 	}
 
 	private void openSelectionMode(final int actionResId, final int actionIconId,
-								   final DialogInterface.OnClickListener listener) {
+	                               final DialogInterface.OnClickListener listener) {
 		final int colorResId = getMyApplication().getSettings().isLightContent() ? R.color.active_buttons_and_links_text_light : R.color.active_buttons_and_links_text_dark;
 		String value = getString(actionResId);
 		if (value.endsWith("...")) {
@@ -739,7 +679,7 @@ public class LocalIndexesFragment extends OsmandExpandableListFragment implement
 
 	public void localOptionsMenu(final int itemId) {
 		if (itemId == R.string.shared_string_refresh) {
-			getDownloadActivity().reloadLocalIndexes();
+			reloadLocalIndexes();
 		} else if (itemId == R.string.shared_string_delete) {
 			openSelectionMode(itemId, R.drawable.ic_action_delete_dark,
 					new DialogInterface.OnClickListener() {
@@ -771,7 +711,7 @@ public class LocalIndexesFragment extends OsmandExpandableListFragment implement
 	}
 
 	public void openSelectionMode(int stringRes, int darkIcon, DialogInterface.OnClickListener listener,
-								  EnumSet<LocalIndexType> filter) {
+	                              EnumSet<LocalIndexType> filter) {
 		if (filter != null) {
 			listAdapter.filterCategories(filter);
 		}
@@ -922,7 +862,7 @@ public class LocalIndexesFragment extends OsmandExpandableListFragment implement
 
 		@Override
 		public View getChildView(final int groupPosition, final int childPosition,
-								 boolean isLastChild, View convertView, ViewGroup parent) {
+		                         boolean isLastChild, View convertView, ViewGroup parent) {
 			LocalIndexInfoViewHolder viewHolder;
 			if (convertView == null) {
 				LayoutInflater inflater = LayoutInflater.from(ctx);
@@ -940,8 +880,8 @@ public class LocalIndexesFragment extends OsmandExpandableListFragment implement
 		private String getNameToDisplay(LocalIndexInfo child) {
 			return child.getType() == LocalIndexType.VOICE_DATA ? FileNameTranslationHelper.getVoiceName(ctx, child.getFileName()) :
 					FileNameTranslationHelper.getFileName(ctx,
-					ctx.getMyApplication().getResourceManager().getOsmandRegions(),
-					child.getFileName());
+							ctx.getMyApplication().getResourceManager().getOsmandRegions(),
+							child.getFileName());
 		}
 
 		@Override
@@ -1025,7 +965,7 @@ public class LocalIndexesFragment extends OsmandExpandableListFragment implement
 				return ctx.getString(R.string.download_roads_only_item);
 			} else if (child.isBackupedData() && child.getFileName().endsWith(IndexConstants.BINARY_WIKI_MAP_INDEX_EXT)) {
 				return ctx.getString(R.string.download_wikipedia_maps);
-			} else if (child.isBackupedData() && child.getFileName().endsWith(IndexConstants.BINARY_SRTM_MAP_INDEX_EXT)) {
+			} else if (child.isBackupedData() && (SrtmDownloadItem.isSrtmFile(child.getFileName()))) {
 				return ctx.getString(R.string.download_srtm_maps);
 			}
 			return "";
@@ -1089,6 +1029,10 @@ public class LocalIndexesFragment extends OsmandExpandableListFragment implement
 						builder.append(" • ");
 					}
 					builder.append(AndroidUtils.formatSize(ctx, child.getSize() * 1024l));
+				}
+
+				if (SrtmDownloadItem.isSRTMItem(child)) {
+					builder.append(" ").append(SrtmDownloadItem.getAbbreviationInScopes(ctx, child));
 				}
 
 				if (!Algorithms.isEmpty(child.getDescription())) {
@@ -1212,5 +1156,4 @@ public class LocalIndexesFragment extends OsmandExpandableListFragment implement
 	private DownloadActivity getDownloadActivity() {
 		return (DownloadActivity) getActivity();
 	}
-
 }

@@ -27,7 +27,7 @@ public class AnalyticsHelper extends SQLiteOpenHelper {
 
 	private final static Log LOG = PlatformUtil.getLog(AnalyticsHelper.class);
 
-	private final static String ANALYTICS_UPLOAD_URL = "https://test.osmand.net/api/submit_analytics";
+	private final static String ANALYTICS_UPLOAD_URL = "https://osmand.net/api/submit_analytics";
 	private final static String ANALYTICS_FILE_NAME = "analytics.json";
 
 	private final static int DATA_PARCEL_SIZE = 500; // 500 events
@@ -184,7 +184,8 @@ public class AnalyticsHelper extends SQLiteOpenHelper {
 
 					String jsonStr = json.toString();
 					InputStream inputStream = new ByteArrayInputStream(jsonStr.getBytes());
-					String res = AndroidNetworkUtils.uploadFile(ANALYTICS_UPLOAD_URL, inputStream, ANALYTICS_FILE_NAME, true, additionalData);
+					String res = AndroidNetworkUtils.uploadFile(ANALYTICS_UPLOAD_URL, inputStream,
+							ANALYTICS_FILE_NAME, true, additionalData, null, null);
 					if (res != null) {
 						return;
 					}

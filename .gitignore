@@ -16,8 +16,13 @@ OsmAndCore_*.aar
 *.iml
 .settings
 .idea
-.project
+**/.project
+**/.classpath
 out/
+
+# Huawei
+agconnect-services.json
+OsmAndHms.jks
 
 # Android Studio
 /.idea

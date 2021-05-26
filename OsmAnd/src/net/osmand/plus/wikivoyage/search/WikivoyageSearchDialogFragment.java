@@ -112,12 +112,11 @@ public class WikivoyageSearchDialogFragment extends WikiBaseDialogFragment {
 					Object item = adapter.getItem(pos);
 					if (item instanceof WikivoyageSearchResult) {
 						WikivoyageSearchResult res = (WikivoyageSearchResult) item;
-						WikivoyageArticleDialogFragment
-								.showInstance(fm, res.getTripId(), new ArrayList<>(res.getLangs()));
+						WikivoyageArticleDialogFragment.showInstance(fm, res.getArticleId(), new ArrayList<>(res.getLangs()));
 					} else if (item instanceof WikivoyageSearchHistoryItem) {
 						WikivoyageSearchHistoryItem historyItem = (WikivoyageSearchHistoryItem) item;
 						WikivoyageArticleDialogFragment
-								.showInstance(app, fm, historyItem.getArticleTitle(), historyItem.getLang());
+								.showInstanceByTitle(app, fm, historyItem.getArticleTitle(), historyItem.getLang());
 					}
 				}
 			}
@@ -151,7 +150,7 @@ public class WikivoyageSearchDialogFragment extends WikiBaseDialogFragment {
 
 	private void setAdapterItems(@Nullable List<WikivoyageSearchResult> items) {
 		if (items == null || items.isEmpty()) {
-			TravelLocalDataHelper ldh = getMyApplication().getTravelDbHelper().getLocalDataHelper();
+			TravelLocalDataHelper ldh = getMyApplication().getTravelHelper().getBookmarksHelper();
 			adapter.setHistoryItems(ldh.getAllHistory());
 		} else {
 			adapter.setItems(items);

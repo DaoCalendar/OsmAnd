@@ -28,8 +28,8 @@ import net.osmand.plus.base.bottomsheetmenu.simpleitems.DividerItem;
 import net.osmand.plus.base.bottomsheetmenu.simpleitems.TitleItem;
 import net.osmand.plus.helpers.GpxTrackAdapter;
 import net.osmand.plus.helpers.GpxUiHelper.GPXInfo;
-import net.osmand.plus.helpers.ImportHelper;
-import net.osmand.plus.helpers.ImportHelper.OnGpxImportCompleteListener;
+import net.osmand.plus.importfiles.ImportHelper;
+import net.osmand.plus.importfiles.ImportHelper.OnGpxImportCompleteListener;
 
 import org.apache.commons.logging.Log;
 
@@ -128,7 +128,7 @@ public class StartPlanRouteBottomSheet extends BottomSheetBehaviourDialogFragmen
 			}
 		});
 		final List<GPXInfo> gpxTopList = gpxList.subList(0, Math.min(5, gpxList.size()));
-		adapter = new GpxTrackAdapter(requireContext(), gpxTopList, false);
+		adapter = new GpxTrackAdapter(requireContext(), gpxTopList, false, true);
 		adapter.setAdapterListener(new GpxTrackAdapter.OnItemClickListener() {
 			@Override
 			public void onItemClick(int position) {

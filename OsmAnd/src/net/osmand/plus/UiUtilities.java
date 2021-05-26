@@ -1,6 +1,7 @@
 package net.osmand.plus;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -9,8 +10,6 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.RippleDrawable;
-import android.hardware.Sensor;
-import android.hardware.SensorManager;
 import android.os.Build;
 import android.text.SpannableString;
 import android.text.Spanned;
@@ -21,7 +20,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.WindowManager;
-import android.widget.AdapterView;
 import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -34,7 +32,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.appcompat.view.ContextThemeWrapper;
-import androidx.appcompat.widget.ListPopupWindow;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
@@ -42,6 +39,7 @@ import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.widget.TintableCompoundButton;
 
+import com.google.android.material.slider.LabelFormatter;
 import com.google.android.material.slider.RangeSlider;
 import com.google.android.material.slider.Slider;
 import com.google.android.material.snackbar.BaseTransientBottomBar;
@@ -52,6 +50,7 @@ import net.osmand.AndroidUtils;
 import net.osmand.Location;
 import net.osmand.PlatformUtil;
 import net.osmand.data.LatLon;
+import net.osmand.plus.helpers.AndroidUiHelper;
 import net.osmand.plus.settings.backend.ApplicationMode;
 import net.osmand.plus.views.DirectionDrawable;
 import net.osmand.plus.widgets.TextViewEx;
@@ -59,23 +58,18 @@ import net.osmand.plus.widgets.style.CustomTypefaceSpan;
 
 import org.apache.commons.logging.Log;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import gnu.trove.map.hash.TLongObjectHashMap;
-
-import static net.osmand.plus.SimplePopUpMenuItemAdapter.SimplePopUpMenuItem;
 
 public class UiUtilities {
 
 	private static final Log LOG = PlatformUtil.getLog(UiUtilities.class);
 
-	private TLongObjectHashMap<Drawable> drawableCache = new TLongObjectHashMap<>();
-	private OsmandApplication app;
 	private static final int ORIENTATION_0 = 0;
 	private static final int ORIENTATION_90 = 3;
 	private static final int ORIENTATION_270 = 1;
 	private static final int ORIENTATION_180 = 2;
+	private final TLongObjectHashMap<Drawable> drawableCache = new TLongObjectHashMap<>();
+	private final OsmandApplication app;
 	private static final int INVALID_ID = -1;
 
 	public enum DialogButtonType {
@@ -92,8 +86,9 @@ public class UiUtilities {
 	}
 
 	public enum CustomRadioButtonType {
-		LEFT,
-		RIGHT,
+		START,
+		CENTER,
+		END,
 	}
 
 	public UiUtilities(OsmandApplication app) {
@@ -230,8 +225,12 @@ public class UiUtilities {
 	}
 
 	@ColorInt
-	public static int mixTwoColors(@ColorInt int color1, @ColorInt int color2, float amount )
-	{
+	public static int removeAlpha(@ColorInt int color) {
+		return Color.rgb(Color.red(color), Color.green(color), Color.blue(color));
+	}
+
+	@ColorInt
+	public static int mixTwoColors(@ColorInt int color1, @ColorInt int color2, float amount) {
 		final byte ALPHA_CHANNEL = 24;
 		final byte RED_CHANNEL   = 16;
 		final byte GREEN_CHANNEL =  8;
@@ -251,9 +250,15 @@ public class UiUtilities {
 		return a << ALPHA_CHANNEL | r << RED_CHANNEL | g << GREEN_CHANNEL | b << BLUE_CHANNEL;
 	}
 
-	public UpdateLocationViewCache getUpdateLocationViewCache(){
+	public UpdateLocationViewCache getUpdateLocationViewCache() {
+		return getUpdateLocationViewCache(true);
+	}
+
+	public UpdateLocationViewCache getUpdateLocationViewCache(boolean useScreenOrientation) {
 		UpdateLocationViewCache uvc = new UpdateLocationViewCache();
-		uvc.screenOrientation = getScreenOrientation();
+		if (useScreenOrientation) {
+			uvc.screenOrientation = getScreenOrientation();
+		}
 		return uvc;
 	}
 
@@ -369,8 +374,9 @@ public class UiUtilities {
 				break;
 		}
 		//Looks like screenOrientation correction must not be applied for devices without compass?
-		Sensor compass = ((SensorManager) app.getSystemService(Context.SENSOR_SERVICE)).getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-		if (compass == null) {
+		PackageManager manager = app.getPackageManager();
+		boolean hasCompass = manager.hasSystemFeature(PackageManager.FEATURE_SENSOR_COMPASS);
+		if (!hasCompass) {
 			screenOrientation = 0;
 		}
 		return screenOrientation;
@@ -436,14 +442,13 @@ public class UiUtilities {
 		} catch (Throwable e) { }
 	}
 
-	public static void rotateImageByLayoutDirection(ImageView image, int layoutDirection) {
+	public static void rotateImageByLayoutDirection(ImageView image) {
 		if (image == null) {
 			return;
 		}
-		int rotation = layoutDirection == ViewCompat.LAYOUT_DIRECTION_RTL ? 180 : 0;
+		int rotation = AndroidUtils.getLayoutDirection(image.getContext()) == ViewCompat.LAYOUT_DIRECTION_RTL ? 180 : 0;
 		image.setRotationY(rotation);
 	}
-
 
 	public static void updateCustomRadioButtons(Context app, View buttonsView, boolean nightMode,
 	                                            CustomRadioButtonType buttonType) {
@@ -454,26 +459,71 @@ public class UiUtilities {
 				? R.color.text_color_primary_dark
 				: R.color.text_color_primary_light);
 		int radius = AndroidUtils.dpToPx(app, 4);
+		boolean isLayoutRtl = AndroidUtils.isLayoutRtl(app);
 
-		TextView leftButtonText = buttonsView.findViewById(R.id.left_button);
-		View leftButtonContainer = buttonsView.findViewById(R.id.left_button_container);
-		TextView rightButtonText = buttonsView.findViewById(R.id.right_button);
-		View rightButtonContainer = buttonsView.findViewById(R.id.right_button_container);
+		View startButtonContainer = buttonsView.findViewById(R.id.left_button_container);
+		View centerButtonContainer = buttonsView.findViewById(R.id.center_button_container);
+		View endButtonContainer = buttonsView.findViewById(R.id.right_button_container);
+
 		GradientDrawable background = new GradientDrawable();
 		background.setColor(UiUtilities.getColorWithAlpha(activeColor, 0.1f));
 		background.setStroke(AndroidUtils.dpToPx(app, 1), UiUtilities.getColorWithAlpha(activeColor, 0.5f));
-		if (buttonType == CustomRadioButtonType.LEFT) {
-			background.setCornerRadii(new float[]{radius, radius, 0, 0, 0, 0, radius, radius});
-			rightButtonContainer.setBackgroundColor(Color.TRANSPARENT);
-			rightButtonText.setTextColor(activeColor);
-			leftButtonContainer.setBackgroundDrawable(background);
-			leftButtonText.setTextColor(textColor);
+		if (buttonType == CustomRadioButtonType.START) {
+			if (isLayoutRtl) {
+				background.setCornerRadii(new float[]{0, 0, radius, radius, radius, radius, 0, 0});
+			} else {
+				background.setCornerRadii(new float[]{radius, radius, 0, 0, 0, 0, radius, radius});
+			}
+			TextView startButtonText = startButtonContainer.findViewById(R.id.left_button);
+			TextView endButtonText = endButtonContainer.findViewById(R.id.right_button);
+
+			endButtonContainer.setBackgroundColor(Color.TRANSPARENT);
+			endButtonText.setTextColor(activeColor);
+			startButtonContainer.setBackgroundDrawable(background);
+			startButtonText.setTextColor(textColor);
+
+			if (centerButtonContainer != null) {
+				TextView centerButtonText = centerButtonContainer.findViewById(R.id.center_button);
+				centerButtonText.setTextColor(activeColor);
+				centerButtonContainer.setBackgroundColor(Color.TRANSPARENT);
+			}
+		} else if (buttonType == CustomRadioButtonType.CENTER) {
+			background.setCornerRadii(new float[] {0, 0, 0, 0, 0, 0, 0, 0});
+			centerButtonContainer.setBackgroundDrawable(background);
+			AndroidUiHelper.updateVisibility(centerButtonContainer, true);
+
+			TextView centerButtonText = centerButtonContainer.findViewById(R.id.center_button);
+			centerButtonText.setTextColor(textColor);
+
+			if (endButtonContainer != null) {
+				TextView endButtonText = endButtonContainer.findViewById(R.id.right_button);
+				endButtonText.setTextColor(activeColor);
+				endButtonContainer.setBackgroundColor(Color.TRANSPARENT);
+			}
+			if (startButtonContainer != null) {
+				TextView startButtonText = startButtonContainer.findViewById(R.id.left_button);
+				startButtonText.setTextColor(activeColor);
+				startButtonContainer.setBackgroundColor(Color.TRANSPARENT);
+			}
 		} else {
-			background.setCornerRadii(new float[]{0, 0, radius, radius, radius, radius, 0, 0});
-			rightButtonContainer.setBackgroundDrawable(background);
-			rightButtonText.setTextColor(textColor);
-			leftButtonContainer.setBackgroundColor(Color.TRANSPARENT);
-			leftButtonText.setTextColor(activeColor);
+			if (isLayoutRtl) {
+				background.setCornerRadii(new float[] {radius, radius, 0, 0, 0, 0, radius, radius});
+			} else {
+				background.setCornerRadii(new float[]{0, 0, radius, radius, radius, radius, 0, 0});
+			}
+			TextView startButtonText = startButtonContainer.findViewById(R.id.left_button);
+			TextView endButtonText = endButtonContainer.findViewById(R.id.right_button);
+
+			endButtonContainer.setBackgroundDrawable(background);
+			endButtonText.setTextColor(textColor);
+			startButtonContainer.setBackgroundColor(Color.TRANSPARENT);
+			startButtonText.setTextColor(activeColor);
+
+			if (centerButtonContainer != null) {
+				TextView centerButtonText = centerButtonContainer.findViewById(R.id.center_button);
+				centerButtonText.setTextColor(activeColor);
+				centerButtonContainer.setBackgroundColor(Color.TRANSPARENT);
+			}
 		}
 	}
 
@@ -508,7 +558,7 @@ public class UiUtilities {
 		switch (type) {
 			case PROFILE_DEPENDENT:
 				ApplicationMode appMode = app.getSettings().getApplicationMode();
-				activeColor = ContextCompat.getColor(app, appMode.getIconColorInfo().getColor(nightMode));
+				activeColor = appMode.getProfileColor(nightMode);
 				break;
 			case TOOLBAR:
 				activeColor = Color.WHITE;
@@ -588,8 +638,9 @@ public class UiUtilities {
 		}
 		int activeDisableColor = getColorWithAlpha(activeColor, 0.25f);
 		ColorStateList activeCsl = new ColorStateList(states, new int[] {activeColor, activeDisableColor});
-		int inactiveColor = ContextCompat.getColor(ctx, nightMode ? R.color.icon_color_default_dark : R.color.icon_color_secondary_light);
-		ColorStateList inactiveCsl = new ColorStateList(states, new int[] {inactiveColor, inactiveColor});
+		int inactiveColor = getColorWithAlpha(activeColor, 0.5f);
+		int inactiveDisableColor = ContextCompat.getColor(ctx, nightMode ? R.color.icon_color_default_dark : R.color.icon_color_secondary_light);
+		ColorStateList inactiveCsl = new ColorStateList(states, new int[] {inactiveColor, inactiveDisableColor});
 		slider.setTrackActiveTintList(activeCsl);
 		slider.setTrackInactiveTintList(inactiveCsl);
 		slider.setHaloTintList(activeCsl);
@@ -606,7 +657,7 @@ public class UiUtilities {
 		slider.setTrackHeight(ctx.getResources().getDimensionPixelSize(R.dimen.slider_track_height));
 
 		// label behavior
-		slider.setLabelBehavior(Slider.LABEL_GONE);
+		slider.setLabelBehavior(LabelFormatter.LABEL_GONE);
 	}
 
 	public static void setupSlider(RangeSlider slider, boolean nightMode,
@@ -629,7 +680,7 @@ public class UiUtilities {
 		int activeDisableColor = getColorWithAlpha(activeColor, 0.25f);
 		ColorStateList activeCsl = new ColorStateList(states, new int[] {activeColor, activeDisableColor});
 		int inactiveColor = ContextCompat.getColor(ctx, nightMode ? R.color.icon_color_default_dark : R.color.icon_color_secondary_light);
-		ColorStateList inactiveCsl = new ColorStateList(states, new int[] {inactiveColor, inactiveColor});
+		ColorStateList inactiveCsl = new ColorStateList(states, new int[] {activeDisableColor, inactiveColor});
 		slider.setTrackActiveTintList(activeCsl);
 		slider.setTrackInactiveTintList(inactiveCsl);
 		slider.setHaloTintList(activeCsl);
@@ -646,7 +697,7 @@ public class UiUtilities {
 		slider.setTrackHeight(ctx.getResources().getDimensionPixelSize(R.dimen.slider_track_height));
 
 		// label behavior
-		slider.setLabelBehavior(Slider.LABEL_GONE);
+		slider.setLabelBehavior(LabelFormatter.LABEL_GONE);
 	}
 
 	public static void setupDialogButton(boolean nightMode, View buttonView, DialogButtonType buttonType, @StringRes int buttonTextId) {
@@ -753,45 +804,5 @@ public class UiUtilities {
 			setSpan(spannable, new CustomTypefaceSpan(typeface), text, s);
 		}
 		return spannable;
-	}
-
-	public static ListPopupWindow createListPopupWindow(Context themedCtx,
-	                                                    View v, int minWidth,
-	                                                    List<SimplePopUpMenuItem> items,
-	                                                    final AdapterView.OnItemClickListener listener) {
-		int contentPadding = themedCtx.getResources().getDimensionPixelSize(R.dimen.content_padding);
-		int contentPaddingHalf = themedCtx.getResources().getDimensionPixelSize(R.dimen.content_padding_half);
-		int defaultListTextSize = themedCtx.getResources().getDimensionPixelSize(R.dimen.default_list_text_size);
-		int standardIconSize = themedCtx.getResources().getDimensionPixelSize(R.dimen.standard_icon_size);
-		boolean hasIcon = false;
-
-		List<String> titles = new ArrayList<>();
-		for (SimplePopUpMenuItem item : items) {
-			titles.add(String.valueOf(item.getTitle()));
-			hasIcon = hasIcon || item.getIcon() != null;
-		}
-		float itemWidth = AndroidUtils.getTextMaxWidth(defaultListTextSize, titles) + contentPadding;
-		float iconPartWidth = hasIcon ? standardIconSize + contentPaddingHalf : 0;
-		int totalWidth = (int) (Math.max(itemWidth, minWidth) + iconPartWidth);
-
-		SimplePopUpMenuItemAdapter adapter =
-				new SimplePopUpMenuItemAdapter(themedCtx, R.layout.popup_menu_item, items);
-		final ListPopupWindow listPopupWindow = new ListPopupWindow(themedCtx);
-		listPopupWindow.setAnchorView(v);
-		listPopupWindow.setContentWidth((int) (totalWidth));
-		listPopupWindow.setDropDownGravity(Gravity.END | Gravity.TOP);
-		listPopupWindow.setVerticalOffset(-v.getHeight() + contentPaddingHalf);
-		listPopupWindow.setModal(true);
-		listPopupWindow.setAdapter(adapter);
-		listPopupWindow.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-			@Override
-			public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-				if (listener != null) {
-					listener.onItemClick(parent, view, position, id);
-				}
-				listPopupWindow.dismiss();
-			}
-		});
-		return listPopupWindow;
 	}
 }

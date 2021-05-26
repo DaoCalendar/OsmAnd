@@ -6,7 +6,6 @@ import net.osmand.NativeLibrary;
 import net.osmand.PlatformUtil;
 import net.osmand.ResultMatcher;
 import net.osmand.binary.BinaryMapIndexReader;
-import net.osmand.binary.BinaryMapRouteReaderAdapter;
 import net.osmand.binary.BinaryMapRouteReaderAdapter.RouteRegion;
 import net.osmand.binary.RouteDataObject;
 import net.osmand.data.LatLon;
@@ -256,7 +255,7 @@ public class RoutePlannerFrontEnd {
 						if (routeFound) {
 							// route is found - cut the end of the route and move to next iteration
 //							start.stepBackRoute = new ArrayList<RouteSegmentResult>();
-//							boolean stepBack = true; 
+//							boolean stepBack = true;
 							boolean stepBack = stepBackAndFindPrevPointInRoute(gctx, gpxPoints, start, next);
 							if (!stepBack) {
 								// not supported case (workaround increase MAXIMUM_STEP_APPROXIMATION)
@@ -546,8 +545,10 @@ public class RoutePlannerFrontEnd {
 		if (start != null && start.pnt == null) {
 			gctx.routePointsSearched++;
 			RouteSegmentPoint rsp = findRouteSegment(start.loc.getLatitude(), start.loc.getLongitude(), gctx.ctx, null, false);
-			if (MapUtils.getDistance(rsp.getPreciseLatLon(), start.loc) < distThreshold) {
-				start.pnt = rsp;
+			if (rsp != null) {
+				if (MapUtils.getDistance(rsp.getPreciseLatLon(), start.loc) < distThreshold) {
+					start.pnt = rsp;
+				}
 			}
  		} 
 		if (start != null && start.pnt != null) {
@@ -647,6 +648,7 @@ public class RoutePlannerFrontEnd {
 			ctx.unloadAllData();
 			LinkedHashMap<String, String> mp = new LinkedHashMap<String, String>();
 			mp.put(GeneralRouter.ALLOW_PRIVATE, "true");
+			mp.put(GeneralRouter.CHECK_ALLOW_PRIVATE_NEEDED, "true");
 			ctx.setRouter(new GeneralRouter(router.getProfile(), mp));
 			for (LatLon latLon : points) {
 				RouteSegmentPoint rp = findRouteSegment(latLon.getLatitude(), latLon.getLongitude(), ctx, null);
@@ -687,15 +689,15 @@ public class RoutePlannerFrontEnd {
 			}
 		}
 		if (ctx.calculationMode == RouteCalculationMode.COMPLEX && routeDirection == null
-				&& maxDistance > ctx.config.DEVIATION_RADIUS * 6) {
+				&& maxDistance > RoutingConfiguration.DEVIATION_RADIUS * 6) {
 			ctx.calculationProgress.totalIterations++;
 			RoutingContext nctx = buildRoutingContext(ctx.config, ctx.nativeLib, ctx.getMaps(), RouteCalculationMode.BASE);
 			nctx.calculationProgress = ctx.calculationProgress;
 			List<RouteSegmentResult> ls = searchRoute(nctx, start, end, intermediates);
-			if(ls == null) {
+			if (ls == null) {
 				return null;
 			}
-			routeDirection = PrecalculatedRouteDirection.build(ls, ctx.config.DEVIATION_RADIUS, ctx.getRouter().getMaxSpeed());
+			routeDirection = PrecalculatedRouteDirection.build(ls, RoutingConfiguration.DEVIATION_RADIUS, ctx.getRouter().getMaxSpeed());
 		}
 		List<RouteSegmentResult> res ;
 		if (intermediatesEmpty && ctx.nativeLib != null) {
@@ -734,7 +736,7 @@ public class RoutePlannerFrontEnd {
 			res = searchRouteImpl(ctx, points, routeDirection);
 		}
 		if (ctx.calculationProgress != null) {
-			ctx.calculationProgress.timeToCalculate += (System.nanoTime() - timeToCalculate);
+			ctx.calculationProgress.timeToCalculate = (System.nanoTime() - timeToCalculate);
 		}
 		BinaryRoutePlanner.printDebugMemoryInformation(ctx);
 		if (res != null) {
@@ -916,7 +918,7 @@ public class RoutePlannerFrontEnd {
 
 	private List<RouteSegmentResult> runNativeRouting(final RoutingContext ctx, RouteSegment recalculationEnd) throws IOException {
 		refreshProgressDistance(ctx);
-		RouteRegion[] regions = ctx.reverseMap.keySet().toArray(new BinaryMapRouteReaderAdapter.RouteRegion[ctx.reverseMap.size()]);
+		RouteRegion[] regions = ctx.reverseMap.keySet().toArray(new RouteRegion[0]);
 		ctx.checkOldRoutingFiles(ctx.startX, ctx.startY);
 		ctx.checkOldRoutingFiles(ctx.targetX, ctx.targetY);
 

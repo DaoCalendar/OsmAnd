@@ -1,11 +1,15 @@
 package net.osmand.map;
 
 import net.osmand.data.LatLon;
+import net.osmand.data.QuadRect;
 import net.osmand.util.Algorithms;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 public class WorldRegion implements Serializable {
 
@@ -40,6 +44,8 @@ public class WorldRegion implements Serializable {
 	protected String regionDownloadName;
 	protected boolean regionMapDownload;
 	protected LatLon regionCenter;
+	protected QuadRect boundingBox;
+	protected List<LatLon> polygon;
 
 	public static class RegionParams {
 		protected String regionLeftHandDriving;
@@ -74,12 +80,12 @@ public class WorldRegion implements Serializable {
 		}
 	}
 
-	
-	
+
+
 	public boolean isRegionMapDownload() {
 		return regionMapDownload;
 	}
-	
+
 	public String getLocaleName() {
 		if(!Algorithms.isEmpty(regionNameLocale)) {
 			return regionNameLocale;
@@ -90,14 +96,14 @@ public class WorldRegion implements Serializable {
 		if(!Algorithms.isEmpty(regionName)) {
 			return regionName;
 		}
-		
+
 		return capitalize(regionFullName.replace('_', ' '));
 	}
-	
+
 	public String getRegionDownloadName() {
 		return regionDownloadName;
 	}
-	
+
 	public String getRegionDownloadNameLC() {
 		return regionDownloadName == null ? null : regionDownloadName.toLowerCase();
 	}
@@ -109,7 +115,7 @@ public class WorldRegion implements Serializable {
 	public LatLon getRegionCenter() {
 		return regionCenter;
 	}
-	
+
 	public String getRegionSearchText() {
 		return regionSearchText;
 	}
@@ -143,7 +149,7 @@ public class WorldRegion implements Serializable {
 		this.regionDownloadName = downloadName;
 		superregion = null;
 		subregions = new LinkedList<WorldRegion>();
-		
+
 	}
 	public WorldRegion(String id) {
 		this(id, null);
@@ -152,7 +158,7 @@ public class WorldRegion implements Serializable {
 	public String getRegionId() {
 		return regionFullName;
 	}
-	
+
 	private String capitalize(String s) {
 		String[] words = s.split(" ");
 		if (words[0].length() > 0) {
@@ -181,5 +187,50 @@ public class WorldRegion implements Serializable {
 			res++;
 		}
 		return res;
+	}
+
+	public boolean containsRegion(WorldRegion region) {
+		if (containsBoundingBox(region.boundingBox)) {
+			// check polygon only if bounding box match
+			return containsPolygon(region.polygon);
+		}
+		return false;
+	}
+
+	private boolean containsBoundingBox(QuadRect rectangle) {
+		return (boundingBox != null && rectangle != null) &&
+				boundingBox.contains(rectangle);
+	}
+
+	private boolean containsPolygon(List<LatLon> another) {
+		return (polygon != null && another != null) &&
+				Algorithms.isFirstPolygonInsideSecond(another, polygon);
+	}
+
+	public boolean isContinent() {
+		if (superregion != null) {
+			String superRegionId = superregion.getRegionId();
+			String thisRegionId = getRegionId();
+			return WORLD.equals(superRegionId) && !RUSSIA_REGION_ID.equals(thisRegionId);
+		}
+		return false;
+	}
+
+	public static List<WorldRegion> removeDuplicates(List<WorldRegion> regions) {
+		List<WorldRegion> copy = new ArrayList<>(regions);
+		Set<WorldRegion> duplicates = new HashSet<>();
+		for (int i = 0; i < copy.size() - 1; i++) {
+			WorldRegion r1 = copy.get(i);
+			for (int j = i + 1; j < copy.size(); j++) {
+				WorldRegion r2 = copy.get(j);
+				if (r1.containsRegion(r2)) {
+					duplicates.add(r2);
+				} else if (r2.containsRegion(r1)) {
+					duplicates.add(r1);
+				}
+			}
+		}
+		copy.removeAll(duplicates);
+		return copy;
 	}
 }

@@ -1,8 +1,10 @@
 package net.osmand.plus.development;
 
 import android.content.Intent;
+import android.os.AsyncTask;
 import android.os.Debug;
 
+import androidx.fragment.app.FragmentActivity;
 import androidx.preference.Preference;
 
 import net.osmand.plus.OsmAndLocationSimulation;
@@ -11,6 +13,7 @@ import net.osmand.plus.Version;
 import net.osmand.plus.render.NativeOsmandLibrary;
 import net.osmand.plus.settings.fragments.BaseSettingsFragment;
 import net.osmand.plus.settings.preferences.SwitchPreferenceEx;
+import net.osmand.render.RenderingRulesStorage;
 import net.osmand.util.SunriseSunset;
 
 import java.text.SimpleDateFormat;
@@ -35,12 +38,7 @@ public class DevelopmentSettingsFragment extends BaseSettingsFragment {
 
 		setupOpenglRenderPref();
 		setupSafeModePref();
-		setupPTSafeMode();
 
-		setupDisableComplexRoutingPref();
-		setupFastRecalculationPref();
-		setupOsmLiveForRoutingPref();
-		setupOsmLiveForPublicTransportPref();
 		setupSimulateYourLocationPref();
 
 		Preference debuggingAndDevelopment = findPreference("debugging_and_development");
@@ -50,6 +48,7 @@ public class DevelopmentSettingsFragment extends BaseSettingsFragment {
 		setupSimulateInitialStartupPref();
 		setupShouldShowFreeVersionBannerPref();
 		setupTestVoiceCommandsPref();
+		setupTestBackupsPref();
 		setupLogcatBufferPref();
 
 		Preference info = findPreference("info");
@@ -62,58 +61,24 @@ public class DevelopmentSettingsFragment extends BaseSettingsFragment {
 	}
 
 	private void setupOpenglRenderPref() {
-		SwitchPreferenceEx useOpenglRender = (SwitchPreferenceEx) findPreference(settings.USE_OPENGL_RENDER.getId());
-		useOpenglRender.setDescription(getString(R.string.use_opengl_render_descr));
-		useOpenglRender.setIconSpaceReserved(false);
+		SwitchPreferenceEx useOpenglRender = findPreference(settings.USE_OPENGL_RENDER.getId());
+		if (Version.isOpenGlAvailable(app)) {
+			useOpenglRender.setDescription(getString(R.string.use_opengl_render_descr));
+			useOpenglRender.setIconSpaceReserved(false);
+		} else {
+			useOpenglRender.setVisible(false);
+		}
 	}
 
 	private void setupSafeModePref() {
-		SwitchPreferenceEx safeMode = (SwitchPreferenceEx) findPreference(settings.SAFE_MODE.getId());
-		if (!Version.isBlackberry(app)) {
-			safeMode.setDescription(getString(R.string.safe_mode_description));
-			safeMode.setIconSpaceReserved(false);
-			// disable the switch if the library cannot be used
-			if ((NativeOsmandLibrary.isLoaded() && !NativeOsmandLibrary.isSupported()) || settings.NATIVE_RENDERING_FAILED.get()) {
-				safeMode.setEnabled(false);
-				safeMode.setChecked(true);
-			}
-		} else {
-			safeMode.setVisible(false);
+		SwitchPreferenceEx safeMode = findPreference(settings.SAFE_MODE.getId());
+		safeMode.setDescription(getString(R.string.safe_mode_description));
+		safeMode.setIconSpaceReserved(false);
+		// disable the switch if the library cannot be used
+		if ((NativeOsmandLibrary.isLoaded() && !NativeOsmandLibrary.isSupported()) || settings.NATIVE_RENDERING_FAILED.get()) {
+			safeMode.setEnabled(false);
+			safeMode.setChecked(true);
 		}
-	}
-
-	private void setupPTSafeMode() {
-		SwitchPreferenceEx ptSafeMode = (SwitchPreferenceEx) findPreference(settings.PT_SAFE_MODE.getId());
-		if (!Version.isBlackberry(app)) {
-			ptSafeMode.setDescription("Switch to Java (safe) Public Transport routing calculation");
-			ptSafeMode.setIconSpaceReserved(false);
-		} else {
-			ptSafeMode.setVisible(false);
-		}
-	}
-
-	private void setupDisableComplexRoutingPref() {
-		SwitchPreferenceEx disableComplexRouting = (SwitchPreferenceEx) findPreference(settings.DISABLE_COMPLEX_ROUTING.getId());
-		disableComplexRouting.setDescription(getString(R.string.disable_complex_routing_descr));
-		disableComplexRouting.setIconSpaceReserved(false);
-	}
-
-	private void setupFastRecalculationPref() {
-		SwitchPreferenceEx useFastRecalculation = (SwitchPreferenceEx) findPreference(settings.USE_FAST_RECALCULATION.getId());
-		useFastRecalculation.setDescription(getString(R.string.use_fast_recalculation_desc));
-		useFastRecalculation.setIconSpaceReserved(false);
-	}
-
-	private void setupOsmLiveForRoutingPref() {
-		SwitchPreferenceEx useOsmLiveForRouting = (SwitchPreferenceEx) findPreference(settings.USE_OSM_LIVE_FOR_ROUTING.getId());
-		useOsmLiveForRouting.setDescription(getString(R.string.use_osm_live_routing_description));
-		useOsmLiveForRouting.setIconSpaceReserved(false);
-	}
-
-	private void setupOsmLiveForPublicTransportPref() {
-		SwitchPreferenceEx useOsmLiveForPublicTransport = (SwitchPreferenceEx) findPreference(settings.USE_OSM_LIVE_FOR_PUBLIC_TRANSPORT.getId());
-		useOsmLiveForPublicTransport.setDescription(getString(R.string.use_osm_live_public_transport_description));
-		useOsmLiveForPublicTransport.setIconSpaceReserved(false);
 	}
 
 	private void setupSimulateYourLocationPref() {
@@ -151,6 +116,12 @@ public class DevelopmentSettingsFragment extends BaseSettingsFragment {
 		Preference testVoiceCommands = findPreference("test_voice_commands");
 		testVoiceCommands.setIntent(new Intent(getActivity(), TestVoiceActivity.class));
 		testVoiceCommands.setIconSpaceReserved(false);
+	}
+
+	private void setupTestBackupsPref() {
+		Preference testBackups = findPreference("test_backup");
+		testBackups.setIntent(new Intent(getActivity(), TestBackupActivity.class));
+		testBackups.setIconSpaceReserved(false);
 	}
 
 	private void setupLogcatBufferPref() {
@@ -233,5 +204,24 @@ public class DevelopmentSettingsFragment extends BaseSettingsFragment {
 			return true;
 		}
 		return super.onPreferenceClick(preference);
+	}
+
+	@Override
+	public boolean onPreferenceChange(Preference preference, Object newValue) {
+		String prefId = preference.getKey();
+		if (settings.SAFE_MODE.getId().equals(prefId) && newValue instanceof Boolean) {
+			loadNativeLibrary();
+			return true;
+		}
+		return super.onPreferenceChange(preference, newValue);
+	}
+
+	public void loadNativeLibrary() {
+		FragmentActivity activity = getActivity();
+		if (!NativeOsmandLibrary.isLoaded() && activity != null) {
+			RenderingRulesStorage storage = app.getRendererRegistry().getCurrentSelectedRenderer();
+			NativeLibraryLoadTask nativeLibraryLoadTask = new NativeLibraryLoadTask(activity, storage);
+			nativeLibraryLoadTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+		}
 	}
 }

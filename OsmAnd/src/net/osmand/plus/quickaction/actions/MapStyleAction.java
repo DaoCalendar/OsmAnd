@@ -15,7 +15,6 @@ import net.osmand.plus.OsmandPlugin;
 import net.osmand.plus.R;
 import net.osmand.plus.UiUtilities;
 import net.osmand.plus.activities.MapActivity;
-import net.osmand.plus.dialogs.ConfigureMapMenu;
 import net.osmand.plus.openseamapsplugin.NauticalMapsPlugin;
 import net.osmand.plus.quickaction.QuickAction;
 import net.osmand.plus.quickaction.QuickActionType;
@@ -51,36 +50,40 @@ public class MapStyleAction extends SwitchableAction<String> {
 
 	@Override
 	public String getSelectedItem(OsmandApplication app) {
-		RenderingRulesStorage current = app.getRendererRegistry().getCurrentSelectedRenderer();
-		if (current != null) {
-			return current.getName();
-		} else {
-			return  RendererRegistry.DEFAULT_RENDER;
-		}
+		return app.getSettings().RENDERER.get();
 	}
 
 	@Override
-	public void execute(MapActivity activity) {
+	public String getNextSelectedItem(OsmandApplication app) {
 		List<String> mapStyles = getFilteredStyles();
 		if (!Algorithms.isEmpty(mapStyles)) {
-			boolean showBottomSheetStyles = Boolean.valueOf(getParams().get(KEY_DIALOG));
-			if (showBottomSheetStyles) {
-				showChooseDialog(activity.getSupportFragmentManager());
-				return;
-			}
-			String curStyle = activity.getMyApplication().getSettings().RENDERER.get();
+			String curStyle = getSelectedItem(app);
 			int index = mapStyles.indexOf(curStyle);
 			String nextStyle = mapStyles.get(0);
 
 			if (index >= 0 && index + 1 < mapStyles.size()) {
 				nextStyle = mapStyles.get(index + 1);
 			}
+			return nextStyle;
+		}
+		return null;
+	}
+
+	@Override
+	public void execute(MapActivity activity) {
+		List<String> mapStyles = getFilteredStyles();
+		if (!Algorithms.isEmpty(mapStyles)) {
+			boolean showBottomSheetStyles = Boolean.parseBoolean(getParams().get(KEY_DIALOG));
+			if (showBottomSheetStyles) {
+				showChooseDialog(activity.getSupportFragmentManager());
+				return;
+			}
+			String nextStyle = getNextSelectedItem(activity.getMyApplication());
 			executeWithParams(activity, nextStyle);
 		} else {
 			Toast.makeText(activity, R.string.quick_action_need_to_add_item_to_list,
-				Toast.LENGTH_LONG).show();
+					Toast.LENGTH_LONG).show();
 		}
-
 	}
 
 	@Override
@@ -92,7 +95,7 @@ public class MapStyleAction extends SwitchableAction<String> {
 			view.getSettings().RENDERER.set(params);
 
 			app.getRendererRegistry().setCurrentSelectedRender(loaded);
-			ConfigureMapMenu.refreshMapComplete(activity);
+			activity.refreshMapComplete();
 
 			Toast.makeText(activity, activity.getString(R.string.quick_action_map_style_switch,
 					getTranslatedItemName(activity, params)), Toast.LENGTH_SHORT).show();
@@ -103,9 +106,7 @@ public class MapStyleAction extends SwitchableAction<String> {
 
 	@Override
 	public String getTranslatedItemName(Context context, String item) {
-		String translation = RendererRegistry.getTranslatedRendererName(context, item);
-		return translation != null ? translation
-				: item.replace('_', ' ').replace('-', ' ');
+		return RendererRegistry.getRendererName(context, item);
 	}
 
 	public List<String> getFilteredStyles() {
@@ -176,9 +177,8 @@ public class MapStyleAction extends SwitchableAction<String> {
 				List<String> visibleNamesList = new ArrayList<>();
 				final List<String> items = new ArrayList<>(renderers.keySet());
 				for (String item : items) {
-					String translation = RendererRegistry.getTranslatedRendererName(activity, item);
-					visibleNamesList.add(translation != null ? translation
-							: item.replace('_', ' ').replace('-', ' '));
+					String name = RendererRegistry.getRendererName(activity, item);
+					visibleNamesList.add(name);
 				}
 
 				final ArrayAdapter<String> arrayAdapter = new ArrayAdapter<>(themedContext, R.layout.dialog_text_item);
@@ -249,4 +249,5 @@ public class MapStyleAction extends SwitchableAction<String> {
 				? filters.get(0) + " +" + (filters.size() - 1)
 				: filters.get(0);
 	}
+
 }

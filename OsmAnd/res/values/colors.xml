@@ -75,6 +75,8 @@
 	<color name="icon_color_osmand_dark">#d28521</color>
 	<color name="icon_color_active_light">#237bff</color>
 	<color name="icon_color_active_dark">#d28521</color>
+	<color name="osmand_live_active">#14CC70</color>
+	<color name="osmand_live_cancelled">#EE5622</color>
 
 	<color name="on_map_icon_color">#505050</color>
 
@@ -274,6 +276,7 @@
 	<color name="gpx_chart_green_label">#197d2a</color>
 
 	<color name="gpx_split_segment_icon_color">#b3b3b3</color>
+	<color name="gpx_pale_green">#87CC70</color>
 
 	<color name="map_background_color_light">#fafafa</color>
 	<color name="map_background_color_dark">#101821</color>
@@ -477,5 +480,12 @@
 	<color name="switch_button_active_stroke_dark">#80D28521</color>
 	<color name="empty_hint_bg">#80000000</color>
 	<color name="input_layout_bg_color">#4DCCCCCC</color>
+	<color name="text_input_background_light">#4DCCCCCC</color>
+	<color name="text_input_background_dark">#1AFFFFFF</color>
+	<color name="mtrl_textinput_default_box_stroke_color">#67727272</color>
+
+	<color name="track_gradient_start">#5ADC5F</color>
+	<color name="track_gradient_center">#D4EF32</color>
+	<color name="track_gradient_end">#F3374D</color>
 
 </resources>
